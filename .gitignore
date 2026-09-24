@@ -6,3 +6,4 @@ tests/salida/
 # Nunca subir el consolidado real ni exportaciones con datos de usuarios (Ley 1581 de 2012)
 *.xlsx
 !plantilla_libro/*.xlsx
+migracion_salida/

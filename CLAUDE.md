@@ -1,8 +1,8 @@
 # CLAUDE.md · Sistema de Gestión de PQRS · MiRed Barranquilla IPS
 
-Aplicación web en **Google Apps Script** que opera sobre un **Google Sheets** (el "consolidado") de la cuenta del SIAU (Oficina de Atención al Usuario). Unifica en un solo lugar las PQRS (peticiones, quejas, reclamos, sugerencias, felicitaciones, denuncias y tutelas) que llegan por formulario QR, correo institucional (EPS y entes de control) y atención presencial en cada sede. La plataforma **radica**, calcula términos legales y semáforo, **direcciona** al área responsable, registra la respuesta del área, **responde** al usuario y deja **trazabilidad** de todo.
+Aplicación web en **Google Apps Script** (también publicable como portal estático que llama a `doPost`) que opera sobre un **Google Sheets** (el "consolidado") de la cuenta del SIAU (Oficina de Atención al Usuario). Unifica en un solo lugar las PQRS (peticiones, quejas, reclamos, sugerencias, felicitaciones, denuncias y tutelas) que llegan por formulario QR, correo institucional (EPS y entes de control) y atención presencial en cada sede. La plataforma **radica**, calcula términos legales y semáforo, **direcciona** al área responsable, registra la respuesta del área, **responde** al usuario y deja **trazabilidad** de todo.
 
-Versión actual: **7.3**. Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
+Versión actual: **8.0**. Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
 
 ## Con quién trabajas
 
@@ -15,7 +15,7 @@ Versión actual: **7.3**. Historia, requisitos y decisiones: `docs/CONTEXTO.md`.
 
 ```
 apps-script/        ← lo que se sube a Apps Script (clasp rootDir)
-  Codigo.gs         ← TODO el backend (fuente de verdad, ~3.600 líneas)
+  Codigo.gs         ← TODO el backend (fuente de verdad, ~4.700 líneas; secciones v8 al final)
   Index.html        ← GENERADO desde frontend/ con `npm run ensamblar` (no editar a mano)
   appsscript.json   ← manifiesto (zona America/Bogota, V8, webapp como USER_DEPLOYING / ANYONE_ANONYMOUS)
 frontend/           ← fuente de la interfaz, se concatena en orden alfabético
@@ -23,14 +23,20 @@ frontend/           ← fuente de la interfaz, se concatena en orden alfabético
   2_cuerpo.html                           HTML: acceso, barra lateral, vistas v-*, iconos SVG
   3a_nucleo_inicio_bandeja_correo.html    utilidades, llamadas al servidor, inicio, bandeja, módulo de correo
   3b_detalle_tablero_responsables.html    detalle y gestión de una PQRS, tablero (gráficos), áreas
+  3bz_v8_prioritarias_qr.html             v8: prioritarias, banda de riesgo, áreas sugeridas, redactor, QR y afiche, diagnóstico, confeti y alarma
+  vendor/                                 qrcode-generator.js (MIT) e imagenes.js (mascota, generada por tools/imagenes.py); se incrustan con <!-- VENDOR x -->
   3c_acceso_usuarios_ajustes.html         ingreso/sesión, sonido y avisos, usuarios, configuración, arranque
 tests/
   harness.js            simula SpreadsheetApp, GmailApp, DriveApp, CacheService… en Node (vm)
   pruebas_backend.js    110 verificaciones del backend real (escribe muestras en tests/salida/)
+  pruebas_v8.js         v8: 450+ filas, series SIAU/FEL, corte del formulario, priorización, alertas 8 h, directorio, felicitaciones, redactor, entes, doPost
+  e2e_portal.js         la interfaz publicada como portal habla con el backend real por doPost
   mock_browser.js       backend real + servicios simulados DENTRO del navegador (para la vista previa)
   e2e_plataforma.js     Playwright: recorre la plataforma en 1600/1366/820/390 px (admin y técnico)
   render_correos.js     captura PNG de cada correo de muestra
-tools/  ensamblar.mjs · lint.mjs · pruebas.mjs · construir_preview.mjs
+tools/  ensamblar.mjs · lint.mjs · pruebas.mjs · construir_preview.mjs · construir_portal.mjs · imagenes.py · migrar_historico.py
+portal/ index.html (generado) + config.js (URL /exec) · .github/workflows/portal.yml publica en GitHub Pages
+assets/ logo y mascota del SIAU (fuente de las imágenes incrustadas)
 plantilla_libro/PQRS_BaseDatos_plantilla.xlsx   estructura real del consolidado SIN datos personales
 docs/   CONTEXTO · ARQUITECTURA · DESPLIEGUE · PENDIENTES · requisitos/ (documento de automatización del correo)
 legacy/ cómo se generó hasta v7.3 (parches sobre base_v4). Solo referencia: NO lo uses para construir.
@@ -47,6 +53,8 @@ npm run preview             # tests/salida/Vista_Previa_Plataforma.html (funcion
 npm run e2e                 # vista previa + recorrido Playwright (PW_CHROMIUM=/ruta/chrome para usar un Chromium propio)
 npm run correos             # genera y captura los correos de muestra en tests/salida/
 npm run verificar           # todo lo anterior
+npm run portal              # portal/index.html para publicar fuera de Apps Script
+npm run migrar -- --historico X.xlsx --formulario Y.xlsx --salida migracion_salida   # histórico → consolidado v8 (fuera del repo)
 npm run push                # ensamblar + lint + test + clasp push (requiere .clasp.json, ver docs/DESPLIEGUE.md)
 ```
 
@@ -57,23 +65,28 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 1. **Seguridad de la API.** En Apps Script, cualquier función global sin `_` al final se puede llamar desde el navegador. Por eso:
    - Todo lo interno termina en `_`. El navegador entra **solo** por `api(token, nombre, args)`, que valida sesión, rol (`_permitido_`) y sede (`"codigo"` / `"sede"` en `RUTAS`).
    - Una API nueva es una función `apiAlgo_` + una entrada en `RUTAS` con su permiso. El frontend la llama con `srv("apiAlgo", …)`; `srvSilencioso` no muestra la animación de carga.
-   - Funciones públicas permitidas: `doGet, onOpen, mostrarUrl, instalarDisparadores, alEnviarFormulario, importarFormulario, rutinaDiaria, repararFechasYFormulas, estadoAcceso, crearPrimerAdministrador, iniciarSesion, cerrarSesion, api, procesarCorreoEntrante, revisarAlertas`. Las de menú llaman `SpreadsheetApp.getUi()` como guarda. No agregues otras.
+   - Funciones públicas permitidas: `doGet, doPost, onOpen, mostrarUrl, instalarDisparadores, alEnviarFormulario, importarFormulario, rutinaDiaria, repararFechasYFormulas, estadoAcceso, crearPrimerAdministrador, iniciarSesion, cerrarSesion, api, procesarCorreoEntrante, revisarAlertas, identificarPrioritarias, crearFormularioPQRS, diagnosticoPlataforma`. Las de menú llaman `SpreadsheetApp.getUi()` como guarda. `doPost` solo despacha lo que está en `PUERTA_PORTAL` (las mismas funciones públicas de google.script.run). No agregues otras.
+   - Las funciones internas con sufijo `_` que reciben datos (p. ej. `_estadoFormulario_(datos)`) nunca se exponen en `RUTAS` con esa firma.
 2. **Roles (la plataforma es un puente).** El **Técnico** (SIAU de sede) radica o tabula y consulta **solo sus sedes asignadas**. El **Administrador** direcciona a las áreas, responde al usuario, gestiona el correo, los usuarios y la configuración. **Consulta** solo ve. Permisos: `P_LEER`, `P_RADICAR`, `P_GESTION`, `P_CORREO`, `P_ADMIN` en `_permitido_`. Toda lectura se filtra con `_sedeVisible_` / `_filaVisible_`.
 3. **Confidencialidad (Ley 1581 de 2012 y reserva de historia clínica).**
    - Los avisos a técnicos, Google Chat y notificaciones del sistema operativo **nunca** llevan nombre, documento, descripción ni el asunto original: solo radicado, tipo, prioridad, sede y fechas, más un enlace a la plataforma.
    - Todo texto del usuario va escapado (`_html_`, `_parrafos_`, `esc()` en el frontend).
    - Nunca pongas datos reales en pruebas, capturas, commits ni ejemplos. Usa nombres ficticios y correos `@correo.com` o `@miredips.org` genéricos. El consolidado real no entra al repo (`.gitignore` bloquea `*.xlsx`).
-4. **No muevas la hoja.** `Consolidado_PQRS` tiene 53 columnas fijas (mapa `C`), encabezados en la fila 4 y datos desde la fila 5. `Config` se lee **por posición**: términos A6:D8, festivos, parámetros B11:B18, listas con encabezados en la fila 43. Si cambias la estructura, sube `ESQUEMA` y agrega el paso en `_migrar_`.
+4. **No muevas la hoja.** `Consolidado_PQRS` tiene 57 columnas fijas (mapa `C`; v8 agregó BB:BE al final), encabezados en la fila 4 y datos desde la fila 5 **sin tope**: el final lo calcula `_finDatos_()` (`CFG.FILA_FIN` es una propiedad calculada) y `_proximaFila` siempre agrega al final. Lee todo con `_datos_()` y busca radicados con `_filaDe` (usa `_codigos_()` en memoria). `Config` se lee **por posición**: términos A6:D9 (fila 9 = EPS), parámetros B11:B22 (`_param(i)` = B(11+i); 8 prefijo FEL, 9 corte del formulario, 10 política de datos, 11 enlace del QR), listas con encabezados en la fila 43 (hasta 150 valores). Festivos en la hoja **Festivos** (se completa sola). Si cambias la estructura, sube `ESQUEMA` (hoy "8") y agrega el paso en `_migrar_` / `_estructuraV8_` (idempotente).
+   - **Series de radicado:** `SIAU` para PQRS (continúa el histórico; la base está en Config B11), `FEL` para felicitaciones, `QR`/`HIS` solo para lo migrado. `_siguienteConsecutivo(prefijo)` cuenta solo su serie; `_recodificar_` mueve un caso de serie al cambiar felicitación ↔ PQRS y anula el número anterior (nunca se reutiliza).
 5. **Fechas y fórmulas.**
    - Las fechas se guardan sin hora con `_soloFecha_`, en la zona de la hoja. Los días se muestran siempre enteros (`_dias_`, `INT()`).
    - Las fórmulas se escriben **solo** con `_escribirFormulas_`: detecta si la hoja usa «,» o «;» (configuración regional de Colombia) leyendo `getDisplayValues`, y `_saludFormulas_` repara las que se dañen. Nunca `setFormula` con separadores fijos.
-6. **Correos.** Todos salen de `_correoDiseno_` (a través de `_plantilla` para radicados y `_correoHilo_` para los hilos de Gmail). Convierte el texto con `_parrafos_`: Gmail y Outlook ignoran `white-space:pre-wrap` y los párrafos se pegan. Las felicitaciones tienen diseño propio (sin términos ni vencimiento). Los correos internos llevan la advertencia de confidencialidad. Se envían con `_enviar` / `_opcionesCorreo_`, que respetan el alias "Enviar como" configurado.
-7. **Frontend en el iframe de Apps Script.**
+6. **Priorización.** El riesgo lo decide `_evaluarRiesgo_` (señales + población de especial protección + barrera de acceso) y lo aplica `_evaluarPrioridadFila_` en `_postRadicacion_` (todos los canales). Nunca baja una categoría, respeta las legales (tutela, derecho de petición, requerimiento) y `[Riesgo manual: …]`. Horas por nivel en `HORAS_NIVEL`; alertas en `revisarAlertas` (alcance «Responder» = aviso a la mitad y al final). Cualquier cambio de señales necesita su caso en `tests/pruebas_v8.js`, incluido un falso positivo.
+7. **Correos.** Todos salen de `_correoDiseno_` (a través de `_plantilla` para radicados y `_correoHilo_` para los hilos de Gmail). Convierte el texto con `_parrafos_`: Gmail y Outlook ignoran `white-space:pre-wrap` y los párrafos se pegan. Las felicitaciones tienen diseño propio (sin términos ni vencimiento). Los correos internos llevan la advertencia de confidencialidad. Se envían con `_enviar` / `_opcionesCorreo_`, que respetan el alias "Enviar como" configurado.
+8. **Frontend en el iframe de Apps Script o como portal.**
    - Nada de `location.reload()`: deja la página en blanco. El cierre de sesión se hace en sitio (`salir()` / `limpiarApp()`).
    - `localStorage` solo guarda el token y la preferencia de sonido.
    - Cada respuesta del servidor se descarta si cambió la sesión (`llamar()` compara el token).
    - Las notificaciones del escritorio pueden estar bloqueadas; el aviso externo confiable es Google Chat.
-8. **Estilo del código.** ES5 (`var`, `function`), comentarios y textos en español. Textos de la interfaz en español de Colombia: el técnico se trata de "tú" y el usuario ciudadano de "usted" en los correos. Paleta por tipo (no cambiar):
+   - Fuera de Apps Script, el bloque «v8 · PORTAL» al inicio de 3a crea un `google.script.run` equivalente con `fetch` a `window.PQRS_API` (portal/config.js o `?api=`). No uses otras APIs de `google.script` sin agregarlas ahí.
+   - Sonidos (`sonar`): "Vital" sirena, "Ente" toques graves, "Felicitación" arpegio + `celebrar()`; `alarmaVisual()` para riesgo vital. Respetan `prefers-reduced-motion`.
+9. **Estilo del código.** ES5 (`var`, `function`), comentarios y textos en español. Textos de la interfaz en español de Colombia: el técnico se trata de "tú" y el usuario ciudadano de "usted" en los correos. Paleta por tipo (no cambiar):
 
    | Tipo | Color |
    |---|---|
@@ -86,7 +99,7 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
    | Denuncia | `#B4531A` |
 
    Marca MiRed: teal `#006081` / `#00475F` y franja rojo `#E20A31`, amarillo `#FEDC00` y verde `#009C4D`. Fuentes: Barlow / Barlow Semi Condensed en la web, "Volkswagen Serial" con respaldo en los correos.
-9. **Despliegue.** `clasp push` solo actualiza el código (el enlace /dev). Para que los técnicos vean el cambio hay que ir a **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** en la misma implementación (el enlace /exec no cambia). La implementación debe estar en **Ejecutar como: Yo (cuenta SIAU)** y **Quién tiene acceso: Cualquier persona**.
+10. **Despliegue.** `clasp push` solo actualiza el código (el enlace /dev). Para que los técnicos vean el cambio hay que ir a **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** en la misma implementación (el enlace /exec no cambia). La implementación debe estar en **Ejecutar como: Yo (cuenta SIAU)** y **Quién tiene acceso: Cualquier persona**.
 
 ## Glosario rápido
 
@@ -98,5 +111,7 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 | Sede | Punto de atención (Camino La Playa, Paso Soledad…) |
 | Direccionar | Enviar al área responsable; redireccionar corrige un envío equivocado |
 | Entidad presentada | Ante quién se presentó (SEDE MIRED, SUPER SALUD, SECRETARIA DE SALUD, EPS). Define el término |
-| Clasificación interna | Categoría del correo institucional: Supersalud Riesgo Vital (24 h), Priorizado (48 h), Simple (72 h), Tutela (meta interna 8 h) o Derecho de Petición (15 días hábiles, Ley 1755 de 2015) |
+| Clasificación interna | Categoría de riesgo o legal (hoja Categorias_Correo): RIESGO VITAL NNA · 8 H, RIESGO VITAL · 24 H, RIESGO PRIORIZADO · 48 H, SUPERSALUD RIESGO …, TUTELA, DERECHO DE PETICIÓN, REQUERIMIENTO ENTE DE CONTROL. Manda sobre el término de la entidad presentada |
+| NNA | Niñas, niños y adolescentes (Circular Supersalud 2026151000000007-5: riesgo vital en 8 horas) |
+| Directorio | Hoja Responsables con reglas de direccionamiento (servicios, sedes, palabras clave, copias) |
 | Semáforo / oportunidad | Estado frente al término (en término, por vencer, vencida) y si se respondió a tiempo |

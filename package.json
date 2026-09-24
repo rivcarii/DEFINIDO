@@ -1,6 +1,6 @@
 {
   "name": "pqrs-mired-siau",
-  "version": "7.3.0",
+  "version": "8.0.0",
   "private": true,
   "description": "Sistema de Gestión de PQRS · MiRed Barranquilla IPS (Google Sheets + Apps Script, aplicación web)",
   "scripts": {
@@ -8,10 +8,12 @@
     "lint": "node tools/lint.mjs",
     "test": "node tools/pruebas.mjs",
     "preview": "node tools/ensamblar.mjs && node tools/construir_preview.mjs",
-    "e2e": "npm run preview && node tests/e2e_plataforma.js",
-    "correos": "node tests/pruebas_backend.js && node tests/render_correos.js",
-    "verificar": "npm run ensamblar && npm run lint && npm test && npm run e2e",
-    "push": "npm run ensamblar && npm run lint && npm test && clasp push"
+    "e2e": "npm run preview && node tests/e2e_plataforma.js && npm run portal && node tests/e2e_portal.js",
+    "correos": "node tests/pruebas_backend.js && node tests/pruebas_v8.js && node tests/render_correos.js",
+    "verificar": "npm run ensamblar && npm run lint && npm test && npm run e2e && npm run portal",
+    "push": "npm run ensamblar && npm run lint && npm test && clasp push",
+    "portal": "node tools/ensamblar.mjs && node tools/construir_portal.mjs",
+    "migrar": "python3 tools/migrar_historico.py"
   },
   "devDependencies": {
     "@google/clasp": "^3.4.1",

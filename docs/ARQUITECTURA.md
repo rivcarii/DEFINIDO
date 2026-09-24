@@ -1,5 +1,7 @@
 # Arquitectura
 
+> **v8:** ver la sección «10. Versión 8» al final (rango dinámico, series, priorización, directorio, portal, migración). Las secciones 1–9 describen la base v7.3 y siguen vigentes salvo lo que allí se indica.
+
 ## 1. Visión general
 
 ```
@@ -236,3 +238,64 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
   - **No evalúa fórmulas**, así que término, fecha máxima y semáforo quedan vacíos en las pruebas y en la vista previa, salvo que la prueba los ponga.
 - `tests/pruebas_backend.js` cubre: radicación y consecutivo, fechas sin hora, fórmulas y su reparación, gestión completa, correo (hilos, citas, reenvíos, adjuntos), usuarios, sedes, bloqueo, permisos del puente, clasificador, automatización del correo, alertas de 8 h, notificaciones confidenciales, párrafos, felicitaciones y diagnóstico de permisos.
 - `tests/mock_browser.js` ejecuta el mismo `Codigo.gs` en el navegador. Datos ficticios; usuarios demo siau.admin, tecnico.playa y consulta, con clave Demo2026.
+
+
+## 10. Versión 8
+
+### 10.1 Consolidado
+- Datos desde la fila 5 **sin tope**. `_finDatos_()` = última fila con CÓDIGO o FECHA DE RADICACIÓN (se recuerda mientras no cambie `getLastRow`). `CFG.FILA_FIN` es una propiedad calculada. `_proximaFila()` agrega siempre al final y `_asegurarFilas_` crea filas y fórmulas con un colchón de 200 (`CFG.COLCHON_FORMULAS`).
+- `_datos_()` lee todas las filas (57 columnas); `_codigos_()` guarda la columna A en memoria para `_filaDe` y el consecutivo. `_escribir()` escribe por tramos sin tocar las columnas con fórmula.
+- Columnas nuevas: BB (54) NIVEL DE RIESGO, BC (55) POBLACIÓN PRIORIZADA, BD (56) AUTORIZACIÓN TRATAMIENTO DE DATOS, BE (57) ÁREA SUGERIDA.
+- Fórmulas: FECHA MÁXIMA usa `Festivos!$A$2:$A$400`. La hoja **Festivos** se calcula sola (`_festivosColombia_`, Ley 51 de 1983) y se completa en `rutinaDiaria`.
+- Config: fila 9 = término EPS (72 h). Parámetros nuevos B19 prefijo FEL, B20 fecha de corte del formulario, B21 política de datos, B22 enlace del QR.
+- Migración `ESQUEMA` "8": `_estructuraV8_` agrega encabezados, parámetros, término EPS, festivos, categorías y entidades nuevas (`_completarTabla_`) y columnas del directorio (`_directorioV8_`). Es idempotente.
+
+### 10.2 Series de radicado
+| Serie | Uso | Consecutivo |
+|---|---|---|
+| `SIAU-AAAA-MM-NNNN` | PQRS de cualquier canal | Continúa el histórico (Config B11 = 3514 → 3515) |
+| `FEL-AAAA-MM-NNNNN` | Felicitaciones | Propio |
+| `QR-…`, `HIS-…` | Solo histórico migrado sin radicado SIAU | Solo migración |
+`_recodificar_` mueve un caso entre SIAU y FEL cuando el tipo cambia (clasificador o ajuste manual), reescribe su trazabilidad y deja «Radicado anulado» con el número viejo para que no se reutilice.
+
+### 10.3 Priorización
+- `_evaluarRiesgo_(fila)` → `{ nivel, categoria, razones, poblacion, horas }` con `SENALES_VITAL`, `POBLACIONES` y `RE_BARRERA`.
+- Reglas: señales ≥ 3 (o categoría vital del correo) → **Vital** (NNA → **Vital NNA**); población de especial protección + barrera o señales ≥ 2 → **Priorizado**.
+- `_postRadicacion_` (radicación presencial, formulario y correo): clasificador del tipo → riesgo (aplica la categoría si sube de nivel) → alerta `_alertaPrioritaria_` (Chat, correo, traza «Alerta de riesgo») → área sugerida (col. 57).
+- Comando: menú **PQRS ▸ Identificar PQRS prioritarias** o botón en la vista Prioritarias (`apiIdentificarPrioritarias_`). Ajuste manual: `apiFijarRiesgo_` (marca `[Riesgo manual: …]`, que el motor respeta).
+- `apiPrioritarias_` lista las abiertas con límite en horas (desde MARCA TEMPORAL) y cuenta regresiva.
+- `revisarAlertas` (cada 30 min): categorías con meta; alcance «Direccionar» = alerta si no se ha enviado al área; «Responder» (vital NNA) = alerta a la mitad y al cumplirse si no se ha cerrado.
+
+### 10.4 Directorio y direccionamiento
+- Responsables H:K = SERVICIOS QUE ATIENDE, SEDES, PALABRAS CLAVE, CORREOS EN COPIA (`;`). `_sugerirArea_`: servicio +6, palabra +2 (máx. 3), sede +1; descarta áreas de otras sedes.
+- `_direccionAutomatica_`: felicitaciones «inmediato»; PQRS con `direccionAuto` y área inequívoca (`_areaClara_`), nunca tutelas, peticiones ni requerimientos.
+- `apiDireccionarFelicitaciones_`: un correo de reconocimientos por área y cierre de cada felicitación (rutina diaria si `direccionFelicitaciones = "resumen"`).
+
+### 10.5 Notificaciones
+| Paso | Usuario | Área |
+|---|---|---|
+| 1 Recepción | Acuse con tipo, clasificación, término (horas si es prioritaria) y aviso de datos | — |
+| 2 Direccionamiento | «Su solicitud está en trámite» | Solicitud interna (con prefijo de riesgo en el asunto y copias del directorio) |
+| 3 Respuesta | Respuesta formal (botón Redactar: `apiRedactarRespuesta_`) y cierre | — |
+| 4 Cierre | — | «Se respondió al usuario y el caso quedó cerrado» (`_avisoCierreArea_`) |
+| Felicitación | Solo acuse (con la mascota) | Reconocimiento (inmediato o resumen diario) |
+
+### 10.6 Entes de control
+`Entidades_Correo` H = CATEGORÍA POR DEFECTO. Procuraduría, Personería, Defensoría, Contralorías, MinSalud, ICBF → REQUERIMIENTO ENTE DE CONTROL (10 días hábiles); juzgados (`@cendoj.ramajudicial.gov.co`) → TUTELA. Cada correo de un ente deja la traza «Correo de ente de control», que la plataforma convierte en alarma.
+
+### 10.7 Nuevas rutas de la API
+| Nombre | Permiso |
+|---|---|
+| `apiPrioritarias`, `apiEvaluarRiesgo` | P_LEER |
+| `apiSugerirArea` | P_LEER + sede |
+| `apiIdentificarPrioritarias` | P_RADICAR |
+| `apiFijarRiesgo` | P_RADICAR + sede |
+| `apiRedactarRespuesta` | P_GESTION + sede |
+| `apiDireccionarFelicitaciones` | P_GESTION |
+| `apiFormularioQR`, `apiCrearFormulario`, `apiDiagnostico` | P_ADMIN |
+
+### 10.8 Portal
+`doPost(e)` recibe `{ fn, args }` y despacha solo `PUERTA_PORTAL` (estadoAcceso, iniciarSesion, cerrarSesion, crearPrimerAdministrador, api). El frontend, si no está dentro de Apps Script, crea un `google.script.run` con `fetch` (POST text/plain, sin preflight). `tools/construir_portal.mjs` → `portal/index.html` + `portal/config.js`; `.github/workflows/portal.yml` lo publica en GitHub Pages.
+
+### 10.9 Migración del histórico
+`tools/migrar_historico.py` usa el propio `Codigo.gs` (vía `tests/harness.js`) para las fórmulas, festivos, categorías, entidades y directorio, de modo que el libro migrado es idéntico a lo que escribiría la plataforma. Deduplica el formulario contra el histórico (documento, descripción, teléfono; felicitaciones por documento y fecha ±1 día). Fechas con errores de digitación (0206, 16/062026, 2027) se corrigen o se estiman por el mes y se marcan en OBSERVACIONES.

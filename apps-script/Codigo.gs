@@ -378,10 +378,24 @@ function _enviar(para, asunto, texto, html, extra) {
   }
 }
 
+/** v8 · Presentación en los correos: «C. LA PLAYA» → «Camino La Playa», «FELICITACION» → «Felicitación». */
+function _sedeBonita_(v) {
+  var s = String(v || "").trim();
+  if (!s) return "";
+  s = s.replace(/^C\.\s*/i, "Camino ").replace(/^P\.\s*/i, "Paso ");
+  if (s === s.toUpperCase()) s = s.toLowerCase().replace(/(^|\s)([a-záéíóúñ0-9])/g, function (m, a, b) { return a + b.toUpperCase(); })
+    .replace(/\s(De|Del|La|Las|Los|El|Y)\s/g, function (w) { return w.toLowerCase(); });
+  return s;
+}
+var TIPOS_BONITOS = { queja: "Queja", reclamo: "Reclamo", peticion: "Petición", sugerencia: "Sugerencia", felicitacion: "Felicitación",
+                      denuncia: "Denuncia", tutela: "Tutela", solicitud: "Solicitud" };
+function _tipoBonito_(t) { var k = _claveTipo_(t) || _norm(t).replace(/[^a-z]/g, ""); return TIPOS_BONITOS[k] || String(t || ""); }
+function _servicioBonito_(v) { var s = String(v || ""); return s === s.toUpperCase() ? s.charAt(0) + s.slice(1).toLowerCase() : s; }
+
 function _datosCorreo(f) {   // f = arreglo de la fila
   return {
-    codigo: f[C.CODIGO - 1], tipo: f[C.TIPO_PQRS - 1], estado: f[C.ESTADO - 1] || "Recibida",
-    sede: f[C.SEDE - 1], servicio: f[C.SERVICIO - 1],
+    codigo: f[C.CODIGO - 1], tipo: _tipoBonito_(f[C.TIPO_PQRS - 1]), estado: f[C.ESTADO - 1] || "Recibida",
+    sede: _sedeBonita_(f[C.SEDE - 1]), servicio: _servicioBonito_(f[C.SERVICIO - 1]),
     fechaRadicacion: _fmt(f[C.FECHA_RADICACION - 1]),
     fechaMax: _esFeli(f[C.TIPO_PQRS - 1]) ? "" : _fmt(f[C.FECHA_MAX - 1]),
     responsable: f[C.RESPONSABLE - 1],
@@ -505,8 +519,8 @@ function _acuseRecepcion_(fila) {
     (typeof f[C.TERMINO - 1] === "number" ? _terminoTexto_(f[C.TERMINO - 1], f[C.TIPO_DIA - 1], "") : ""));
   var clasif = feli ? "" : (_rango_(nivel) >= 2 ? "Prioritaria · " + (nivel === "Vital NNA" ? "riesgo vital en menor de edad" : nivel === "Vital" ? "riesgo vital" : "riesgo priorizado") : "");
   var html = _plantilla({
-    extraDetalles: [["Tipo de solicitud", f[C.TIPO_PQRS - 1]], ["Clasificación", clasif], ["Término de respuesta", termino]],
-    codigo: codigo, tipo: f[C.TIPO_PQRS - 1], estado: "Recibida", sinProgreso: feli,
+    extraDetalles: [["Tipo de solicitud", _tipoBonito_(f[C.TIPO_PQRS - 1])], ["Clasificación", clasif], ["Término de respuesta", termino]],
+    codigo: codigo, tipo: _tipoBonito_(f[C.TIPO_PQRS - 1]), estado: "Recibida", sinProgreso: feli,
     sede: base.sede, servicio: base.servicio, fechaRadicacion: base.fechaRadicacion, fechaMax: base.fechaMax,
     titulo: feli ? "¡Gracias por su felicitación!" : "Recibimos su solicitud",
     mensaje: feli
@@ -1483,7 +1497,8 @@ var CAMPO_LISTA = {
  * Verifica el canal del formulario: si está vinculado, cuántas respuestas hay,
  * si el mapeo está guardado, cuántas faltan por importar y si el disparador existe.
  */
-function apiEstadoFormulario_() {
+function apiEstadoFormulario_() { return _estadoFormulario_(null); }
+function _estadoFormulario_(datosPrevios) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var est = { vinculado: false, hoja: "", urlForm: "", respuestas: 0, mapeadas: 0,
               importadas: 0, pendientes: 0, disparador: false, problemas: [] };
@@ -1522,9 +1537,7 @@ function apiEstadoFormulario_() {
     if (colDesc < 0) {
       est.problemas.push("Ninguna pregunta está mapeada como «descripcion»; sin ese campo no se puede radicar.");
     } else {
-      var hd = _h(CFG.HOJA_DATOS);
-      var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-      var existentes = _datos_();
+      var existentes = datosPrevios || _datos_();
       var vistos = {};
       existentes.forEach(function (f) {
         if (f[C.CODIGO - 1]) vistos[_clave(f[C.MARCA - 1], f[C.DESCRIPCION - 1])] = true;
@@ -1714,7 +1727,7 @@ function apiResumenHoy_() {
     try { var c = apiCorreos_(true); r.correo = c.resumen; r.correosPendientes = c.resumen.relevantes; }
     catch (e) { r.correosPendientes = -1; }
   } else { r.correosPendientes = -1; r.sinCorreo = true; }
-  r.porSede = {}; r.prioritarias = []; r.prioritariasAbiertas = 0; r.felicitacionesPendientes = 0;
+  r.porSede = {}; r.prioritarias = []; r.prioritariasAbiertas = 0; r.prioritariasVitales = 0; r.felicitacionesPendientes = 0;
   var cats = _categorias_();
   datos.forEach(function (f) {
     if (!f[C.CODIGO - 1] || !_filaVisible_(f)) return;
@@ -1731,6 +1744,7 @@ function apiResumenHoy_() {
     var nv = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats);
     if (!cerrada && _esFeli(f[C.TIPO_PQRS - 1]) && !f[C.CORREO_RESP - 1]) r.felicitacionesPendientes++;
     if (!cerrada && !_esFeli(f[C.TIPO_PQRS - 1]) && (pr === "Crítica" || pr === "Alta" || _rango_(nv) >= 2)) r.prioritariasAbiertas++;
+    if (!cerrada && _rango_(nv) >= 3) r.prioritariasVitales++;
     if (!cerrada && (pr === "Crítica" || pr === "Alta")) r.prioritarias.push({ codigo: f[C.CODIGO - 1], prioridad: pr,
       limite: HORAS_NIVEL[nv] && _rango_(nv) >= 2 ? "antes de " + _fmtHora_(_limiteHoras_(f, nv)) : "",
       clasificacion: f[C.CLASIF_INTERNA - 1], tipo: f[C.TIPO_PQRS - 1], remitente: (/Remitente institucional: ([^(·]+)/.exec(String(f[C.OBSERVACIONES - 1] || "")) || [])[1] || f[C.EPS - 1] || "",
@@ -1738,7 +1752,7 @@ function apiResumenHoy_() {
   });
   r.prioritarias.sort(function (a, b) { return a.orden - b.orden; });
   r.prioritarias = r.prioritarias.slice(0, 8);
-  try { r.formPendientes = apiEstadoFormulario_().pendientes || 0; } catch (e) { r.formPendientes = 0; }
+  try { r.formPendientes = _estadoFormulario_(datos).pendientes || 0; } catch (e) { r.formPendientes = 0; }
   return r;
 }
 
@@ -3423,6 +3437,7 @@ function _recodificar_(fila, tipoNuevo) {
   }
   _invalidarDatos_();
   _traza(nuevo, "Radicado reasignado", actual + " → " + nuevo + " (el tipo pasó a " + tipoNuevo + ")");
+  _traza(actual, "Radicado anulado", "Reemplazado por " + nuevo + ". Este número no se vuelve a usar.");   // reserva el consecutivo
   return nuevo;
 }
 
@@ -4218,7 +4233,8 @@ var SENALES_VITAL = [
   [/convulsi/, 3, "convulsiones"],
   [/hemorragi|sangrado (abundante|profuso|severo|activo|fuerte)|sangrando mucho|vomit\w* sangre|perdiendo mucha sangre/, 3, "sangrado importante"],
   [/infarto|dolor (en el|de|del) pecho|paro (cardiaco|cardiorrespiratorio|respiratorio)|accidente cerebro|derrame cerebral|\bacv\b/, 3, "evento cardiovascular o cerebral"],
-  [/inconscien|perdio el conocimiento|perdida (del|de) conocimiento|desmay|no reacciona/, 3, "pérdida de conciencia"],
+  [/inconscien|perdio el conocimiento|perdida (del|de) conocimiento|no reacciona|se desmayo (y|varias)|desmayos? (repetid|varias)/, 3, "pérdida de conciencia"],
+  [/desmay/, 2, "desmayo"],
   [/(sin|no (le|me|nos) (han )?(entregad|entrega|dad|dan|aplicad|aplican|autoriz)\w*|suspendi\w*|interrumpi\w*|no (hay|tienen)|falta de)\s.{0,50}(insulina|quimio|dialisis|hemodialisis|oxigeno|antirretrovir|anticoagul|inmunosupres|radioterapia)/, 3, "tratamiento vital interrumpido"],
   [/(insulina|quimio|dialisis|hemodialisis|antirretrovir|radioterapia).{0,50}(no (me|le|nos) (han )?(entregad|dad|aplicad|autoriz)|suspendi|sin entrega|interrumpi)/, 3, "tratamiento vital interrumpido"],
   [/embaraz.{0,60}(sangr|no (se|lo) (siente|mueve)|dolor fuerte|contracciones)|sangr.{0,40}embaraz|preeclampsia|eclampsia|trabajo de parto/, 3, "gestante con signos de alarma"],

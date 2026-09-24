@@ -13,10 +13,12 @@ function nivelTag(n){
   var i = NIVEL_INFO[n]; if(!i) return n ? '<span class="prio Alta">'+esc(n)+'</span>' : '';
   return '<span class="nivel '+i.c+'">'+ic(/vital/i.test(n)?"escudo":"alerta","s")+esc(i.t)+(i.h?' · '+i.h+' h':'')+'</span>';
 }
-function marcarPrioNav(items){
-  var urgentes = (items||[]).filter(function(x){ return /vital|priorizado/i.test(x.nivel) || x.prioridad==="Crítica"; }).length;
+/* Contador del menú: recibe la lista de prioritarias o solo el número (desde el Inicio). */
+function marcarPrioNav(items, urgentesN){
+  var n = typeof items === "number" ? items : (items||[]).length;
+  var urgentes = typeof items === "number" ? (urgentesN||0) : (items||[]).filter(function(x){ return /vital|priorizado/i.test(x.nivel) || x.prioridad==="Crítica"; }).length;
   var b = $("navPrio"); if(!b) return;
-  b.hidden = !(items && items.length); b.textContent = items ? items.length : 0;
+  b.hidden = !n; b.textContent = n;
   b.classList.toggle("latido", urgentes > 0);
 }
 

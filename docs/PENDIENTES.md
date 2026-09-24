@@ -1,38 +1,34 @@
-# Pendientes, riesgos y próximos pasos
+# Pendientes, riesgos y próximos pasos (v8)
 
-Ordenados por prioridad. Antes de cerrar cualquier punto hay que pasar `npm run verificar` y agregar su prueba.
+Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 
-## P1 · Errores o riesgos que hay que atender primero
+## P1 · Puesta en marcha (depende de la cuenta SIAU)
 
-1. **Tope de 400 PQRS en el consolidado.** `CFG.FILA_FIN = 404` (datos en las filas 5–404).
-   - Todas las lecturas (`_filaDe`, bandeja, tablero, novedades, `_siguienteConsecutivo`) recorren solo ese rango.
-   - Cuando se llena, `_proximaFila` copia la fila 404 a la 405, pero `clearContent()` **borra también las fórmulas**, y `CFG.FILA_FIN` solo cambia en memoria. En la siguiente ejecución esa fila **no existe para la plataforma**: no aparece en la bandeja ni se encuentra por radicado.
-   - **Arreglo sugerido:** calcular el fin dinámicamente (`_finDatos_()` = última fila con CÓDIGO, con un colchón), hacer que `_escribirFormulas_` extienda las fórmulas a las filas nuevas, reemplazar todas las lecturas de `CFG.FILA_FIN` y agregar un paso de migración (`ESQUEMA` "8").
-   - La plantilla real tiene formato hasta cerca de la fila 987. Probar con más de 450 filas.
-2. **Puesta en marcha en la cuenta SIAU** (ver `DESPLIEGUE.md` §2): implementación nueva, disparadores, formulario QR, ajustes y archivar la implementación vieja.
-3. **Verificar dominios** de Supersalud (`@supersalud.gov.co`) y Contraloría (`@contraloria.gov.co`). El documento de requisitos los dejó en blanco y se supusieron. Se editan en Configuración ▸ Entidades.
-4. **Término para "EPS" como entidad presentada.** Si un correo de EPS no trae categoría, la entidad presentada es "EPS". Esa fila no existe en Config A6:D8 (solo SEDE, SUPER SALUD y SECRETARIA DE SALUD) y el término queda "Revisar la entidad". Hay dos salidas: agregar una fila EPS en Config (hay que ampliar el rango `CFG_TERMINOS` y las fórmulas) o mapear EPS a SEDE (15 días hábiles). **Decidir con River.**
+1. Subir el consolidado migrado y pegar el código (`docs/DESPLIEGUE.md` §1–§3). Validar en incógnito desde un celular.
+2. **Correos de las áreas y reglas del directorio** en Áreas responsables: sin correo no se puede direccionar ni entregar felicitaciones.
+3. **Revisar la hoja Migración_Revisar**: 119 casos QR y 1 HIS sin radicado SIAU. El consecutivo SIAU **3422** no existe en el histórico: confirmar si se anuló.
+4. Verificar dominios supuestos de entes: `@personeriabarranquilla.gov.co`, `@contraloriabarranquilla.gov.co`, `@atlantico.gov.co`, `@icbf.gov.co` (Configuración ▸ Entidades).
+5. Publicar la **política de tratamiento de datos** de MiRed IPS y pegar su enlace en Config B21 (aparece en el formulario y en los correos).
+6. Si Workspace no permite «Cualquier persona»: gestionar con TI (§4 de DESPLIEGUE).
 
-## P2 · Mejoras funcionales pedidas o implícitas
+## P2 · Rendimiento con el volumen real
 
-- **Flujo del puente:** hoy los administradores se enteran de lo que radican los técnicos por avisos (plataforma, correo y Chat) y por la etapa "Sin direccionar". Se podría agregar una bandeja "Por direccionar hoy" con asignación a un administrador y un indicador de tiempo entre radicación y direccionamiento.
-- **Reportes:** exportar a Excel o PDF el informe mensual por sede, tipo y oportunidad (indicadores del SOGCS y de la Supersalud).
-- **Carga del histórico:** existe un archivo "HISTÓRICO CONSOLIDADO DE OPINIONES DEL USUARIO" que River compartió al inicio del proyecto y no está en este repositorio. Importarlo requiere antes el arreglo de P1.1.
-- **Recuperar contraseña** sin administrador. Hoy solo el administrador la restablece.
-- **Auditoría de ingresos** (hoja de accesos) y cierre de sesiones de un usuario inactivado. Hoy la sesión se invalida en la siguiente llamada.
+- Con 13.200 filas cada lectura completa del consolidado (57 columnas) toma del orden de 2–4 s en Apps Script. Inicio hace 2 lecturas. Si se vuelve lento:
+  - **Archivo anual**: mover a un libro «Histórico AAAA» las felicitaciones cerradas del año anterior (~16.000/año) conservando el radicado; el tablero puede leer ambos.
+  - Leer solo las columnas necesarias en Inicio/Prioritarias.
+- `setFormulas` sobre 13.400 filas en la primera migración: 1–2 min (una sola vez).
 
-## P3 · Limitaciones conocidas (aceptadas)
+## P3 · Mejoras funcionales
 
-- Las sesiones duran como máximo 6 h (límite de CacheService). El bloqueo es por usuario, no por IP.
-- El hash es SHA-256 con sal ×150 (no hay bcrypt en Apps Script). Es aceptable porque la hoja es privada.
-- Las notificaciones del escritorio pueden quedar bloqueadas por el iframe de Apps Script; el canal externo confiable es Google Chat.
-- Cuotas de Google: correos por día (Workspace ~1.500 destinatarios), 6 min por ejecución y UrlFetch. `procesarCorreoEntrante` toma máximo 40 hilos de los últimos 3 días en cada pasada.
-- La automatización solo procesa correos que llegan **después** de activarla (`AJUSTES.desde`).
-- La vista previa y las pruebas **no evalúan fórmulas**: término, fecha máxima y semáforo salen vacíos si la prueba no los pone.
-- `Codigo.gs` es un solo archivo de unas 3.600 líneas. Se puede dividir en varios `.gs` (Apps Script comparte el ámbito global), pero hay que cuidar el orden de los `var` de nivel superior que dependen de otros (`CFG`, `C`, `CAMPOS`, `RUTAS`, `ESQUEMA`…). Si se hace: un archivo por sección de la tabla de `ARQUITECTURA.md` §2, `filePushOrder` en `.clasp.json` y pruebas verdes.
+- Reportes exportables (Excel/PDF) por sede, tipo, oportunidad y nivel de riesgo (indicadores SOGCS y Supersalud).
+- Tablero: gráfico por nivel de riesgo y tiempo de respuesta de las prioritarias en horas.
+- Encuesta de satisfacción automática al cerrar.
+- Recuperación de contraseña sin administrador; auditoría de ingresos.
+- Redacción asistida con IA (Gemini de Google Workspace o Claude) **solo** con acuerdo de tratamiento de datos y anonimización; hoy el redactor es por reglas para no enviar datos de salud a terceros.
 
-## Ideas para después
+## P4 · Limitaciones conocidas (aceptadas)
 
-- Integración con n8n (lo que proponía el documento original) solo si se necesitan canales fuera de Google (WhatsApp Business, por ejemplo).
-- Encuesta de satisfacción automática al cerrar una PQRS.
-- Tablero público anónimo de indicadores (sin datos personales) para comités.
+- Sesiones máx. 6 h (CacheService). Hash SHA-256 con sal ×150.
+- Cuotas de Google: correos/día (Workspace ~1.500 destinatarios), 6 min por ejecución (la importación del formulario corta a los 4 min y sigue en la siguiente), UrlFetch.
+- El motor de riesgo es por palabras: puede fallar con textos ambiguos. Por eso muestra las señales, avisa al SIAU y permite ajustar.
+- La vista previa y las pruebas no evalúan fórmulas (el simulador del navegador las emula).

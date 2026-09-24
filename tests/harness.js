@@ -80,6 +80,8 @@ function crear(hojas, gmail) {
     ScriptApp: { getProjectTriggers: () => [], getService: () => ({ getUrl: () => "" }) },
     GmailApp: gmail || {},
     HtmlService: {},
+    ContentService: { MimeType: { JSON: "json" }, createTextOutput: t => ({ contenido: t, setMimeType() { return this; }, getContent() { return t; } }) },
+    FormApp: {},
     CacheService: (() => { const m = {}; const c = { get: k => (k in m ? m[k] : null), put: (k, v) => { m[k] = String(v); }, remove: k => { delete m[k]; } }; return { getScriptCache: () => c }; })(),
     UrlFetchApp: { llamadas: [], fetch(url, op) { this.llamadas.push({ url, texto: JSON.parse(op.payload).text }); return {}; } },
     DriveApp: (() => { const carpetas = {}; const mk = n => ({ nombre: n, archivos: [], getUrl: () => "https://drive.google.com/drive/folders/" + encodeURIComponent(n),
@@ -88,7 +90,7 @@ function crear(hojas, gmail) {
         createFile(b) { const f = { setName() { return f; }, getUrl: () => "https://drive.google.com/file/d/x" }; this.archivos.push(b); return f; } });
       const raiz = mk(""); return { getFoldersByName: raiz.getFoldersByName, createFolder: raiz.createFolder, __carpetas: carpetas }; })(),
   };
-  ctx.GmailApp.sendEmail = (para, asunto, texto, op) => { enviados.push({ para, asunto, html: op && op.htmlBody }); };
+  ctx.GmailApp.sendEmail = (para, asunto, texto, op) => { enviados.push({ para, asunto, html: op && op.htmlBody, cc: op && op.cc }); };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(require("path").join(__dirname, "..", "apps-script", "Codigo.gs"), "utf8").replace(/^const /gm, "var "), ctx);
   ctx.__enviados = enviados; ctx.__props = props; ctx.UrlFetchApp = ctx.UrlFetchApp;

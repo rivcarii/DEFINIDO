@@ -67,6 +67,21 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 - River **copió los archivos al Drive de la cuenta SIAU** para que la plataforma sea del SIAU y todos ingresen con usuario y contraseña, **sin cuenta de Google** (algunos técnicos usan @gmail.com).
 - **La plataforma funciona como puente:** los SIAU de sede **solo radican o tabulan y consultan** sus sedes. El envío a las áreas y la respuesta al usuario **los hacen los administradores**.
 
+### v8 (rediseño: «que funcione y no tenga trabas con los accesos»)
+- Ecosistema único: formulario QR existente o nuevo, correo institucional siau@miredips.org, radicación en las **40 sedes** (presencial, papel, teléfono, buzón, redes) y un solo histórico.
+- Los técnicos de las 40 sedes deben poder tabular **el mismo día** sin depender de la correspondencia en papel ni de permisos sobre la hoja.
+- Comando para identificar las PQRS **prioritarias e inmediatas** según la circular nueva (Circular Supersalud 2026151000000007-5: riesgo vital en NNA en 8 horas) y la de 2023 (vital 24 h, priorizado 48 h, simple 72 h).
+- **Directorio** para direccionar al área correspondiente, automático o manual, desde cualquier vía de ingreso.
+- Notificaciones en 4 pasos, con contenido distinto para el usuario y para el área: acuse (qué se radicó y su clasificación) ▸ en trámite / solicitud interna ▸ respuesta mejor redactada a partir de la del área ▸ cierre (también al área).
+- **Felicitaciones**: solo acuse de agradecimiento y entrega al área; sin trazabilidad de respuesta. En la plataforma con sonido y animación propios.
+- Notificar los correos de **entes de control**; alarma y sonido para lo urgente.
+- Normas de protección de datos (Ley 1581 de 2012, Decreto 1377 de 2013) en las notificaciones.
+- **QR** para los usuarios.
+- Transcribir todo 2026 al consolidado nuevo **hasta el último radicado** del «Histórico consolidado de opiniones del usuario 2026» (SIAU-2026-09-3514).
+- Apariencia de plataforma de sistema de gestión integrado (solo PQRS). Logo MiRed IPS y mascota del SIAU.
+
+**Resultado de la migración (24/09/2026):** 13.200 registros: 335 PQRS con radicado SIAU (3179–3514, falta el 3422 en el histórico), 12.745 felicitaciones (9.214 del histórico + 3.531 del formulario QR que no estaban tabuladas) en serie FEL, 119 quejas/reclamos/sugerencias del QR gestionadas en la hoja del formulario sin radicado (serie QR) y 1 del histórico sin radicado (serie HIS). 109 respuestas del QR ya estaban en el histórico y se omitieron.
+
 ## 3. Decisiones de diseño (y por qué)
 
 | Decisión | Razón |
@@ -82,6 +97,15 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 | Avisos externos por Google Chat (webhook) | Las notificaciones del navegador suelen estar bloqueadas en el iframe de Apps Script. Chat llega al celular con sonido |
 | Avisos sin datos personales | Ley 1581 de 2012 y reserva de la historia clínica (Ley 23 de 1981, Res. 1995 de 1999) |
 | Vista previa con el backend real en el navegador | River revisa el diseño sin desplegar. Las pruebas E2E usan el mismo archivo |
+| **v8 · Evolucionar v7.3 en vez de reescribir** | La base tenía 110 pruebas, diseño aprobado y seguridad correcta. Los problemas eran el tope de 400 filas, el despliegue y faltantes funcionales |
+| v8 · Fin de datos calculado (`_finDatos_`) y escritura al final | Quita el tope sin cambiar las 53 columnas históricas ni sus fórmulas |
+| v8 · Serie FEL para felicitaciones | Son ~1.400 al mes y antes no se codificaban: con la serie SIAU se habría disparado la numeración institucional |
+| v8 · Serie QR para lo gestionado solo en la hoja del formulario | No se inventan radicados SIAU retroactivos; quedan identificadas para revisión (hoja Migración_Revisar) |
+| v8 · Fecha de corte del formulario (Config B20) | Al vincular el formulario Google copia 4.500 respuestas desde 2023: sin corte se habrían radicado todas |
+| v8 · Motor de riesgo por señales, explicable | Sin servicios externos (los datos de salud no salen de la cuenta), con razones visibles y ajuste manual; calibrado con el histórico real (≈7 % de las PQRS marcadas) |
+| v8 · Redactor de respuesta por reglas, no IA | La respuesta del área se limpia (firmas, mayúsculas, citas) y se envuelve en el formato institucional sin enviar datos a terceros |
+| v8 · Felicitaciones en resumen diario por área | Evita cientos de correos sueltos a las áreas y cierra el caso sin seguimiento |
+| v8 · Portal por `doPost` | Una dirección propia fuera del marco de Google (sonido y avisos más confiables); misma puerta de seguridad |
 
 ## 4. Personas y cuentas
 
@@ -89,7 +113,8 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 - **Roles en la plataforma:** administradores (líder SIAU, Calidad), técnicos de atención al usuario por sede y usuarios de consulta.
 - No guardes correos personales de técnicos en el repositorio.
 
-## 5. Estado al entregar (v7.3)
+## 5. Estado al entregar (v8.0)
 
-- Código probado: 110 verificaciones × 2 configuraciones regionales, lint sin errores y E2E en 4 anchos sin errores.
-- En producción, River está instalando la copia en la cuenta SIAU. Faltan los pasos de `docs/DESPLIEGUE.md` §2: nueva implementación con "Cualquier persona", disparadores, volver a vincular el formulario QR, ajustes de automatización y archivar la implementación vieja.
+- Código probado: 110 verificaciones de v7 + 60 de v8, cada una en las 2 configuraciones regionales; lint sin errores; E2E en 4 anchos (incluida la vista Prioritarias, el QR y el diagnóstico) y E2E del portal por doPost.
+- El libro migrado se validó cargándolo en el banco de pruebas con el backend real (siguiente radicado SIAU-2026-09-3515, FEL-2026-09-12746).
+- Pendiente en producción: `docs/DESPLIEGUE.md` §1–§3 (subir el consolidado migrado a la cuenta SIAU, pegar el código, implementar, disparadores, formulario y usuarios).

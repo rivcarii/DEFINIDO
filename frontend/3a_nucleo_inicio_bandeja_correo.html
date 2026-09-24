@@ -164,7 +164,6 @@ function arrancar(d){
   aplicarSesion();
   APP.desde = d.ahora || Date.now();
   if(d.logo) $("logo").src = "data:image/png;base64," + d.logo;
-  srvSilencioso("apiPrioritarias").then(function(p){ if(p && p.items) marcarPrioNav(p.items); }).catch(function(){});
   $("quien").textContent = APP.sesion.nombre || d.usuario || "";
   var L = APP.listas;
   var canalesManual = ["Presencial","Buzón de sugerencias","Telefónico","Correspondencia física","Correo electrónico","Redes sociales","WhatsApp"];
@@ -281,8 +280,7 @@ function sondear(){
         var vital = /vital/i.test(ev.nivel||"") || /vital/i.test(ev.detalle||"");
         notificar({ tipo:"err", prioridad: vital ? "Vital" : "Crítica", titulo:(ev.accion==="Alerta de riesgo" ? (vital ? "Riesgo vital · " : "PQRS priorizada · ") : "Alerta de término · ")+ev.codigo,
           texto: ev.detalle || "Requiere gestión inmediata.", accion:"Gestionar", ir:function(){ abrirDetalle(ev.codigo); } });
-        srvSilencioso("apiPrioritarias").then(function(p){ if(p && p.items) marcarPrioNav(p.items); }).catch(function(){});
-      } else if(ev.ente){
+            } else if(ev.ente){
         notificar({ tipo:"err", prioridad:"Ente", titulo:"Correo de un ente de control", texto: ev.detalle || "", accion:"Ir al correo", ir:function(){ APP.correosCargados=false; APP.correoCat="institucional"; ver("correo"); } });
       } else if(ev.accion==="Radicación" && ev.felicitacion){
         notificar({ tipo:"feliz", prioridad:"Felicitación", titulo:"¡Llegó una felicitación! · "+ev.codigo, texto:[ev.canal, ev.sede].filter(Boolean).join(" · "),
@@ -333,6 +331,7 @@ function igualLista(o, valor, ops){
 function saludo(){ var h=new Date().getHours(); return h<12 ? "Buenos días" : (h<19 ? "Buenas tardes" : "Buenas noches"); }
 
 function pintarInicio(r){
+  marcarPrioNav(r.prioritariasAbiertas||0, r.prioritariasVitales||0);
   if(r.correosPendientes >= 0){ marcarCorreoNav(r.correosPendientes); if(APP.correoPrevio===null) APP.correoPrevio = r.correosPendientes; }
   var fecha = new Date().toLocaleDateString("es-CO",{weekday:"long", day:"numeric", month:"long", year:"numeric"});
   fecha = fecha.charAt(0).toUpperCase() + fecha.slice(1);
