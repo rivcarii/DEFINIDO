@@ -135,7 +135,7 @@ function mostrarUrl() {
 function instalarDisparadores() {
   SpreadsheetApp.getUi();   // no se puede ejecutar desde la aplicación web
   ScriptApp.getProjectTriggers().forEach(function (t) { ScriptApp.deleteTrigger(t); });
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   ScriptApp.newTrigger("alEnviarFormulario").forSpreadsheet(ss).onFormSubmit().create();
   ScriptApp.newTrigger("rutinaDiaria").timeBased().atHour(7).everyDays(1).create();
   ScriptApp.newTrigger("procesarCorreoEntrante").timeBased().everyMinutes(5).create();
@@ -147,7 +147,26 @@ function instalarDisparadores() {
 // ---------------------------------------------------------------------------
 // UTILIDADES
 // ---------------------------------------------------------------------------
-function _h(n) { return SpreadsheetApp.getActiveSpreadsheet().getSheetByName(n); }
+function _h(n) { return _ss_().getSheetByName(n); }
+
+/*
+ * v8.1 · Acceso al consolidado. El código debe estar VINCULADO a la hoja (Extensiones ▸ Apps Script
+ * desde el consolidado) y ejecutarse con una cuenta que tenga acceso a ella (la del SIAU). Si Google
+ * responde «No cuentas con el permiso necesario…», el mensaje dice qué cuenta se está usando.
+ * El ID del consolidado se guarda para abrirlo aunque se ejecute desde un proyecto independiente.
+ */
+var _SS_ = null;
+function _ss_() {
+  if (_SS_) return _SS_;
+  var props = PropertiesService.getScriptProperties();
+  var id = props.getProperty("CONSOLIDADO_ID"), error = null;
+  try { _SS_ = SpreadsheetApp.getActiveSpreadsheet(); } catch (e) { error = e; }
+  if (!_SS_ && id) { try { _SS_ = SpreadsheetApp.openById(id); } catch (e) { error = error || e; } }
+  if (!_SS_) throw new Error(error ? _explicarError_(error)
+    : "El código no está vinculado al consolidado. Ábrelo desde la hoja: Extensiones ▸ Apps Script, pega allí el código y vuelve a implementar.");
+  if (!id) { try { props.setProperty("CONSOLIDADO_ID", _SS_.getId()); } catch (e) {} }
+  return _SS_;
+}
 function _norm(s) { return (s || "").toString().trim().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, ""); }
 function _esFeli(t) { return _norm(t).indexOf("felicita") === 0; }
 function _correoOk(c) { return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test((c || "").toString().trim()); }
@@ -290,24 +309,14 @@ function _traza(codigo, accion, detalle) {
 var RE_RAD = /^([A-Z]+)-(\d{4})-(\d{2})-(\d{4,})$/;
 
 /*
- * v8 · Series de radicado:
- *   SIAU-AAAA-MM-NNNN  → peticiones, quejas, reclamos, sugerencias, denuncias y tutelas (serie institucional
- *                        que continúa el histórico: 3174 → … → SIAU-2026-09-3514 → 3515…).
- *   FEL-AAAA-MM-NNNNN  → felicitaciones (serie propia: son más de mil al mes y antes no se codificaban;
- *                        así no alteran la numeración institucional).
- *   QR-AAAA-MM-NNNN    → solo para el histórico migrado: respuestas del formulario QR de 2026 que se
- *                        gestionaron en la hoja del formulario y nunca recibieron radicado SIAU.
- * Cada serie cuenta únicamente los códigos de su propio prefijo.
+ * v8.1 · UNA SOLA ESTRUCTURA DE RADICADO: SIAU-AAAA-MM-NNNN para todo (peticiones, quejas, reclamos,
+ * sugerencias, felicitaciones, denuncias y tutelas), de cualquier canal. El consecutivo es único y
+ * continúa el histórico. AAAA-MM es el mes de radicación. Si el número pasa de 9999 sigue con 5 cifras.
  */
-function _prefijo_(tipo) {
-  if (_esFeli(tipo)) return (_param(8) || "FEL").toString().trim().toUpperCase() || "FEL";
-  return (_param(2) || "SIAU").toString().trim().toUpperCase() || "SIAU";
-}
-function _siguienteConsecutivo(prefijo) {
-  prefijo = (prefijo || _prefijo_("")).toUpperCase();
-  var institucional = prefijo === (_param(2) || "SIAU").toString().trim().toUpperCase();
-  var base = institucional ? parseInt(_param(0), 10) : 0;
-  if (isNaN(base)) base = institucional ? 3174 : 0;
+function _prefijo_() { return (_param(2) || "SIAU").toString().trim().toUpperCase() || "SIAU"; }
+function _siguienteConsecutivo() {
+  var prefijo = _prefijo_();
+  var base = parseInt(_param(0), 10); if (isNaN(base)) base = 3174;
   var max = base;
   var ver = function (c) {
     var m = RE_RAD.exec((c || "").toString().trim().toUpperCase());
@@ -319,12 +328,51 @@ function _siguienteConsecutivo(prefijo) {
   return max + 1;
 }
 
-function _nuevoCodigo(fecha, tipo) {
-  var pref = _prefijo_(tipo);
+function _nuevoCodigo(fecha) {
   var d = (fecha instanceof Date && !isNaN(fecha)) ? fecha : new Date();
-  var n = _siguienteConsecutivo(pref);
-  var ancho = _esFeli(tipo) ? 5 : 4;
-  return pref + "-" + Utilities.formatDate(d, _tz_(), "yyyy-MM") + "-" + ("00000" + n).slice(-Math.max(ancho, String(n).length));
+  var n = _siguienteConsecutivo();
+  return _prefijo_() + "-" + Utilities.formatDate(d, _tz_(), "yyyy-MM") + "-" + ("0000" + n).slice(-Math.max(4, String(n).length));
+}
+
+/**
+ * v8.1 · Unifica los radicados de otras series (FEL, QR, HIS de la primera migración) en SIAU-AAAA-MM-NNNN:
+ * nuevos consecutivos después del mayor existente, en orden de radicación. Deja el código anterior en
+ * OBSERVACIONES y actualiza la trazabilidad. Idempotente: si ya todo es SIAU no hace nada.
+ */
+function _unificarRadicados_() {
+  var h = _h(CFG.HOJA_DATOS), fin = _finDatos_(), n = fin - CFG.FILA_DATOS + 1;
+  if (n < 1) return 0;
+  var pref = _prefijo_();
+  var cods = h.getRange(CFG.FILA_DATOS, C.CODIGO, n, 1).getValues();
+  var fechas = h.getRange(CFG.FILA_DATOS, C.FECHA_RADICACION, n, 1).getValues();
+  var otros = [];
+  cods.forEach(function (c, i) {
+    var m = RE_RAD.exec(String(c[0] || "").trim().toUpperCase());
+    if (m && m[1] !== pref) otros.push({ i: i, antes: String(c[0]).trim(), f: fechas[i][0] instanceof Date ? fechas[i][0] : null });
+  });
+  if (!otros.length) return 0;
+  otros.sort(function (a, b) { return ((a.f ? a.f.getTime() : 0) - (b.f ? b.f.getTime() : 0)) || (a.i - b.i); });
+  var sig = _siguienteConsecutivo(), mapa = {};
+  var obsRg = h.getRange(CFG.FILA_DATOS, C.OBSERVACIONES, n, 1), obs = obsRg.getValues();
+  otros.forEach(function (x) {
+    var d = x.f || new Date();
+    var nuevo = pref + "-" + Utilities.formatDate(d, _tz_(), "yyyy-MM") + "-" + ("0000" + sig).slice(-Math.max(4, String(sig).length));
+    sig++;
+    mapa[x.antes] = nuevo;
+    cods[x.i][0] = nuevo;
+    obs[x.i][0] = (obs[x.i][0] ? obs[x.i][0] + " · " : "") + "[Radicado anterior: " + x.antes + "]";
+  });
+  h.getRange(CFG.FILA_DATOS, C.CODIGO, n, 1).setValues(cods);
+  obsRg.setValues(obs);
+  var ht = _h(CFG.HOJA_TRAZA), ut = ht.getLastRow();
+  if (ut >= CFG.TRAZA_FILA) {
+    var rg = ht.getRange(CFG.TRAZA_FILA, 2, ut - CFG.TRAZA_FILA + 1, 1), v = rg.getValues(), cambio = false;
+    v.forEach(function (r) { var k = String(r[0] || "").trim(); if (mapa[k]) { r[0] = mapa[k]; cambio = true; } });
+    if (cambio) rg.setValues(v);
+  }
+  _invalidarDatos_();
+  _traza("—", "Radicados unificados", otros.length + " radicado(s) de otras series pasaron a " + pref + "-AAAA-MM-NNNN (el anterior queda en OBSERVACIONES)");
+  return otros.length;
 }
 
 // ---------------------------------------------------------------------------
@@ -559,7 +607,7 @@ function apiRadicar_(d) {
   if (!fRecepcion) return { ok: false, mensaje: "La fecha de recepción no es válida." };
 
   var fila = _proximaFila();
-  var codigo = _nuevoCodigo(fRadicacion, d.tipoPqrs);
+  var codigo = _nuevoCodigo(fRadicacion);
   var vals = {};
   vals[C.CODIGO] = codigo;
   vals[C.MARCA] = new Date();
@@ -1182,7 +1230,7 @@ function apiLeerFormulario_(urlOId) {
   }
 
   // Hoja de respuestas vinculada a este libro
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var urlFormVinculado = "";
   ss.getSheets().forEach(function (s) {
     try {
@@ -1290,7 +1338,7 @@ function apiGuardarMapeo_(mapa, idForm, hojaRespuestas) {
 function apiImportarRespuestasForm_(opciones) {
   opciones = opciones || {};
   var notificar = (opciones.notificar === false) ? false : true;
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var mapeo = _leerMapeo();
   var mapeoAuto = false;
   var nombreHoja = _param(7);
@@ -1364,7 +1412,7 @@ function apiImportarRespuestasForm_(opciones) {
     if (isNaN(marca.getTime())) continue;
     var soloFecha = _soloFecha_(marca);
     var fila = _proximaFila();
-    var codigo = _nuevoCodigo(soloFecha, d.tipoPqrs);
+    var codigo = _nuevoCodigo(soloFecha);
     var vals = {};
     vals[C.CODIGO] = codigo;
     vals[C.CANAL] = "QR - Formulario";
@@ -1499,7 +1547,7 @@ var CAMPO_LISTA = {
  */
 function apiEstadoFormulario_() { return _estadoFormulario_(null); }
 function _estadoFormulario_(datosPrevios) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var est = { vinculado: false, hoja: "", urlForm: "", respuestas: 0, mapeadas: 0,
               importadas: 0, pendientes: 0, disparador: false, problemas: [] };
 
@@ -1798,7 +1846,7 @@ function apiRadicarCorreo_(idMsg, d) {
 
   var soloFecha = _soloFecha_(d.fechaRecepcion) || _soloFecha_(msg.getDate());
   var fila = _proximaFila();
-  var codigo = _nuevoCodigo(soloFecha, d.tipoPqrs);
+  var codigo = _nuevoCodigo(soloFecha);
   var esFeli = _esFeli(d.tipoPqrs);
 
   var vals = {};
@@ -1879,7 +1927,7 @@ var PLANTILLAS_BASE = [
 ];
 
 function _hojaPlantillas_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var h = ss.getSheetByName("Plantillas");
   if (h) return h;
 
@@ -1922,7 +1970,7 @@ function apiGuardarPlantilla_(tipologia, texto) {
 var _TZ = null;
 function _tz_() {
   if (!_TZ) {
-    try { _TZ = SpreadsheetApp.getActiveSpreadsheet().getSpreadsheetTimeZone(); } catch (e) {}
+    try { _TZ = _ss_().getSpreadsheetTimeZone(); } catch (e) {}
     _TZ = _TZ || Session.getScriptTimeZone() || "America/Bogota";
   }
   return _TZ;
@@ -1971,7 +2019,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // ---------------------------------------------------------------------------
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
-var ESQUEMA = "8";
+var ESQUEMA = "8.1";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -2002,6 +2050,8 @@ function _migrar_(forzar) {
 
     // v8 · 1) Estructura: columnas nuevas, parámetros, festivos, términos, categorías, entidades y directorio.
     try { cambios = cambios.concat(_estructuraV8_(h)); } catch (e) { cambios.push("estructura: " + (e.message || e)); }
+    // v8.1 · una sola estructura de radicado
+    try { var u = _unificarRadicados_(); if (u) cambios.push(u + " radicado(s) unificado(s) en SIAU-AAAA-MM-NNNN"); } catch (e) { cambios.push("radicados: " + (e.message || e)); }
 
     var fin = _finFormulas_(h);
     var n = _finDatos_() - CFG.FILA_DATOS + 1;
@@ -2034,10 +2084,10 @@ function _migrar_(forzar) {
     if (!ef.ok) return { ok: false, hecho: false, mensaje: ef.mensaje };
 
     props.setProperty("ESQUEMA", ESQUEMA);
-    _traza("—", "Actualización v8", "Fechas ajustadas: " + corregidas + " · fórmulas hasta la fila " + fin +
+    _traza("—", "Actualización v8.1", "Fechas ajustadas: " + corregidas + " · fórmulas hasta la fila " + fin +
       (cambios.length ? " · " + cambios.join(" · ") : ""));
     return { ok: true, hecho: true, corregidas: corregidas,
-             mensaje: "Consolidado actualizado a la versión 8: sin límite de filas, festivos automáticos, riesgo según las circulares de la Supersalud " +
+             mensaje: "Consolidado actualizado a la versión 8.1: una sola estructura de radicado (SIAU-AAAA-MM-NNNN), sin límite de filas, festivos automáticos, riesgo según las circulares de la Supersalud " +
                       "(vital 24 h, vital en niñas, niños y adolescentes 8 h, priorizado 48 h) y directorio de áreas" +
                       (corregidas ? " · " + corregidas + " fecha(s) corregida(s)." : ".") };
   } finally {
@@ -2047,7 +2097,7 @@ function _migrar_(forzar) {
 
 /** Parámetros de Config (columna B, desde la fila 11): etiqueta y valor por defecto. */
 var PARAMS_V8 = [
-  [8, "Prefijo del radicado de felicitaciones", "FEL"],
+  [8, "(sin uso desde v8.1: todos los radicados usan el prefijo de B13)", ""],
   [9, "Importar respuestas del formulario desde (fecha y hora)", ""],
   [10, "Enlace a la política de tratamiento de datos personales", ""],
   [11, "Enlace público del formulario QR", ""],
@@ -2123,7 +2173,7 @@ function _festivosColombia_(y) {
 }
 /** Hoja Festivos (A: fecha, B: descripción), del año anterior a cinco años adelante. Agrega los años que falten. */
 function _hojaFestivos_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var h = ss.getSheetByName("Festivos"), creada = false;
   if (!h) {
     h = ss.insertSheet("Festivos");
@@ -2598,7 +2648,7 @@ function _categoriaTexto_(asunto, cuerpo) {
 var HILO_COLS = ["ID HILO", "CATEGORÍA", "ESTADO", "CORREO USUARIO", "ASUNTO", "ÁREA", "CORREO ÁREA",
                  "RADICADO", "ÚLTIMA ACCIÓN", "FECHA", "REGISTRADO POR"];
 function _hojaHilos_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var h = ss.getSheetByName("Gestion_Correo");
   if (h) return h;
   h = ss.insertSheet("Gestion_Correo");
@@ -3076,7 +3126,7 @@ var SESION = null;           // usuario de la llamada en curso (null = disparado
 var DURACION_SESION = 21600; // 6 horas (máximo de CacheService)
 
 function _hojaUsuarios_() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var h = ss.getSheetByName("Usuarios");
   if (h) return h;
   h = ss.insertSheet("Usuarios");
@@ -3131,9 +3181,32 @@ function _explicarError_(e) {
   if (!/permiso|permission|autoriz|authoriz|access|acceso/i.test(m)) return m;
   var cuenta = "";
   try { cuenta = Session.getEffectiveUser().getEmail() || ""; } catch (x) {}
-  return "La plataforma se está ejecutando con " + (cuenta ? "la cuenta «" + cuenta + "»" : "la cuenta de quien abre el enlace") +
-    ", que no tiene acceso al consolidado. El administrador debe entrar a Implementar ▸ Administrar implementaciones ▸ lápiz, " +
-    "poner «Ejecutar como: Yo (siau@miredips.org)», «Quién tiene acceso: Cualquier persona», elegir «Nueva versión» e Implementar.";
+  var personal = /@(gmail|hotmail|outlook|yahoo)\./i.test(cuenta);
+  return "La plataforma se está ejecutando con " + (cuenta ? "la cuenta «" + cuenta + "»" : "una cuenta sin acceso") +
+    ", que no tiene permiso sobre el consolidado." + (personal ? " Es una cuenta personal: Google usó la cuenta predeterminada del navegador." : "") +
+    " Solución: abre una ventana de incógnito (o un perfil de Chrome) con SOLO la cuenta del SIAU de MiRed, entra al consolidado ▸ Extensiones ▸ Apps Script " +
+    "y desde allí: Implementar ▸ Administrar implementaciones ▸ lápiz ▸ «Ejecutar como: Yo (cuenta del SIAU)», «Quién tiene acceso: Cualquier persona», Nueva versión ▸ Implementar.";
+}
+
+/**
+ * Ejecútala desde el editor de Apps Script (▶ Ejecutar) para saber con qué cuenta corre el código y si
+ * esa cuenta abre el consolidado. Solo funciona desde el editor: desde la web no devuelve nada.
+ */
+function verificarCuenta() {
+  var activa = "", efectiva = "";
+  try { activa = Session.getActiveUser().getEmail() || ""; } catch (e) {}
+  try { efectiva = Session.getEffectiveUser().getEmail() || ""; } catch (e) {}
+  if (!activa || activa !== efectiva) return "Solo se puede ejecutar desde el editor de Apps Script.";
+  var r = "Cuenta que ejecuta el código: " + efectiva + "\n";
+  try {
+    var ss = _ss_();
+    r += "✔ Abre el consolidado «" + ss.getName() + "» (dueño: " + (function () { try { return ss.getOwner().getEmail(); } catch (e) { return "?"; } })() + ").\n";
+    r += /@(gmail|hotmail|outlook|yahoo)\./i.test(efectiva)
+      ? "⚠ Es una cuenta personal. Implementa con la cuenta del SIAU de MiRed para que los correos salgan de allí y los datos queden en la cuenta institucional."
+      : "Listo para implementar: Implementar ▸ Nueva implementación ▸ Aplicación web ▸ Ejecutar como: Yo ▸ Cualquier persona.";
+  } catch (e) { r += "✖ " + (e.message || e); }
+  Logger.log(r);
+  return r;
 }
 
 /** Solo funciona mientras la hoja Usuarios esté vacía. */
@@ -3413,34 +3486,6 @@ function _tipoEnLista_(tipo) {
  *   modo "auto"     → confianza alta: se reclasifica y queda constancia (QR y correo)
  *   modo "sugerir"  → nunca cambia el tipo; deja la sugerencia (radicación presencial)
  */
-/**
- * v8 · Si el tipo cambia entre felicitación y PQRS, el radicado se pasa a la serie correcta
- * (FEL ↔ SIAU) para no mezclar la numeración institucional. La trazabilidad se conserva.
- */
-function _recodificar_(fila, tipoNuevo) {
-  var h = _h(CFG.HOJA_DATOS);
-  var actual = String(h.getRange(fila, C.CODIGO).getValue() || "").trim();
-  var m = RE_RAD.exec(actual.toUpperCase());
-  if (!m) return actual;
-  var pref = _prefijo_(tipoNuevo);
-  if (m[1] === pref || m[1] === "QR") return actual;
-  var fecha = h.getRange(fila, C.FECHA_RADICACION).getValue();
-  var nuevo = _nuevoCodigo(fecha instanceof Date ? fecha : new Date(), tipoNuevo);
-  h.getRange(fila, C.CODIGO).setValue(nuevo);
-  var obs = String(h.getRange(fila, C.OBSERVACIONES).getValue() || "");
-  h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Código anterior: " + actual + "]");
-  var ht = _h(CFG.HOJA_TRAZA), ut = ht.getLastRow();
-  if (ut >= CFG.TRAZA_FILA) {
-    var rg = ht.getRange(CFG.TRAZA_FILA, 2, ut - CFG.TRAZA_FILA + 1, 1), v = rg.getValues(), cambio = false;
-    v.forEach(function (r) { if (String(r[0]).trim() === actual) { r[0] = nuevo; cambio = true; } });
-    if (cambio) rg.setValues(v);
-  }
-  _invalidarDatos_();
-  _traza(nuevo, "Radicado reasignado", actual + " → " + nuevo + " (el tipo pasó a " + tipoNuevo + ")");
-  _traza(actual, "Radicado anulado", "Reemplazado por " + nuevo + ". Este número no se vuelve a usar.");   // reserva el consecutivo
-  return nuevo;
-}
-
 function _aplicarClasificador_(fila, modo) {
   var h = _h(CFG.HOJA_DATOS);
   var f = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
@@ -3453,11 +3498,8 @@ function _aplicarClasificador_(fila, modo) {
   if (modo === "auto" && (r.confianza === "alta" || !decl)) {
     h.getRange(fila, C.TIPO_PQRS).setValue(nuevo);
     h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Reclasificada: " + (decl || "sin tipo") + " → " + nuevo + "]");
-    if (_esFeli(decl) !== _esFeli(nuevo)) {
-      if (_esFeli(decl) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
-      r.codigo = _recodificar_(fila, nuevo);
-    }
-    _traza(r.codigo || f[C.CODIGO - 1], "Reclasificada automáticamente", "Declarado: " + (decl || "—") + " · según el texto: " + nuevo +
+    if (_esFeli(decl) && !_esFeli(nuevo) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
+    _traza(f[C.CODIGO - 1], "Reclasificada automáticamente", "Declarado: " + (decl || "—") + " · según el texto: " + nuevo +
       " (señales: " + r.razones.slice(0, 5).join(", ") + ")");
     r.aplicado = true;
   } else if (r.confianza !== "baja") {
@@ -3477,7 +3519,6 @@ function apiReclasificar_(codigo, tipo) {
   h.getRange(fila, C.TIPO_PQRS).setValue(tipo);
   h.getRange(fila, C.OBSERVACIONES).setValue(obs + (antes !== tipo ? " [Reclasificada: " + (antes || "sin tipo") + " → " + tipo + "]" : ""));
   if (_esFeli(antes) && !_esFeli(tipo) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
-  if (_esFeli(antes) !== _esFeli(tipo)) codigo = _recodificar_(fila, tipo);
   SpreadsheetApp.flush();
   _traza(codigo, "Tipo de PQRS ajustado", (antes || "—") + " → " + tipo);
   try { _evaluarPrioridadFila_(fila, "auto"); } catch (e) { Logger.log(e); }
@@ -3556,7 +3597,7 @@ var CATEGORIAS_BASE = [
 var PRIORIDADES = ["Crítica", "Alta", "Media", "Normal"];
 
 function _hojaConfigTabla_(nombre, cols, base) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   var h = ss.getSheetByName(nombre);
   if (h) return h;
   h = ss.insertSheet(nombre);
@@ -4628,7 +4669,7 @@ function apiFormularioQR_() {
   try {
     var form = id ? FormApp.openById(id) : null;
     if (!form) {
-      SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+      _ss_().getSheets().forEach(function (sh) {
         try { if (!form && sh.getFormUrl && sh.getFormUrl()) form = FormApp.openByUrl(sh.getFormUrl()); } catch (e) {}
       });
     }
@@ -4688,7 +4729,7 @@ function apiCrearFormulario_() {
   form.addParagraphTextItem().setTitle("Describa su solicitud").setHelpText("Cuéntenos qué pasó, cuándo y con quién. Si es una felicitación, a quién le quiere agradecer.").setRequired(true);
   form.setConfirmationMessage("¡Gracias! Recibimos su mensaje. Si dejó su correo, le enviaremos el número de radicado y la fecha límite de respuesta. " +
     "Oficina de Atención al Usuario · MiRed IPS.");
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss_();
   form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
   SpreadsheetApp.flush();
   var hoja = "";

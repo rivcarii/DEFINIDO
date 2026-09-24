@@ -1,4 +1,13 @@
-# Despliegue · versión 8
+# Despliegue · versión 8.1
+
+## ⚠ Antes de empezar: usa SOLO la cuenta de MiRed
+
+El error **«No cuentas con el permiso necesario para acceder al documento solicitado (línea 150, archivo Código)»** y que Google pida **iniciar sesión con tu correo personal** tienen la misma causa: el navegador tiene abiertas varias cuentas y Google usa la **predeterminada (la personal)** para el editor de Apps Script, la autorización y la implementación. Esa cuenta no tiene acceso al consolidado de MiRed.
+
+1. Abre una **ventana de incógnito** (Ctrl+Shift+N) o un **perfil de Chrome nuevo** e inicia sesión **solo** con la cuenta del SIAU de MiRed (siau@…). No agregues la personal.
+2. En esa ventana abre el consolidado ▸ **Extensiones ▸ Apps Script**. El proyecto debe crearse **desde la hoja** (vinculado), no desde script.google.com.
+3. Selecciona la función **verificarCuenta** ▸ ▶ **Ejecutar** ▸ revisa el registro: debe decir `Cuenta que ejecuta el código: siau@…` y `✔ Abre el consolidado`. Si sale la personal, cierra todo y repite el paso 1.
+4. Si ya tenías una implementación hecha con la cuenta personal: **archívala** y crea una nueva desde la cuenta del SIAU (§2). El enlace /exec cambia: compártelo de nuevo.
 
 Todo se hace con la sesión de la **cuenta SIAU** (siau@miredips.org). Esa cuenta es dueña del consolidado, envía los correos y la plataforma se ejecuta como ella. Los técnicos **no necesitan cuenta de Google ni acceso a la hoja**: entran con usuario y contraseña.
 
@@ -18,7 +27,7 @@ Todo se hace con la sesión de la **cuenta SIAU** (siau@miredips.org). Esa cuent
    (ya se generó y te lo entregué; repítelo si cambian los archivos de origen).
 2. Sube `PQRS_Consolidado_v8_2026_AAAAMMDD.xlsx` al **Drive de la cuenta SIAU** ▸ clic derecho ▸ Abrir con ▸ Hojas de cálculo de Google ▸ **Archivo ▸ Guardar como Hojas de cálculo de Google**. Borra el .xlsx subido.
 3. Archivo ▸ Configuración ▸ Configuración regional **Colombia** y zona horaria **(GMT-05:00) Bogotá**.
-4. Revisa la hoja **Migración_Revisar** (119 quejas/reclamos del formulario QR sin radicado SIAU y 1 del histórico sin radicado): si alguna ya se gestionó con otro radicado, anótalo en OBSERVACIONES.
+4. Revisa la hoja **Migración_Revisar** (120 casos que no tenían radicado: recibieron SIAU desde el 3515): si alguno ya se gestionó con otro radicado, anótalo en OBSERVACIONES. Todo el consolidado usa una sola estructura: **SIAU-AAAA-MM-NNNN**.
 
 ## 2. Código de la plataforma
 
@@ -78,7 +87,8 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 | Síntoma | Solución |
 |---|---|
 | «Necesitas acceso · Lector / Editor» | Compartiste el enlace de la hoja o el /dev. Usa el /exec (Usuarios y sedes ▸ Copiar enlace) |
-| «La plataforma se está ejecutando con la cuenta…» | Implementación en «Ejecutar como: Yo» + Nueva versión |
+| «La plataforma se está ejecutando con la cuenta…» / «No cuentas con el permiso… (línea 150)» | El código corre con una cuenta sin acceso (casi siempre la personal predeterminada del navegador). Ver «Antes de empezar» e implementa desde la cuenta del SIAU con «Ejecutar como: Yo» |
+| Pide iniciar sesión con el correo personal | Ventana de incógnito o perfil de Chrome solo con la cuenta de MiRed |
 | Los correos salen de otra cuenta | Implementa con la cuenta SIAU o configura siau@ como «Enviar como» y elígelo en Configuración |
 | `#ERROR!` en término o fecha máxima | Se reparan solas al abrir la plataforma; o menú PQRS ▸ Reparar fechas y fórmulas |
 | El formulario radicó respuestas viejas | Revisa Config B20 (fecha de corte) antes de vincular el formulario |

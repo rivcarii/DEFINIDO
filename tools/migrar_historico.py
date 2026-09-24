@@ -1,12 +1,14 @@
 """Migra el histórico 2026 al consolidado de la plataforma (versión 8).
 
 Une en un solo libro, con la estructura de 57 columnas de Consolidado_PQRS:
+  UNA SOLA ESTRUCTURA DE RADICADO: SIAU-AAAA-MM-NNNN para todo.
   1. HISTÓRICO CONSOLIDADO DE OPINIONES DEL USUARIO 2026 · hoja «QUEJAS SUGERENCIAS RECLAMO»
-     → conserva el radicado SIAU (…, SIAU-2026-09-3514). Lo que no tiene radicado recibe uno de la serie QR/HIS.
-  2. El mismo libro · hoja «FELICITACIONES» → serie FEL-AAAA-MM-NNNNN (antes no se codificaban).
+     → conserva su radicado SIAU (…, SIAU-2026-09-3514).
+  2. El mismo libro · hoja «FELICITACIONES» (antes no se codificaban).
   3. Respuestas del formulario QR (pqrs.xlsx) de 2026 que NO están en el histórico:
-       quejas, reclamos y sugerencias → serie QR-AAAA-MM-NNNN (se gestionaron en la hoja del formulario);
-       felicitaciones → serie FEL.
+       quejas, reclamos, sugerencias y felicitaciones.
+  Lo que no tenía radicado (2 y 3, y el caso del histórico sin código) recibe un radicado SIAU nuevo
+  a partir del siguiente al último del histórico (3515…), en orden cronológico; AAAA-MM es su mes real.
 Las fórmulas de términos, semáforo, días y oportunidad se escriben igual que las escribe la plataforma
 (se generan con el propio Codigo.gs), junto con las hojas Festivos, Categorias_Correo y Entidades_Correo.
 
@@ -322,7 +324,7 @@ def main():
             if numero_doc(v): ids_q.add(numero_doc(v))
         desc_q.add(compacto(r[20])[:30]); tel_q.add(numero_doc(r[15]))
     informe["Quejas, sugerencias y reclamos con radicado SIAU"] = sum(1 for x in registros if x["serie"] == "SIAU")
-    informe["Quejas, sugerencias y reclamos sin radicado en el histórico (serie HIS)"] = sum(1 for x in registros if x["serie"] == "HIS")
+    informe["Quejas, sugerencias y reclamos sin radicado en el histórico (reciben radicado SIAU nuevo)"] = sum(1 for x in registros if x["serie"] == "HIS")
 
     # ---- 2. felicitaciones del histórico
     fel_claves = set()
@@ -345,7 +347,7 @@ def main():
         registros.append({"f": f, "fecha": frad or dt.datetime(2026, 1, 1), "marca": frad, "serie": "FEL"})
         fel_claves.add((numero_doc(r[5]), frad.date() if frad else None))
         n_fel += 1
-    informe["Felicitaciones del histórico (serie FEL)"] = n_fel
+    informe["Felicitaciones del histórico (reciben radicado SIAU nuevo)"] = n_fel
 
     # ---- 3. formulario QR 2026 que no está en el histórico
     ix = {norm(t): i for i, t in enumerate(enc_form)}
@@ -401,25 +403,26 @@ def main():
             if texto(g(r, "proc")): obs.append("Solicitud al proceso: " + texto(g(r, "proc"))[:1500])
             poner(f, "OBSERVACIONES", " · ".join(obs))
             registros.append({"f": f, "fecha": fdia, "marca": marca, "serie": "QR"}); qr_q += 1
-    informe["Formulario QR 2026 · quejas, reclamos y sugerencias no tabuladas (serie QR)"] = qr_q
-    informe["Formulario QR 2026 · felicitaciones no tabuladas (serie FEL)"] = qr_f
+    informe["Formulario QR 2026 · quejas, reclamos y sugerencias no tabuladas (reciben radicado SIAU nuevo)"] = qr_q
+    informe["Formulario QR 2026 · felicitaciones no tabuladas (reciben radicado SIAU nuevo)"] = qr_f
     informe["Formulario QR 2026 · ya estaban en el histórico (omitidas)"] = dup_q + dup_f
 
-    # ---- orden cronológico y códigos de las series nuevas
+    # ---- orden cronológico y radicado SIAU único para lo que no lo tenía
     registros.sort(key=lambda x: (x["fecha"], x["marca"] if isinstance(x["marca"], dt.datetime) else x["fecha"]))
-    cont = collections.Counter()
+    siau = sorted(int(x["f"][0].split("-")[-1]) for x in registros if x["serie"] == "SIAU")
+    sig = (siau[-1] if siau else 3174) + 1
+    primero = sig
     for x in registros:
         f = x["f"]
         if x["serie"] == "SIAU":
             continue
-        cont[x["serie"]] += 1
         fr = f[C["FECHA_RADICACION"] - 1] or x["fecha"]
-        ancho = 5 if x["serie"] == "FEL" else 4
-        f[0] = "%s-%04d-%02d-%0*d" % (x["serie"], fr.year, fr.month, ancho, cont[x["serie"]])
+        f[0] = "SIAU-%04d-%02d-%04d" % (fr.year, fr.month, sig); sig += 1
         if x["serie"] in ("QR", "HIS"):
             revisar.append([f[0], f[C["FECHA_RADICACION"] - 1], f[C["TIPO_PQRS"] - 1], f[C["SEDE"] - 1], f[C["ESTADO"] - 1],
-                            "Revisar si ya fue gestionada con otro radicado; si es así, anotar el radicado SIAU en OBSERVACIONES."])
-    siau = sorted(int(x["f"][0].split("-")[-1]) for x in registros if x["serie"] == "SIAU")
+                            "Revisar si ya fue gestionada con otro radicado; si es así, anotar el radicado anterior en OBSERVACIONES."])
+    informe["Radicados SIAU asignados a lo que no tenía radicado"] = ("SIAU-…-%04d a SIAU-…-%d" % (primero, sig - 1)) if sig > primero else "ninguno"
+    informe["Siguiente radicado de la plataforma"] = "SIAU-AAAA-MM-%d" % sig
     informe["Último radicado SIAU migrado"] = "SIAU-…-%04d" % siau[-1] if siau else "—"
     informe["Consecutivos SIAU faltantes en el histórico"] = ", ".join(str(n) for n in range(siau[0], siau[-1] + 1) if n not in set(siau)) or "ninguno"
     informe["Total de registros en el consolidado"] = len(registros)
@@ -454,7 +457,7 @@ def main():
     cfg = wb["Config"]
     cfg["A9"], cfg["B9"], cfg["C9"], cfg["D9"] = "EPS", 3, "Calendario", "Circular Supersalud 2023151000000010-5 – reclamo de riesgo simple (72 h) si la EPS no indica otro"
     cfg["B11"] = siau[-1] if siau else 3514
-    for i, (lab, val) in enumerate([("Prefijo del radicado de felicitaciones", "FEL"),
+    for i, (lab, val) in enumerate([("(sin uso desde v8.1: todos los radicados usan el prefijo de B13)", ""),
                                     ("Importar respuestas del formulario desde (fecha y hora)", ultima_marca),
                                     ("Enlace a la política de tratamiento de datos personales", ""),
                                     ("Enlace público del formulario QR", "")]):
@@ -537,7 +540,8 @@ def main():
         le = wb["LÉEME"]
         le["A1"] = "SISTEMA DE GESTIÓN DE PQRS v8 — MiRed Barranquilla IPS"
         le["A2"] = ("Consolidado 2026 migrado el " + HOY.strftime("%d/%m/%Y") + ". Se gestiona desde la plataforma web; esta hoja es el respaldo. "
-                    "Series: SIAU (histórico institucional), FEL (felicitaciones), QR y HIS (casos migrados sin radicado SIAU: ver hoja Migración_Revisar).")
+                    "Radicado único SIAU-AAAA-MM-NNNN para todo. Los casos que no tenían radicado (felicitaciones y respuestas del QR) recibieron uno nuevo en orden cronológico; "
+                    "los del QR que no estaban en el histórico se listan en la hoja Migración_Revisar.")
 
     destino = salida / ("PQRS_Consolidado_v8_2026_" + HOY.strftime("%Y%m%d") + ".xlsx")
     wb.save(destino)

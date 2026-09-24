@@ -5,7 +5,7 @@ let fallas = 0;
 const assert = (c, m) => { if (!c) { console.log("FALLA:", m); fallas++; process.exitCode = 1; } else console.log("ok  ", m); };
 const medianoche = s => Utilities.parseDate(s, TZ, "yyyy-MM-dd");
 
-// ---------- libro: 450 registros históricos (SIAU hasta 3514 y felicitaciones FEL) ----------
+// ---------- libro: 450 registros (SIAU hasta 3514 y felicitaciones con la serie FEL de la primera versión, que v8.1 unifica) ----------
 const cons = new Hoja("Consolidado_PQRS");
 const H = ["CÓDIGO DE RADICACIÓN"]; for (let i = 2; i <= 53; i++) H.push("COL" + i);
 H[31] = "TÉRMINO (días)"; H[35] = "DÍAS TRANSCURRIDOS";
@@ -72,25 +72,30 @@ const val = (cod, col) => cons.celda(fila(cod), col);
 
 console.log("---- v8: núcleo ----");
 const boot = G.appBootstrap_();
-assert(boot.migracion.hecho && G.__props.ESQUEMA === "8", "migración a la versión 8: " + boot.migracion.mensaje);
+assert(boot.migracion.hecho && G.__props.ESQUEMA === "8.1", "migración a la versión 8: " + boot.migracion.mensaje);
 assert(G._finDatos_() === 454, "rango dinámico: último registro en la fila 454 (450 registros, más del antiguo tope de 400)");
 assert(cons.celda(4, 54) && cons.celda(4, 57), "encabezados nuevos (nivel de riesgo … área sugerida)");
 assert(G._hojaFestivos_().hoja.getLastRow() > 100 && cons.formulas["5:34"].indexOf("Festivos!") !== -1, "festivos en su hoja y fórmulas que la usan");
 assert(Object.keys(cons.formulas).some(k => k === "654:36"), "fórmulas con colchón de 200 filas");
 assert(cfg.celda(9, 1) === "EPS" && cfg.celda(9, 2) === 3, "término para EPS en la tabla de términos");
+const codsBoot = []; for (let i = 5; i <= 454; i++) codsBoot.push(cons.celda(i, 1));
+assert(codsBoot.every(c => /^SIAU-\d{4}-\d{2}-\d{4,}$/.test(c)), "una sola estructura de radicado: todo quedó SIAU-AAAA-MM-NNNN");
+const unif = codsBoot.filter(c => +c.split("-")[3] > 3514).map(c => +c.split("-")[3]).sort((a, b) => a - b);
+assert(unif.length === 299 && unif[0] === 3515 && unif[298] === 3813, "las 299 felicitaciones FEL reciben 3515…3813 en orden de radicación");
+assert(/\[Radicado anterior: FEL-/.test(cons.d.map(f => f[50]).join(" ")), "el radicado anterior queda en OBSERVACIONES");
 const radQ = G.apiRadicar_({ descripcion: "Me atendieron tarde en urgencias.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA",
   sede: "C. LA PLAYA", servicio: "URGENCIAS", correo: "q@correo.com", autorizacionDatos: "Sí autoriza · 23/9/2026" });
-assert(radQ.codigo === "SIAU-2026-09-3515", "la serie SIAU continúa el histórico: " + radQ.codigo);
+assert(radQ.codigo === "SIAU-2026-09-3814", "el consecutivo sigue después del mayor radicado: " + radQ.codigo);
 assert(fila(radQ.codigo) === 455, "la radicación 451 se escribe en la fila 455 y se encuentra por radicado");
 assert(/Sí autoriza/.test(val(radQ.codigo, 56)), "autorización de tratamiento de datos guardada");
 const radF = G.apiRadicar_({ descripcion: "Felicito a la jefe de enfermería de urgencias, muy humana.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23",
   tipoPqrs: "FELICITACION", sede: "P. LA 21", servicio: "URGENCIAS", correo: "f@correo.com" });
-assert(radF.codigo === "FEL-2026-09-00300", "felicitaciones en su propia serie: " + radF.codigo);
+assert(radF.codigo === "SIAU-2026-09-3815", "las felicitaciones usan la misma estructura y consecutivo: " + radF.codigo);
 const radQ2 = G.apiRadicar_({ descripcion: "Otra queja por demora.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA", sede: "C. LA PLAYA" });
-assert(radQ2.codigo === "SIAU-2026-09-3516", "las felicitaciones no consumen consecutivos SIAU: " + radQ2.codigo);
+assert(radQ2.codigo === "SIAU-2026-09-3816", "consecutivo único para todos los tipos: " + radQ2.codigo);
 const antes = radF.codigo;
 const rec = G.apiReclasificar_(antes, "QUEJA");
-assert(/^SIAU-2026-09-3517$/.test(rec.codigo) && fila(antes) < 0, "al pasar de felicitación a queja se reasigna a la serie SIAU: " + rec.codigo);
+assert(rec.codigo === antes && fila(antes) > 0, "al pasar de felicitación a queja el radicado no cambia: " + rec.codigo);
 assert(G._trazaDe(rec.codigo).some(t => t.accion === "Radicación"), "la trazabilidad sigue al nuevo radicado");
 assert(val(rec.codigo, 31) === "SEDE", "la queja reclasificada recibe entidad presentada SEDE (término de 15 días)");
 
@@ -99,8 +104,7 @@ G._setParam(9, new Date(Date.now() - 5 * 86400000));
 const imp = G.apiImportarRespuestasForm_({ notificar: false });
 assert(imp.ok && imp.importadas === 1 && /anteriores a la fecha de corte/.test(imp.mensaje), "solo importa lo posterior al corte: " + imp.mensaje);
 const cFel = cons.celda(G._finDatos_(), 1);
-assert(cFel === "FEL-2026-09-00301", "un radicado reasignado nunca se reutiliza (FEL-…-00300 queda anulado): " + cFel);
-assert(/^FEL-/.test(cFel) && cons.celda(G._finDatos_(), 22) === "C. SUROCCIDENTE", "respuesta del QR normalizada («Camino Sur Occidente» → C. SUROCCIDENTE) y en serie FEL: " + cFel);
+assert(cFel === "SIAU-2026-09-3817" && cons.celda(G._finDatos_(), 22) === "C. SUROCCIDENTE", "respuesta del QR con radicado SIAU y sede normalizada («Camino Sur Occidente» → C. SUROCCIDENTE): " + cFel);
 assert(G.apiImportarRespuestasForm_({ notificar: false }).importadas === 0, "no duplica al importar otra vez");
 
 console.log("---- v8: priorización (circulares Supersalud) ----");
@@ -168,10 +172,10 @@ assert(radA.direccionada === "FARMACIA" && /gestión/i.test(val(radA.codigo, 37)
 console.log("---- v8: respuesta, cierre y redacción ----");
 G.apiRegistrarRespuestaArea_(radQ.codigo, "BUENAS TARDES SIAU\n\nSE HABLO CON EL MEDICO DE TURNO Y SE REFORZO EL TRIAGE EN LA TARDE.\n\nCORDIALMENTE\nCOORDINACION URGENCIAS", "2026-09-23");
 const red = G.apiRedactarRespuesta_(radQ.codigo, "");
-assert(red.ok && /^Apreciado\(a\)/.test(red.texto) && /Se habló|Se hablo/.test(red.texto) && !/CORDIALMENTE|BUENAS TARDES SIAU/.test(red.texto) && /SIAU-2026-09-3515/.test(red.texto),
+assert(red.ok && /^Apreciado\(a\)/.test(red.texto) && /Se habló|Se hablo/.test(red.texto) && !/CORDIALMENTE|BUENAS TARDES SIAU/.test(red.texto) && /SIAU-2026-09-3814/.test(red.texto),
   "redacción formal: saludo, referencia al radicado, sin firma interna ni mayúsculas sostenidas");
 const cierre = G.apiResponderUsuario_(radQ.codigo, red.texto, true);
-assert(cierre.aviso.area && enviados().some(e => /^\[CERRADA · PQRS SIAU-2026-09-3515\]/.test(e.asunto)), "cuarto paso: el área recibe el aviso de cierre");
+assert(cierre.aviso.area && enviados().some(e => /^\[CERRADA · PQRS SIAU-2026-09-3814\]/.test(e.asunto)), "cuarto paso: el área recibe el aviso de cierre");
 
 console.log("---- v8: entes de control y juzgados ----");
 const pc = G._procesarCorreo_();
@@ -187,6 +191,17 @@ const bloqueo = JSON.parse(G.doPost({ postData: { contents: JSON.stringify({ fn:
 assert(bloqueo.__error, "doPost no expone funciones internas");
 const sinSesion = JSON.parse(G.doPost({ postData: { contents: JSON.stringify({ fn: "api", args: ["x", "apiBandeja", []] }) } }).getContent());
 assert(sinSesion.r && sinSesion.r.__sesion === false, "doPost exige sesión para la API");
+{ // cuenta personal predeterminada del navegador: el mensaje lo dice y cómo corregirlo
+  const oSS = G.SpreadsheetApp.getActiveSpreadsheet, oSe = G.Session.getEffectiveUser, ssAntes = G._SS_;
+  G._SS_ = null; G.__props.CONSOLIDADO_ID = "";
+  G.SpreadsheetApp.getActiveSpreadsheet = () => { throw new Error("No cuentas con el permiso necesario para acceder al documento solicitado."); };
+  G.Session.getEffectiveUser = () => ({ getEmail: () => "persona.ficticia@gmail.com" });
+  const li = G.iniciarSesion("x", "y");
+  G.SpreadsheetApp.getActiveSpreadsheet = oSS; G.Session.getEffectiveUser = oSe; G._SS_ = ssAntes;
+  assert(!li.ok && /persona\.ficticia@gmail\.com/.test(li.mensaje) && /cuenta personal/.test(li.mensaje) && /incógnito/.test(li.mensaje),
+    "si Google usa la cuenta personal, el ingreso dice cuál es y cómo corregirlo");
+  assert(G.verificarCuenta() === "Solo se puede ejecutar desde el editor de Apps Script." || /Cuenta que ejecuta/.test(G.verificarCuenta()), "verificarCuenta responde");
+}
 const dg = G.apiDiagnostico_();
 assert(dg.items.length >= 10 && dg.items.some(x => !x.ok && /Disparador/.test(x.titulo)), "diagnóstico de la puesta en marcha con soluciones");
 assert(G._festivosColombia_(2026).map(x => x[0]).join() === "2026-01-01,2026-01-12,2026-03-23,2026-04-02,2026-04-03,2026-05-01,2026-05-18,2026-06-08,2026-06-15,2026-06-29,2026-07-20,2026-08-07,2026-08-17,2026-10-12,2026-11-02,2026-11-16,2026-12-08,2026-12-25",

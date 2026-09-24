@@ -6,7 +6,7 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 
 1. Subir el consolidado migrado y pegar el código (`docs/DESPLIEGUE.md` §1–§3). Validar en incógnito desde un celular.
 2. **Correos de las áreas y reglas del directorio** en Áreas responsables: sin correo no se puede direccionar ni entregar felicitaciones.
-3. **Revisar la hoja Migración_Revisar**: 119 casos QR y 1 HIS sin radicado SIAU. El consecutivo SIAU **3422** no existe en el histórico: confirmar si se anuló.
+3. **Revisar la hoja Migración_Revisar**: 120 casos que no tenían radicado en el histórico (recibieron SIAU 3515 en adelante). El consecutivo SIAU **3422** no existe en el histórico: confirmar si se anuló.
 4. Verificar dominios supuestos de entes: `@personeriabarranquilla.gov.co`, `@contraloriabarranquilla.gov.co`, `@atlantico.gov.co`, `@icbf.gov.co` (Configuración ▸ Entidades).
 5. Publicar la **política de tratamiento de datos** de MiRed IPS y pegar su enlace en Config B21 (aparece en el formulario y en los correos).
 6. Si Workspace no permite «Cualquier persona»: gestionar con TI (§4 de DESPLIEGUE).

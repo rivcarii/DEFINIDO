@@ -2,7 +2,7 @@
 
 Plataforma del SIAU (Google Sheets + Apps Script + Google Forms) que unifica en un solo consolidado las PQRS del **formulario QR**, el **correo institucional** (EPS, entes de control y juzgados), la **atención presencial, telefónica y en papel** de las 40 sedes, con términos legales, priorización por riesgo y trazabilidad.
 
-**Versión 8.0**
+**Versión 8.1** · radicado único SIAU-AAAA-MM-NNNN
 
 - Consolidado sin tope de filas (probado con los 13.200 registros de 2026) y festivos automáticos.
 - **Prioritarias**: riesgo vital en niñas, niños y adolescentes en 8 horas (Circular Supersalud 2026151000000007-5), riesgo vital 24 h y priorizado 48 h (Circular 2023151000000010-5), con alarma sonora, Google Chat, correo y cuenta regresiva. Comando **Identificar prioritarias**.
@@ -11,7 +11,7 @@ Plataforma del SIAU (Google Sheets + Apps Script + Google Forms) que unifica en 
 - Aviso de protección de datos (Ley 1581 de 2012) y autorización de tratamiento en la radicación y en el formulario.
 - **QR del formulario** con afiche imprimible, creación del formulario nuevo y diagnóstico de la puesta en marcha.
 - Acceso sin cuenta de Google (usuario y contraseña por técnico y sedes) y **portal** opcional con dirección propia.
-- Migración del histórico 2026 (`tools/migrar_historico.py`): radicados SIAU hasta SIAU-2026-09-3514, felicitaciones en serie FEL y respuestas del QR no tabuladas en serie QR.
+- Migración del histórico 2026 (`tools/migrar_historico.py`): conserva SIAU hasta 3514 y da radicado SIAU (3515–16379) a felicitaciones y respuestas del QR que no lo tenían.
 
 ## Empezar
 

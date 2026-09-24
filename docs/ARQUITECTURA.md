@@ -247,16 +247,14 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
 - `_datos_()` lee todas las filas (57 columnas); `_codigos_()` guarda la columna A en memoria para `_filaDe` y el consecutivo. `_escribir()` escribe por tramos sin tocar las columnas con fórmula.
 - Columnas nuevas: BB (54) NIVEL DE RIESGO, BC (55) POBLACIÓN PRIORIZADA, BD (56) AUTORIZACIÓN TRATAMIENTO DE DATOS, BE (57) ÁREA SUGERIDA.
 - Fórmulas: FECHA MÁXIMA usa `Festivos!$A$2:$A$400`. La hoja **Festivos** se calcula sola (`_festivosColombia_`, Ley 51 de 1983) y se completa en `rutinaDiaria`.
-- Config: fila 9 = término EPS (72 h). Parámetros nuevos B19 prefijo FEL, B20 fecha de corte del formulario, B21 política de datos, B22 enlace del QR.
+- Config: fila 9 = término EPS (72 h). Parámetros nuevos B19 (sin uso desde 8.1), B20 fecha de corte del formulario, B21 política de datos, B22 enlace del QR.
 - Migración `ESQUEMA` "8": `_estructuraV8_` agrega encabezados, parámetros, término EPS, festivos, categorías y entidades nuevas (`_completarTabla_`) y columnas del directorio (`_directorioV8_`). Es idempotente.
 
-### 10.2 Series de radicado
-| Serie | Uso | Consecutivo |
-|---|---|---|
-| `SIAU-AAAA-MM-NNNN` | PQRS de cualquier canal | Continúa el histórico (Config B11 = 3514 → 3515) |
-| `FEL-AAAA-MM-NNNNN` | Felicitaciones | Propio |
-| `QR-…`, `HIS-…` | Solo histórico migrado sin radicado SIAU | Solo migración |
-`_recodificar_` mueve un caso entre SIAU y FEL cuando el tipo cambia (clasificador o ajuste manual), reescribe su trazabilidad y deja «Radicado anulado» con el número viejo para que no se reutilice.
+### 10.2 Radicado (v8.1: una sola estructura)
+`SIAU-AAAA-MM-NNNN` para todos los tipos (felicitaciones incluidas) y canales, con un consecutivo único: `_siguienteConsecutivo()` toma el mayor número del consolidado y de la trazabilidad (mínimo Config B11). AAAA-MM = mes de radicación; desde 10000 sigue con 5 cifras. En la migración del histórico, lo que no tenía radicado recibió SIAU 3515–16379 en orden cronológico (siguiente: 16380). `_unificarRadicados_` (ESQUEMA 8.1) convierte en el consolidado cualquier código de otro prefijo (FEL/QR/HIS de la primera entrega) y deja el anterior en OBSERVACIONES y en la trazabilidad.
+
+### 10.2.1 Acceso al consolidado
+`_ss_()` abre la hoja vinculada (o la guardada en `CONSOLIDADO_ID`). Si Google responde «No cuentas con el permiso necesario…» (el código corre con una cuenta sin acceso, típicamente la cuenta personal predeterminada del navegador), `_explicarError_` muestra la cuenta y los pasos. `verificarCuenta()` se ejecuta desde el editor para comprobar la cuenta antes de implementar.
 
 ### 10.3 Priorización
 - `_evaluarRiesgo_(fila)` → `{ nivel, categoria, razones, poblacion, horas }` con `SENALES_VITAL`, `POBLACIONES` y `RE_BARRERA`.

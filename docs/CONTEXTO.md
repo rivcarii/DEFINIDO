@@ -80,7 +80,11 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 - Transcribir todo 2026 al consolidado nuevo **hasta el último radicado** del «Histórico consolidado de opiniones del usuario 2026» (SIAU-2026-09-3514).
 - Apariencia de plataforma de sistema de gestión integrado (solo PQRS). Logo MiRed IPS y mascota del SIAU.
 
-**Resultado de la migración (24/09/2026):** 13.200 registros: 335 PQRS con radicado SIAU (3179–3514, falta el 3422 en el histórico), 12.745 felicitaciones (9.214 del histórico + 3.531 del formulario QR que no estaban tabuladas) en serie FEL, 119 quejas/reclamos/sugerencias del QR gestionadas en la hoja del formulario sin radicado (serie QR) y 1 del histórico sin radicado (serie HIS). 109 respuestas del QR ya estaban en el histórico y se omitieron.
+**Resultado de la migración (24/09/2026):** 13.200 registros, todos con radicado SIAU-AAAA-MM-NNNN: 335 PQRS conservan su radicado (3179–3514, falta el 3422 en el histórico); 12.745 felicitaciones (9.214 del histórico + 3.531 del QR no tabuladas), 119 quejas/reclamos/sugerencias del QR gestionadas solo en la hoja del formulario y 1 del histórico sin código reciben SIAU 3515–16379 en orden cronológico. 109 respuestas del QR ya estaban en el histórico y se omitieron. Siguiente radicado: 16380.
+
+### v8.1 (ajustes pedidos al revisar)
+- **Una única estructura de radicado** para todo: se eliminaron las series FEL/QR/HIS.
+- Error «No cuentas con el permiso necesario… (línea 150)» e inicio de sesión con el correo personal: Google estaba usando la cuenta predeterminada del navegador (personal), que no tiene acceso al consolidado de MiRed. Se documentó el procedimiento con una ventana de incógnito/perfil solo con la cuenta del SIAU, se agregó `verificarCuenta()` y el mensaje ahora dice qué cuenta se está usando.
 
 ## 3. Decisiones de diseño (y por qué)
 
@@ -99,8 +103,8 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 | Vista previa con el backend real en el navegador | River revisa el diseño sin desplegar. Las pruebas E2E usan el mismo archivo |
 | **v8 · Evolucionar v7.3 en vez de reescribir** | La base tenía 110 pruebas, diseño aprobado y seguridad correcta. Los problemas eran el tope de 400 filas, el despliegue y faltantes funcionales |
 | v8 · Fin de datos calculado (`_finDatos_`) y escritura al final | Quita el tope sin cambiar las 53 columnas históricas ni sus fórmulas |
-| v8 · Serie FEL para felicitaciones | Son ~1.400 al mes y antes no se codificaban: con la serie SIAU se habría disparado la numeración institucional |
-| v8 · Serie QR para lo gestionado solo en la hoja del formulario | No se inventan radicados SIAU retroactivos; quedan identificadas para revisión (hoja Migración_Revisar) |
+| v8.1 · Radicado único SIAU para todo (se descartaron las series FEL/QR de v8.0) | River pidió una sola estructura. Consecuencia aceptada: el consecutivo avanza ~1.400 números al mes por las felicitaciones |
+| v8.1 · Lo migrado sin radicado recibe SIAU después del 3514, en orden cronológico | Los radicados existentes no se tocan; los casos del QR sin radicado quedan listados en Migración_Revisar |
 | v8 · Fecha de corte del formulario (Config B20) | Al vincular el formulario Google copia 4.500 respuestas desde 2023: sin corte se habrían radicado todas |
 | v8 · Motor de riesgo por señales, explicable | Sin servicios externos (los datos de salud no salen de la cuenta), con razones visibles y ajuste manual; calibrado con el histórico real (≈7 % de las PQRS marcadas) |
 | v8 · Redactor de respuesta por reglas, no IA | La respuesta del área se limpia (firmas, mayúsculas, citas) y se envuelve en el formato institucional sin enviar datos a terceros |
@@ -116,5 +120,5 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 ## 5. Estado al entregar (v8.0)
 
 - Código probado: 110 verificaciones de v7 + 60 de v8, cada una en las 2 configuraciones regionales; lint sin errores; E2E en 4 anchos (incluida la vista Prioritarias, el QR y el diagnóstico) y E2E del portal por doPost.
-- El libro migrado se validó cargándolo en el banco de pruebas con el backend real (siguiente radicado SIAU-2026-09-3515, FEL-2026-09-12746).
+- El libro migrado se validó cargándolo en el banco de pruebas con el backend real (siguiente radicado SIAU-2026-09-16380).
 - Pendiente en producción: `docs/DESPLIEGUE.md` §1–§3 (subir el consolidado migrado a la cuenta SIAU, pegar el código, implementar, disparadores, formulario y usuarios).

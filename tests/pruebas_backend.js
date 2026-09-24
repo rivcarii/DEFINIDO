@@ -94,7 +94,7 @@ const fr = cons.celda(5, 5);
 assert(Utilities.formatDate(fr, TZ, "HH:mm") === "00:00" && Utilities.formatDate(fr, TZ, "dd") === "03", "fecha desplazada corregida a medianoche del día correcto (" + Utilities.formatDate(fr, TZ, "yyyy-MM-dd HH:mm") + ")");
 const finDatos = 4 + n;   // último registro del libro de prueba
 assert(Object.keys(cons.formulas).length === (finDatos + 200 - 4) * 6, "fórmulas hasta el último registro + 200 filas de colchón: " + Object.keys(cons.formulas).length);
-assert(G.__props.ESQUEMA === "8", "versión de esquema guardada");
+assert(G.__props.ESQUEMA === "8.1", "versión de esquema guardada");
 assert(cons.formulas["5:34"].indexOf("Festivos!$A$2:$A$400") !== -1, "fecha máxima con la hoja de festivos");
 assert(G.appBootstrap_().migracion.hecho === false, "la migración no se repite");
 fs.writeFileSync(__dirname + "/salida/formulas_muestra.json", JSON.stringify({ AF: cons.formulas["5:32"], AG: cons.formulas["5:33"], AH: cons.formulas["5:34"], AI: cons.formulas["5:35"], AJ: cons.formulas["5:36"], AT: cons.formulas["5:46"] }, null, 1));
@@ -310,7 +310,7 @@ const envF = G.apiEnviarAlArea_(rf.codigo, 1, "");
 const reco = G.__enviados.find(e => /^\[RECONOCIMIENTO/.test(e.asunto));
 assert(reco && /reconoce la labor de su equipo/.test(reco.html) && !/Qué se requiere/.test(reco.html), "a el área le llega un reconocimiento, no una solicitud de gestión");
 assert(!G.__enviados.some(e => /^Entregamos su felicitación/.test(e.asunto)), "v8: la felicitación solo lleva el acuse (no se le escribe de nuevo al usuario)");
-assert(/cerrada/i.test(envF.estado) && /FEL-2026-09-\d{5}/.test(rf.codigo), "v8: felicitación con serie FEL y cerrada al entregarse al área: " + rf.codigo + " · " + envF.estado);
+assert(/cerrada/i.test(envF.estado) && /^SIAU-2026-09-\d{4}$/.test(rf.codigo), "v8.1: felicitación con radicado SIAU y cerrada al entregarse al área: " + rf.codigo + " · " + envF.estado);
 G.apiResponderUsuario_(rf.codigo, "Cordial saludo.\n\nGracias por escribirnos.\n\nAtentamente,\nSIAU", true);
 const finF = G.__enviados.filter(e => /Gracias por su felicitación/.test(e.asunto)).pop();
 assert(/<p [^>]*>Gracias por escribirnos\.<\/p>/.test(finF.html) && /Atentamente,<br\/>SIAU/.test(finF.html), "respuesta final con párrafos separados");
@@ -323,10 +323,11 @@ if (alertaMail) fs.writeFileSync(__dirname + "/salida/muestra_alerta.html", aler
 console.log("fin v7.1");
 // v7.2 · diagnóstico cuando la implementación se ejecuta con la cuenta del visitante
 {
-  const orig = G.SpreadsheetApp.getActiveSpreadsheet;
+  const orig = G.SpreadsheetApp.getActiveSpreadsheet, ssAntes = G._SS_;
+  G._SS_ = null;   // cada ejecución de Apps Script empieza sin el consolidado en memoria
   G.SpreadsheetApp.getActiveSpreadsheet = () => { throw new Error("No cuentas con el permiso necesario para acceder al documento solicitado."); };
   const ea = G.estadoAcceso(), li = G.iniciarSesion("tecnico1", "x");
-  G.SpreadsheetApp.getActiveSpreadsheet = orig;
+  G.SpreadsheetApp.getActiveSpreadsheet = orig; G._SS_ = ssAntes;
   assert(/Ejecutar como: Yo/.test(ea.error) && /siau@miredips.org/.test(ea.error), "estadoAcceso explica cómo corregir la implementación");
   assert(!li.ok && /Ejecutar como: Yo/.test(li.mensaje), "el ingreso explica el error de permisos en vez del mensaje de Google");
 }

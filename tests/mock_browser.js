@@ -63,7 +63,7 @@ traza.poner(4,1,"FECHA Y HORA"); resp.poner(4,1,"ID");
  [7,"Talento humano","","","","","SI"],
  [8,"Asignación de citas","Paola Díaz","Coordinadora de agendamiento","citas@miredips.org","","SI"]].forEach(function(f,i){ f.forEach(function(v,j){ resp.poner(5+i,j+1,v); }); });
 [["SEDE",15,"Hábiles"],["SUPER SALUD",1,"Calendario"],["SECRETARIA DE SALUD",3,"Calendario"]].forEach(function(f,i){ f.forEach(function(v,j){ cfg.poner(6+i,j+1,v); }); });
-[3174,3,"SIAU","siau@miredips.org","(605) 385 0000","300 000 0000","","","FEL","","","https://forms.gle/PQRSMiRedIPS"].forEach(function(v,i){ cfg.poner(11+i,2,v); });
+[3174,3,"SIAU","siau@miredips.org","(605) 385 0000","300 000 0000","","","","","","https://forms.gle/PQRSMiRedIPS"].forEach(function(v,i){ cfg.poner(11+i,2,v); });
 var SEDES=["Camino Bosque de María","Camino Ciudadela 20 de Julio","Camino La Playa","Camino Luz Chinita","Paso Soledad"];
 var SERV=["Urgencias","Consulta externa","Farmacia","Laboratorio clínico","Imágenes diagnósticas","Hospitalización","Odontología"];
 var TIPOS=["Queja","Petición","Reclamo","Sugerencia","Felicitación","Denuncia","Tutela"];

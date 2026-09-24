@@ -12,7 +12,7 @@
    - es **prioritaria** (riesgo vital en un menor → 8 horas; riesgo vital → 24 h; gestante, persona mayor, discapacidad, cáncer… con barrera de acceso → 48 h);
    - qué **área** debería atenderla.
 5. **Autorización de datos**: lee el aviso al usuario y marca si autoriza, no autoriza o es anónima.
-6. **Radicar** ▸ escribe el radicado (SIAU-… o FEL-…) en el papel antes de archivarlo.
+6. **Radicar** ▸ escribe el radicado (SIAU-AAAA-MM-NNNN) en el papel antes de archivarlo.
 
 Si la PQRS es de **riesgo vital**, la plataforma suena y avisa al SIAU central de inmediato; además, comunícalo por teléfono a la coordinación de la sede.
 
