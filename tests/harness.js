@@ -58,6 +58,10 @@ class Hoja {
   getDataRange() { const n = this.getLastRow(); const m = Math.max(...this.d.slice(0, n).map(f => f.length), 1); return this.getRange(1, 1, n, m); }
   getFormUrl() { return this.formUrl || null; }
   setColumnWidth() {} setFrozenRows() {} hideSheet() {}
+  getMaxRows() { return Math.max(this.maxRows || 1000, this.d.length); }
+  insertRowsAfter(r, n) { this.maxRows = this.getMaxRows() + n; }
+  getMaxColumns() { return 60; } insertColumnsAfter() {}
+  getLastColumn() { return Math.max(0, ...this.d.map(f => { let n = f.length; while (n > 0 && (f[n - 1] === "" || f[n - 1] === null || f[n - 1] === undefined)) n--; return n; })); }
 }
 
 function crear(hojas, gmail) {

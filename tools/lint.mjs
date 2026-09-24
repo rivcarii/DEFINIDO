@@ -13,7 +13,7 @@ const GAS = g(["SpreadsheetApp", "GmailApp", "DriveApp", "Utilities", "Session",
   "PropertiesService", "LockService", "UrlFetchApp", "MailApp", "FormApp", "Logger", "ContentService", "Charts", "console"]);
 const NAV = g(["window", "document", "google", "console", "setTimeout", "clearTimeout", "setInterval", "clearInterval", "Notification",
   "AudioContext", "webkitAudioContext", "localStorage", "sessionStorage", "navigator", "location", "Promise", "requestAnimationFrame",
-  "getComputedStyle", "FileReader", "Blob", "URL", "atob", "btoa", "Intl", "matchMedia", "Option", "TextDecoder", "Chart", "encodeURIComponent"]);
+  "getComputedStyle", "FileReader", "Blob", "URL", "atob", "btoa", "Intl", "matchMedia", "Option", "TextDecoder", "Chart", "encodeURIComponent", "fetch", "qrcode", "IMG_MASCOTA", "Image", "XMLSerializer", "decodeURIComponent"]);
 
 const revisar = async (texto, nombre, globals) => {
   const e = new ESLint({ overrideConfigFile: true,

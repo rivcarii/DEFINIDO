@@ -44,6 +44,11 @@
   <symbol id="i-salir" viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M12 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"/></symbol>
   <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></symbol>
   <symbol id="i-ojo" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-estrella" viewBox="0 0 24 24"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2L12 17.3 6.4 20.2l1.1-6.2L3 9.6l6.2-.9z"/></symbol>
+  <symbol id="i-varita" viewBox="0 0 24 24"><path d="m15 4 1 2 2 1-2 1-1 2-1-2-2-1 2-1zM19 12l.6 1.4L21 14l-1.4.6L19 16l-.6-1.4L17 14l1.4-.6zM3 21l11-11 1 1L4 22z"/></symbol>
+  <symbol id="i-imprimir" viewBox="0 0 24 24"><path d="M6 9V3h12v6M6 18H4a1 1 0 0 1-1-1v-6a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v6a1 1 0 0 1-1 1h-2"/><rect x="6" y="14" width="12" height="7" rx="1"/></symbol>
+  <symbol id="i-descargar" viewBox="0 0 24 24"><path d="M12 3v12M7 10l5 5 5-5M4 21h16"/></symbol>
+  <symbol id="i-rayo" viewBox="0 0 24 24"><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></symbol>
   <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
 </svg>
 
@@ -58,9 +63,11 @@
         <div class="canal"><svg class="ic"><use href="#i-qr"/></svg>Formulario QR</div>
         <div class="canal"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS</div>
         <div class="canal"><svg class="ic"><use href="#i-sede"/></svg>Sedes y ventanilla</div>
-        <div class="canal"><svg class="ic"><use href="#i-alerta"/></svg>Alertas de vencimiento</div>
+        <div class="canal"><svg class="ic"><use href="#i-escudo"/></svg>Riesgo vital y prioritarias</div>
+        <div class="canal"><svg class="ic"><use href="#i-estrella"/></svg>Felicitaciones al equipo</div>
       </div>
     </div>
+    <img class="acceso-mascota" id="mascotaAcceso" alt="" src="">
     <div class="acceso-pie">Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
   </div>
   <div class="acceso-form">
@@ -81,6 +88,7 @@
     <p class="grupo">Operación</p>
     <button class="on" data-v="inicio"><svg class="ic"><use href="#i-inicio"/></svg>Inicio</button>
     <button data-v="bandeja"><svg class="ic"><use href="#i-bandeja"/></svg>Bandeja de PQRS</button>
+    <button data-v="prioritarias"><svg class="ic"><use href="#i-escudo"/></svg>Prioritarias <span class="badge rojo" id="navPrio" hidden>0</span></button>
     <button data-v="correo" data-perm="correo"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS <span class="badge" id="navCorreo" hidden>0</span></button>
     <button data-v="radicar" data-perm="radicar"><svg class="ic"><use href="#i-radicar"/></svg>Radicar PQRS</button>
     <p class="grupo">Análisis</p>
@@ -147,9 +155,11 @@
       <p class="sub">Cada pestaña es un paso del proceso. Abre una PQRS para direccionarla, registrar la respuesta del área o cerrarla.</p></div></div>
     <div class="etapas" id="etapas">
       <button class="on" data-e="sin_direccionar">Sin direccionar</button>
+      <button data-e="prioritarias">Prioritarias</button>
       <button data-e="en_gestion">En gestión</button>
       <button data-e="por_responder">Por responder</button>
       <button data-e="criticas">Vencidas y por vencer</button>
+      <button data-e="felicitaciones">Felicitaciones</button>
       <button data-e="cerradas">Cerradas</button>
       <button data-e="todas">Todas</button>
     </div>
@@ -163,9 +173,21 @@
         <option value="✅">Cerradas</option><option value="⭐">Felicitaciones</option>
         <option value="⚠">Con datos por corregir</option></select></div>
       <div><label for="fCanal">Canal</label><select id="fCanal"><option value="">Todos</option></select></div>
+      <div><label for="fTipo">Tipo</label><select id="fTipo"><option value="">Todos</option></select></div>
+      <div><label for="fSede">Sede</label><select id="fSede"><option value="">Todas</option></select></div>
       <div><button class="b sec" id="btnRefrescar" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
     </div>
     <div id="listaBandeja" class="lista"></div>
+  </section>
+
+  <!-- ===================== PRIORITARIAS ===================== -->
+  <section id="v-prioritarias" hidden>
+    <div class="cab-vista"><div><h2 class="vista">PQRS prioritarias</h2>
+      <p class="sub">Riesgo vital en niñas, niños y adolescentes (8 horas · Circular Externa Supersalud 2026151000000007-5), riesgo vital (24 h) y priorizadas por sujeto de especial protección (48 h · Circular 2023151000000010-5), además de tutelas, derechos de petición y requerimientos de entes de control.</p></div>
+      <button class="b pri" id="btnIdentificar" type="button" data-perm="radicar"><svg class="ic s"><use href="#i-rayo"/></svg>Identificar prioritarias</button></div>
+    <div id="prioAviso"></div>
+    <div class="prio-resumen" id="prioResumen"></div>
+    <div id="prioLista"></div>
   </section>
 
   <!-- ===================== DETALLE ===================== -->
@@ -191,7 +213,7 @@
   <!-- ===================== RADICAR ===================== -->
   <section id="v-radicar" hidden>
     <div class="cab-vista"><div><h2 class="vista">Radicar una PQRS</h2>
-      <p class="sub">Solo para lo que se atiende en ventanilla, buzón o teléfono. Lo del formulario QR y el correo entra solo y aparece en la bandeja.</p></div></div>
+      <p class="sub">Para lo que se recibe en ventanilla, buzón, papel o teléfono en cualquiera de las sedes: queda radicado al instante, sin esperar la correspondencia. Lo del formulario QR y el correo institucional entra solo y aparece en la bandeja.</p></div></div>
     <div class="card">
       <div id="radAviso"></div>
       <div id="radForm">
@@ -243,6 +265,17 @@
             <div class="full"><label class="req" for="r_descripcion">Descripción</label>
               <textarea id="r_descripcion" placeholder="Transcribe literalmente lo que manifiesta el usuario…"></textarea><div id="sugTipo"></div></div>
             <div class="full"><label for="r_observaciones">Observaciones internas</label><input id="r_observaciones"></div>
+            <div class="full" id="radRiesgo"></div>
+          </div>
+        </fieldset>
+        <fieldset><legend>Tratamiento de datos personales</legend>
+          <p class="sub" style="margin:0 0 10px">Ley 1581 de 2012 y Decreto 1377 de 2013. Lee o muestra al usuario el aviso: sus datos y los de salud se usan solo para radicar, gestionar y responder esta PQRS; puede conocerlos, actualizarlos, rectificarlos o suprimirlos escribiendo al SIAU. Los datos de salud son sensibles y no está obligado a entregarlos.</p>
+          <div class="grid">
+            <div class="full seg-radio" id="r_autorizacion">
+              <label><input type="radio" name="r_aut" value="Sí autoriza" checked> El usuario autoriza el tratamiento de sus datos</label>
+              <label><input type="radio" name="r_aut" value="No autoriza"> No autoriza (se radica igual; solo se usan los datos para responderle)</label>
+              <label><input type="radio" name="r_aut" value="Anónima"> Manifestación anónima</label>
+            </div>
           </div>
         </fieldset>
         <div class="acciones">
@@ -316,7 +349,44 @@
   <!-- ===================== CONFIGURACIÓN ===================== -->
   <section id="v-config" hidden>
     <div class="cab-vista"><div><h2 class="vista">Configuración</h2>
-      <p class="sub">Vincula el Google Form que ya tienes y define qué pregunta alimenta cada campo del consolidado.</p></div></div>
+      <p class="sub">Formulario QR, direccionamiento, automatización del correo y diagnóstico de la puesta en marcha.</p></div>
+      <button class="b sec" id="btnDiagnostico" type="button"><svg class="ic s"><use href="#i-pulso"/></svg>Diagnóstico</button></div>
+    <div id="diagCuerpo"></div>
+    <div class="card qr-card" style="margin-bottom:16px">
+      <div id="qrAviso"></div>
+      <fieldset><legend>Código QR del formulario para los usuarios</legend>
+        <div class="qr-grid">
+          <div class="qr-lienzo"><div id="qrImagen" class="qr-img"></div><div class="qr-url" id="qrUrl"></div></div>
+          <div>
+            <p class="sub" style="margin:0 0 12px">El usuario escanea el código en la sala de espera, escribe su petición, queja, reclamo, sugerencia o felicitación y el caso queda radicado solo, con acuse a su correo. Imprime el afiche y ubícalo en las 40 sedes.</p>
+            <div class="grid">
+              <div class="full"><label for="qrTexto">Enlace del formulario</label><input id="qrTexto" placeholder="https://forms.gle/…"></div>
+            </div>
+            <div class="acciones">
+              <button class="b pri" id="btnQrAfiche" type="button"><svg class="ic s"><use href="#i-imprimir"/></svg>Imprimir afiche</button>
+              <button class="b sec" id="btnQrPng" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Descargar QR (PNG)</button>
+              <button class="b sec" id="btnQrCopiar" type="button"><svg class="ic s"><use href="#i-link"/></svg>Copiar enlace</button>
+              <button class="b fant" id="btnCrearForm" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Crear formulario nuevo</button>
+            </div>
+            <div class="hint" id="qrNota">«Crear formulario nuevo» genera un Google Form con la autorización de tratamiento de datos, las 40 sedes y los servicios, y lo vincula a este consolidado. El formulario actual sigue funcionando.</div>
+          </div>
+        </div>
+      </fieldset>
+      <fieldset style="margin-bottom:0"><legend>Direccionamiento con el directorio de áreas</legend>
+        <p class="sub" style="margin:0 0 12px">La plataforma sugiere el área según el servicio, la sede y las palabras de la manifestación (edita las reglas en Áreas responsables).</p>
+        <div class="grid">
+          <div><label for="aj_direccionFelicitaciones">Felicitaciones</label><select id="aj_direccionFelicitaciones">
+            <option value="resumen">Un resumen diario por área (7:00 a.m.)</option><option value="inmediato">Entregarlas al área apenas llegan</option><option value="manual">Las entrega el SIAU a mano</option></select>
+            <div class="hint">Solo reciben el acuse; al entregarse al área quedan cerradas.</div></div>
+          <label class="interruptor"><input type="checkbox" id="aj_direccionAuto"><i></i>Direccionar solas las PQRS con un área inequívoca</label>
+          <label class="interruptor"><input type="checkbox" id="aj_avisoCierreArea"><i></i>Avisar al área cuando se responde al usuario y se cierra</label>
+        </div>
+        <div class="acciones">
+          <button class="b pri" id="btnGuardarDireccion" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar direccionamiento</button>
+          <button class="b sec" id="btnFelicitacionesAhora" type="button"><svg class="ic s"><use href="#i-estrella"/></svg>Entregar felicitaciones pendientes ahora</button>
+        </div>
+      </fieldset>
+    </div>
     <div class="card" style="margin-bottom:16px">
       <div id="autoAviso"></div>
       <fieldset><legend>Automatización del canal correo</legend>

@@ -1,4 +1,34 @@
 <script>
+/* v8 · PORTAL: fuera de Apps Script (página publicada con dirección propia) las llamadas viajan por fetch
+   a la URL /exec de la implementación. Dentro de Apps Script se usa google.script.run como siempre. */
+(function(){
+  if(window.google && google.script && google.script.run) return;
+  var API = window.PQRS_API || "";
+  try {
+    var q = /[?&]api=([^&]+)/.exec(location.search);
+    if(q && /^https:\/\/script\.google(usercontent)?\.com\//.test(decodeURIComponent(q[1]))) { API = decodeURIComponent(q[1]); localStorage.setItem("pqrs_api", API); }
+    if(!API) API = localStorage.getItem("pqrs_api") || "";
+  } catch(e) {}
+  function Runner(ok, mal){ this._ok = ok; this._mal = mal; }
+  Runner.prototype.withSuccessHandler = function(f){ return new Runner(f, this._mal); };
+  Runner.prototype.withFailureHandler = function(f){ return new Runner(this._ok, f); };
+  ["estadoAcceso","iniciarSesion","cerrarSesion","crearPrimerAdministrador","api"].forEach(function(fn){
+    Runner.prototype[fn] = function(){
+      var args = Array.prototype.slice.call(arguments), ok = this._ok || function(){}, mal = this._mal || function(){};
+      if(!API){ mal(new Error("Esta página no tiene configurada la dirección de la plataforma (URL que termina en /exec). Pídesela al administrador.")); return; }
+      fetch(API, { method:"POST", redirect:"follow", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ fn:fn, args:args }) })
+        .then(function(r){ if(!r.ok) throw new Error("La plataforma respondió con el código "+r.status+"."); return r.json(); })
+        .then(function(j){ if(j && j.__error) mal(new Error(j.__error)); else ok(j ? j.r : null); })
+        .catch(function(e){ mal(e && e.message && /fetch|network/i.test(e.message) ? new Error("Sin conexión con la plataforma. Revisa tu internet e inténtalo de nuevo.") : e); });
+    };
+  });
+  window.google = window.google || {};
+  window.google.script = { run: new Runner(), url: { getLocation: function(cb){
+    var p = {}; location.search.replace(/^\?/,"").split("&").forEach(function(kv){ if(!kv) return; var a = kv.split("="); p[decodeURIComponent(a[0])] = decodeURIComponent((a[1]||"").replace(/\+/g," ")); });
+    cb({ parameter:p, hash:location.hash }); } } };
+  window.PQRS_PORTAL = true;
+})();
+
 var APP = { listas:{}, responsables:[], usuario:"", detalle:null, bandeja:[], mapeo:null,
             etapa:"sin_direccionar", plantillas:[], correo:null, correoCat:"institucional", correosCargados:false,
             anio:null, resumenAnual:null, desde:0, ticks:0, notifs:[], propios:{}, correoPrevio:null };
@@ -95,7 +125,7 @@ function contar(el, fin){
 function animarNumeros(raiz){ (raiz||document).querySelectorAll("[data-n]").forEach(function(el){ contar(el, el.dataset.n); }); }
 
 /* ============================ navegación ============================ */
-var TITULOS = { inicio:["Inicio","Resumen de tus sedes"], bandeja:["Bandeja de PQRS","Gestión por etapas"], correo:["Correo y EPS","Canal de correo unificado"],
+var TITULOS = { inicio:["Inicio","Resumen de tus sedes"], bandeja:["Bandeja de PQRS","Gestión por etapas"], prioritarias:["Prioritarias","Riesgo vital, priorizadas y términos cortos"], correo:["Correo y EPS","Canal de correo unificado"],
   detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], tablero:["Tablero","Indicadores por mes y sede"],
   responsables:["Áreas responsables","Correos de notificación"], usuarios:["Usuarios y sedes","Accesos a la plataforma"], config:["Configuración","Automatización y canales"] };
 function ver(v){
@@ -103,7 +133,7 @@ function ver(v){
   if(permitido && permitido.hidden) v = "inicio";
   if(TITULOS[v]){ $("tituloVista").textContent = TITULOS[v][0]; $("subVista").textContent = TITULOS[v][1]; }
   cerrarLateral();
-  ["inicio","bandeja","correo","detalle","radicar","tablero","responsables","usuarios","config"].forEach(function(x){
+  ["inicio","bandeja","prioritarias","correo","detalle","radicar","tablero","responsables","usuarios","config"].forEach(function(x){
     var s=$("v-"+x); if(!s) return;
     s.hidden = (x!==v);
     if(x===v){ s.classList.remove("anim"); void s.offsetWidth; s.classList.add("anim"); }
@@ -115,10 +145,11 @@ function ver(v){
   $("centro").hidden = true;
   if(v==="inicio") cargarInicio();
   if(v==="tablero") cargarTablero();
+  if(v==="prioritarias") cargarPrioritarias();
   if(v==="correo"){ $("vistaHilo").hidden = true; $("vistaLista").hidden = false; if(!APP.correosCargados) buscarCorreos(); }
   if(v==="responsables") pintarResponsables();
   if(v==="usuarios") cargarUsuarios();
-  if(v==="config") cargarAjustes();
+  if(v==="config"){ cargarAjustes(); cargarQR(); }
   window.scrollTo({top:0});
 }
 document.querySelectorAll("nav button[data-v]").forEach(function(b){
@@ -133,9 +164,12 @@ function arrancar(d){
   aplicarSesion();
   APP.desde = d.ahora || Date.now();
   if(d.logo) $("logo").src = "data:image/png;base64," + d.logo;
+  srvSilencioso("apiPrioritarias").then(function(p){ if(p && p.items) marcarPrioNav(p.items); }).catch(function(){});
   $("quien").textContent = APP.sesion.nombre || d.usuario || "";
   var L = APP.listas;
-  llenar("r_canal", ["Presencial","Buzón de sugerencias","Telefónico"]); llenar("r_tipoSolicitante", L["TIPO SOLICITANTE"]);
+  var canalesManual = ["Presencial","Buzón de sugerencias","Telefónico","Correspondencia física","Correo electrónico","Redes sociales","WhatsApp"];
+  (L["CANAL"]||[]).forEach(function(c){ if(!/qr|formul/i.test(c) && canalesManual.map(norm).indexOf(norm(c))===-1) canalesManual.push(c); });
+  llenar("r_canal", canalesManual); llenar("r_tipoSolicitante", L["TIPO SOLICITANTE"]);
   llenar("r_tipoDocSolicitante", L["TIPO DOCUMENTO"]); llenar("r_tipoDocAfiliado", L["TIPO DOCUMENTO"]);
   llenar("r_sexo", L["SEXO"]); llenar("r_poblacion", L["POBLACIÓN DIFERENCIAL"]);
   llenar("r_eps", L["EPS / PRESTADOR"]); llenar("r_regimen", L["RÉGIMEN"]);
@@ -145,6 +179,8 @@ function arrancar(d){
   llenar("fEstado", L["ESTADO"], false); llenar("fCanal", L["CANAL"], false);
   $("fEstado").insertBefore(new Option("Todos",""), $("fEstado").firstChild); $("fEstado").value="";
   $("fCanal").insertBefore(new Option("Todos",""), $("fCanal").firstChild); $("fCanal").value="";
+  llenar("fTipo", L["TIPO DE PQRS"], false); $("fTipo").insertBefore(new Option("Todos",""), $("fTipo").firstChild); $("fTipo").value="";
+  llenar("fSede", L["SEDE"], false); $("fSede").insertBefore(new Option("Todas",""), $("fSede").firstChild); $("fSede").value="";
   valoresPorDefecto();
   if (!(L["SEDE"] && L["SEDE"].length)) {
     aviso("radAviso", "No pude cargar las listas de la hoja <b>Config</b>. Revisa que la fila de encabezados (SEDE, SERVICIO, EPS…) siga en su lugar.", "err");
@@ -192,7 +228,7 @@ function toast(o){
   var el = document.createElement("div");
   var dur = o.dur || 8000;
   el.className = "toast " + (o.tipo||"");
-  var icono = {correo:"correo", area:"area", err:"alerta"}[o.tipo] || "radicar";
+  var icono = {correo:"correo", area:"area", err:"alerta", feliz:"estrella"}[o.tipo] || "radicar";
   el.innerHTML = '<div class="bola">'+ic(icono)+'</div><div><b>'+esc(o.titulo)+'</b><p>'+esc(o.texto||"")+'</p>'+
     (o.accion ? '<button class="ir" type="button">'+esc(o.accion)+ic("flecha","s")+'</button>' : '')+
     '</div><button class="x" type="button" aria-label="Cerrar">'+ic("x","s")+'</button>'+
@@ -208,6 +244,8 @@ function toast(o){
 function notificar(n){
   n.hora = new Date(); n.nueva = true;
   sonar(n.prioridad); escritorio(n.titulo, n.texto);
+  if(n.tipo === "feliz") celebrar();
+  if(n.prioridad === "Vital") alarmaVisual();
   APP.notifs.unshift(n); APP.notifs = APP.notifs.slice(0,40);
   pintarCentro();
   toast({ tipo:n.tipo, titulo:n.titulo, texto:n.texto, accion:n.accion, alPulsar:n.ir });
@@ -216,7 +254,7 @@ function pintarCentro(){
   var nuevas = APP.notifs.filter(function(x){ return x.nueva; }).length;
   $("campanaN").hidden = !nuevas; $("campanaN").textContent = nuevas > 9 ? "9+" : nuevas;
   $("centroLista").innerHTML = APP.notifs.length ? APP.notifs.map(function(n,i){
-    var icono = {correo:"correo", area:"area", err:"alerta"}[n.tipo] || "radicar";
+    var icono = {correo:"correo", area:"area", err:"alerta", feliz:"estrella"}[n.tipo] || "radicar";
     return '<button class="nt'+(n.nueva?" nueva":"")+'" type="button" data-i="'+i+'"><div class="bola">'+ic(icono,"s")+'</div>'+
       '<div><b>'+esc(n.titulo)+'</b><span>'+esc(n.texto)+'</span><em>'+
       n.hora.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})+'</em></div></button>';
@@ -239,7 +277,17 @@ function sondear(){
     APP.desde = r.ahora || Date.now();
     (r.eventos||[]).forEach(function(ev){
       if(APP.propios[ev.codigo] && ev.accion==="Radicación") return;
-      if(ev.accion==="Radicación"){
+      if(ev.alerta){
+        var vital = /vital/i.test(ev.nivel||"") || /vital/i.test(ev.detalle||"");
+        notificar({ tipo:"err", prioridad: vital ? "Vital" : "Crítica", titulo:(ev.accion==="Alerta de riesgo" ? (vital ? "Riesgo vital · " : "PQRS priorizada · ") : "Alerta de término · ")+ev.codigo,
+          texto: ev.detalle || "Requiere gestión inmediata.", accion:"Gestionar", ir:function(){ abrirDetalle(ev.codigo); } });
+        srvSilencioso("apiPrioritarias").then(function(p){ if(p && p.items) marcarPrioNav(p.items); }).catch(function(){});
+      } else if(ev.ente){
+        notificar({ tipo:"err", prioridad:"Ente", titulo:"Correo de un ente de control", texto: ev.detalle || "", accion:"Ir al correo", ir:function(){ APP.correosCargados=false; APP.correoCat="institucional"; ver("correo"); } });
+      } else if(ev.accion==="Radicación" && ev.felicitacion){
+        notificar({ tipo:"feliz", prioridad:"Felicitación", titulo:"¡Llegó una felicitación! · "+ev.codigo, texto:[ev.canal, ev.sede].filter(Boolean).join(" · "),
+          accion:"Ver", ir:function(){ abrirDetalle(ev.codigo); } });
+      } else if(ev.accion==="Radicación"){
         var pri = ev.prioridad && ev.prioridad!=="Normal" ? ev.prioridad : "";
         notificar({ tipo: pri==="Crítica" ? "err" : "", prioridad: pri, titulo:(pri ? "Prioridad "+pri.toLowerCase()+" · " : "Nueva PQRS · ")+ev.codigo,
           texto:[ev.clasificacion, ev.tipo, ev.canal, ev.sede].filter(Boolean).join(" · "),
@@ -321,10 +369,12 @@ function pintarInicio(r){
 
   '<div class="acciones-hoy anim-lista">'+
     accion(r.sinDireccionar,"Sin direccionar","Analizar y enviar al área","acc-t","enviar","etapa:sin_direccionar")+
+    accion(r.prioritariasAbiertas||0,"Prioritarias","Riesgo vital y priorizadas","acc-r","escudo","vista:prioritarias")+
     accion(r.enGestion,"Esperando al área","Direccionadas, sin respuesta","acc-a","reloj","etapa:en_gestion")+
     accion(r.porResponder,"Listas para responder","El área ya contestó","acc-v","responder","etapa:por_responder")+
     accion(r.vencidas,"Vencidas","Fuera del término legal","acc-r","alerta","etapa:criticas")+
     accion(r.porVencer,"Vencen pronto","Próximos 8 días","acc-a","calendario","etapa:criticas")+
+    (r.felicitacionesPendientes ? accion(r.felicitacionesPendientes,"Felicitaciones","Por entregar a las áreas","acc-f","estrella","etapa:felicitaciones") : '')+
     (r.sinCorreo ? accion(r.porCorregir||0,"Datos por corregir","Registros incompletos","acc-a","alerta","etapa:todas")
                  : accion(r.correosPendientes<0?0:r.correosPendientes,"Correos por revisar","EPS, entes, PQRS y citas","acc-t","correo","vista:correo"))+
   '</div>'+
@@ -379,6 +429,7 @@ function pintarInicio(r){
     b.addEventListener("click", function(){ APP.correoCat = b.dataset.cat; ver("correo"); if(APP.correosCargados) pintarCorreos(); });
   });
   if($("lnkForm")) $("lnkForm").addEventListener("click", function(e){ e.preventDefault(); ver("config"); });
+  $("inicioCuerpo").querySelectorAll("[data-ir-prio]").forEach(function(a){ a.addEventListener("click", function(e){ e.preventDefault(); ver("prioritarias"); }); });
 }
 /* Distribución por sede (solo las asignadas) y casos prioritarios de EPS y entes de control. */
 function pintarSedesYPrioridad(r){
@@ -395,14 +446,14 @@ function pintarSedesYPrioridad(r){
     '<span class="tipo"><i style="background:#C58A1E"></i>Por vencer</span><span class="tipo"><i style="background:#0F7FA6"></i>En término</span></div>'
     : vacio("sede","Sin PQRS en tus sedes.");
   var pri = (r.prioritarias||[]).length ? '<div class="actividad">'+r.prioritarias.map(function(x){
-    return '<button class="act" type="button" data-cod="'+esc(x.codigo)+'"><span class="bola" style="background:'+(x.prioridad==="Crítica"?"#FBE1E6;color:#AB1130":"#FFF0DB;color:#9A4F00")+'">'+ic("alerta","s")+'</span>'+
+    return '<button class="act" type="button" data-cod="'+esc(x.codigo)+'"><span class="bola" style="background:'+(x.prioridad==="Crítica"?"#FBE1E6;color:#AB1130":"#FFF0DB;color:#9A4F00")+'">'+ic(/vital/i.test(x.clasificacion||"")?"escudo":"alerta","s")+'</span>'+
       '<div><b>'+esc(x.codigo)+'</b><span>'+esc([x.remitente, x.clasificacion || x.tipo].filter(Boolean).join(" · "))+'</span></div>'+
-      '<em>'+(x.conArea?"En gestión":"Sin área")+'<br>'+esc(x.fechaMax||"")+'</em></button>';
+      '<em>'+(x.conArea?"En gestión":"Sin área")+'<br>'+esc(x.limite||x.fechaMax||"")+'</em></button>';
   }).join("")+'</div>' : '<div class="aviso ok">'+ic("check","s")+'<div>No hay casos de prioridad crítica o alta abiertos.</div></div>';
   return '<div class="inicio-cols">'+
     '<div class="card anim"><div class="card-tit"><h3>'+ic("sede")+'PQRS abiertas por sede</h3><span class="d">'+
       (APP.sesion && !APP.sesion.todas ? "Tus sedes asignadas" : "Todas las sedes")+'</span></div>'+dist+'</div>'+
-    '<div class="card anim"><div class="card-tit"><h3>'+ic("escudo")+'Prioritarias</h3><span class="d">EPS, entes de control, tutelas y derechos de petición</span></div>'+pri+'</div>'+
+    '<div class="card anim"><div class="card-tit"><h3>'+ic("escudo")+'Prioritarias</h3><span class="d">Riesgo vital, priorizadas, EPS, entes de control y tutelas · <a href="#" data-ir-prio>ver todas</a></span></div>'+pri+'</div>'+
   '</div>';
 }
 function canalIcono(c){ var n=norm(c); if(n.indexOf("qr")!==-1||n.indexOf("formul")!==-1) return "qr"; if(n.indexOf("correo")!==-1) return "correo"; return "radicar"; }
@@ -518,10 +569,10 @@ document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !$("mod
 function cargarBandeja(){
   $("listaBandeja").innerHTML = esqueleto(6);
   srv("apiBandeja", { texto:$("fTexto").value, estado:$("fEstado").value, semaforo:$("fSemaforo").value,
-                      canal:$("fCanal").value, etapa:APP.etapa })
+                      canal:$("fCanal").value, tipo:$("fTipo").value, sede:$("fSede").value, etapa:APP.etapa })
     .then(pintarBandeja).catch(function(e){ $("listaBandeja").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
 }
-["fTexto","fEstado","fSemaforo","fCanal"].forEach(function(id){
+["fTexto","fEstado","fSemaforo","fCanal","fTipo","fSede"].forEach(function(id){
   $(id).addEventListener(id==="fTexto"?"keyup":"change", function(e){
     if(id==="fTexto" && e.key!=="Enter") return; cargarBandeja();
   });
@@ -531,11 +582,12 @@ $("btnRefrescar").addEventListener("click", cargarBandeja);
 function pintarBandeja(items){
   APP.bandeja = items || [];
   if(!APP.bandeja.length){ $("listaBandeja").innerHTML = vacio("bandeja","No hay PQRS en esta etapa con ese filtro."); return; }
-  $("listaBandeja").innerHTML = '<div class="lista anim-lista">'+APP.bandeja.map(function(x){
+  var recorte = APP.bandeja.length >= 600 ? '<div class="aviso info">'+ic("pulso","s")+'<div>Se muestran los 600 registros más recientes o prioritarios. Usa el buscador, la sede o el tipo para ver los demás.</div></div>' : '';
+  $("listaBandeja").innerHTML = recorte + '<div class="lista anim-lista">'+APP.bandeja.map(function(x){
     var sinArea = !x.responsable && norm(x.estado).indexOf("cerrada")===-1;
     return '<button class="fila prio-'+esc(x.prioridad||"")+'" type="button" data-cod="'+esc(x.codigo)+'" style="--tc:'+colorTipo(x.tipo)+'">'+
       '<div class="cod">'+esc(x.codigo)+'<small>'+esc(x.canal||"")+' · '+esc(x.fechaRadicacion||"")+'</small></div>'+
-      '<div class="med"><b>'+(x.prioridad && x.prioridad!=="Normal" ? '<span class="prio '+esc(x.prioridad)+'">'+esc(x.prioridad)+'</span>' : '')+tipoTag(x.tipo)+
+      '<div class="med"><b>'+(x.nivel && /vital|priorizado/i.test(x.nivel) ? nivelTag(x.nivel) : (x.prioridad && x.prioridad!=="Normal" ? '<span class="prio '+esc(x.prioridad)+'">'+esc(x.prioridad)+'</span>' : ''))+tipoTag(x.tipo)+
         (x.sede?'<span style="font-weight:600;color:var(--ink-2)">'+esc(x.sede)+'</span>':'')+
         (x.remitente?'<span class="ent">'+esc(x.remitente)+'</span>':'')+(x.clasificacion?'<span class="ent">'+esc(x.clasificacion)+'</span>':'')+
         (x.etiquetas && x.etiquetas.sugerido?'<span class="sug">Sugerido: '+esc(x.etiquetas.sugerido)+'</span>':'')+

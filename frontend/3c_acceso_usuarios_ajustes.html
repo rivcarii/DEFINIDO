@@ -17,6 +17,7 @@ function activarVerClave(raiz){
 function mostrarAcceso(estado, mensaje){
   $("app").hidden = true; $("acceso").hidden = false;
   if(estado && estado.logo) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
+  if(window.IMG_MASCOTA && $("mascotaAcceso") && !$("mascotaAcceso").getAttribute("src")) $("mascotaAcceso").src = IMG_MASCOTA;
   aviso("accAviso", mensaje ? esc(mensaje) : "", "err");
   if(estado && estado.hayUsuarios === false){
     $("accTitulo").textContent = "Crear el administrador";
@@ -51,7 +52,10 @@ function mostrarAcceso(estado, mensaje){
   }
   activarVerClave($("accCampos"));
   $("accCampos").querySelectorAll("input").forEach(function(i){ i.addEventListener("keydown", function(e){ if(e.key==="Enter") $("btnAcceso").click(); }); });
-  setTimeout(function(){ var p = $("accCampos").querySelector("input"); if(p) p.focus(); }, 50);
+  setTimeout(function(){   /* no roba el foco si la persona ya empezó a escribir */
+    var p = $("accCampos").querySelector("input");
+    if(p && !$("accCampos").contains(document.activeElement) && !p.value) p.focus();
+  }, 50);
 }
 function sesionTerminada(msg){
   borrarToken();
@@ -138,15 +142,36 @@ function contextoAudio(){
   return APP.ac;
 }
 document.addEventListener("click", function(){ if(SONIDO) contextoAudio(); }, { once:true });
-/* Tono distinto según la prioridad: crítica = cuatro pulsos, alta = dos, normal = campanita. */
+/* Tono distinto según el caso:
+   Vital       = sirena de alarma (dos tonos que suben y bajan, tres ciclos)
+   Ente        = tres toques graves (correo de un ente de control)
+   Felicitación= arpegio alegre (do-mi-sol-do)
+   Crítica = cuatro pulsos, Alta = dos, normal = campanita. */
 function sonar(prioridad){
   if(!SONIDO) return;
   try {
     var ac = contextoAudio(); if(!ac) return;
-    var notas = prioridad === "Crítica" ? [988,740,988,740] : (prioridad === "Alta" ? [880,1175] : [784,1047]);
+    if(prioridad === "Vital"){
+      var t0 = ac.currentTime, o = ac.createOscillator(), g = ac.createGain();
+      o.type = "sawtooth"; o.frequency.setValueAtTime(660, t0);
+      for(var k=0;k<3;k++){ o.frequency.linearRampToValueAtTime(1320, t0+k*0.7+0.35); o.frequency.linearRampToValueAtTime(660, t0+k*0.7+0.7); }
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.06, t0+0.05); g.gain.setValueAtTime(0.06, t0+2.0); g.gain.exponentialRampToValueAtTime(0.0001, t0+2.15);
+      o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0+2.2);
+      return;
+    }
+    if(prioridad === "Felicitación"){
+      [523,659,784,1047,1319].forEach(function(f,i){
+        var o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i*0.11;
+        o.type = "triangle"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.16, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.5);
+        o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.52);
+      });
+      return;
+    }
+    var notas = prioridad === "Ente" ? [392,392,392] : (prioridad === "Crítica" ? [988,740,988,740] : (prioridad === "Alta" ? [880,1175] : [784,1047]));
     notas.forEach(function(f,i){
       var o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i*0.2;
-      o.type = prioridad === "Crítica" ? "square" : "sine"; o.frequency.value = f;
+      o.type = prioridad === "Crítica" || prioridad === "Ente" ? "square" : "sine"; o.frequency.value = f;
       g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(prioridad === "Crítica" ? 0.08 : 0.18, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
       o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.19);
     });
@@ -286,7 +311,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede"];
+var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
@@ -296,6 +321,7 @@ function pintarAjustes(r){
   APP.aj = r;
   AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
+  $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
   var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
   $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
     (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");
@@ -308,25 +334,29 @@ function pintarAjustes(r){
   var opt = function(ops, v){
     var hay = ops.some(function(o){ return igualLista(o, v, ops); });
     return (v && !hay ? '<option selected>'+esc(v)+'</option>' : '')+ops.map(function(o){ return '<option'+(igualLista(o, v, ops)?" selected":"")+'>'+esc(o)+'</option>'; }).join(""); };
-  $("tablaEntidades").innerHTML = '<div class="cfg-fila cab"><span>Tipo</span><span>Entidad</span><span>Dominios o correos</span><span>Término según</span><span>Prioridad</span><span></span></div>'+
-    r.entidades.concat(APP.nuevaEnt ? [{ fila:"", tipo:"EPS", entidad:"", patrones:[], presentada:"EPS", prioridad:"Alta", avisar:[], activa:true }] : []).map(function(e, i){
-      return '<div class="cfg-fila" data-ent="'+i+'"><select data-k="tipo">'+opt(["EPS","EPS (BPO)","Ente de control"], e.tipo)+'</select>'+
+  var nombresCat = r.categorias.map(function(c){ return c.nombre; });
+  $("tablaEntidades").innerHTML = '<div class="cfg-fila cfg-ent cab"><span>Tipo</span><span>Entidad</span><span>Dominios o correos</span><span>Término según</span><span>Prioridad</span><span>Categoría por defecto</span><span></span></div>'+
+    r.entidades.concat(APP.nuevaEnt ? [{ fila:"", tipo:"EPS", entidad:"", patrones:[], presentada:"EPS", prioridad:"Alta", avisar:[], activa:true, categoria:"" }] : []).map(function(e, i){
+      return '<div class="cfg-fila cfg-ent" data-ent="'+i+'"><select data-k="tipo">'+opt(["EPS","EPS (BPO)","Ente de control","Rama Judicial"], e.tipo)+'</select>'+
         '<input data-k="entidad" value="'+esc(e.entidad)+'" placeholder="Nombre">'+
         '<input data-k="patrones" value="'+esc(e.patrones.join("; "))+'" placeholder="@dominio.com; correo@exacto.org">'+
         '<select data-k="presentada">'+opt(r.presentadas, e.presentada)+'</select>'+
         '<select data-k="prioridad">'+opt(r.prioridades, e.prioridad)+'</select>'+
+        '<select data-k="categoria"><option value="">Según el asunto</option>'+nombresCat.map(function(n){ return '<option'+(norm(n)===norm(e.categoria)?" selected":"")+'>'+esc(n)+'</option>'; }).join("")+'</select>'+
         '<button class="b sec mini" type="button" data-guardar-ent="'+i+'" data-fila="'+esc(e.fila)+'">Guardar</button></div>';
     }).join("");
-  $("tablaCategorias").innerHTML = '<div class="cfg-fila cfg-cat cab"><span>Categoría</span><span>Palabras clave</span><span>Prioridad</span><span>Días</span><span>Tipo de día</span><span>Meta (h)</span><span>Tipo PQRS</span><span></span></div>'+
-    r.categorias.concat(APP.nuevaCat ? [{ fila:"", nombre:"", claves:[], prioridad:"Media", dias:"", tipoDia:"Calendario", meta:"", tipo:"" }] : []).map(function(c, i){
+  $("tablaCategorias").innerHTML = '<div class="cfg-fila cfg-cat cab"><span>Categoría</span><span>Palabras clave</span><span>Prioridad</span><span>Días</span><span>Tipo de día</span><span>Meta (h)</span><span>Alerta si no se ha…</span><span>Tipo PQRS</span><span></span></div>'+
+    r.categorias.concat(APP.nuevaCat ? [{ fila:"", nombre:"", claves:[], prioridad:"Media", dias:"", tipoDia:"Calendario", meta:"", tipo:"", alcance:"Direccionar", norma:"", nivel:"" }] : []).map(function(c, i){
       return '<div class="cfg-fila cfg-cat" data-cat="'+i+'"><input data-k="nombre" value="'+esc(c.nombre)+'">'+
         '<input data-k="claves" value="'+esc((c.claves||[]).join("; "))+'">'+
         '<select data-k="prioridad">'+opt(r.prioridades, c.prioridad)+'</select>'+
         '<input data-k="dias" type="number" min="0" value="'+esc(c.dias)+'">'+
         '<select data-k="tipoDia">'+opt(["Calendario","Hábiles"], c.tipoDia)+'</select>'+
         '<input data-k="meta" type="number" min="0" value="'+esc(c.meta||"")+'">'+
+        '<select data-k="alcance">'+opt(["Direccionar","Responder"], c.alcance || "Direccionar")+'</select>'+
         '<select data-k="tipo"><option value="">Según el texto</option>'+opt(r.tipos, c.tipo)+'</select>'+
-        '<button class="b sec mini" type="button" data-guardar-cat="'+i+'" data-fila="'+esc(c.fila)+'">Guardar</button></div>';
+        '<input data-k="norma" type="hidden" value="'+esc(c.norma||"")+'"><input data-k="nivel" type="hidden" value="'+esc(c.nivel||"")+'">'+
+        '<button class="b sec mini" type="button" data-guardar-cat="'+i+'" data-fila="'+esc(c.fila)+'" title="'+esc(c.norma||"")+'">Guardar</button></div>';
     }).join("");
   APP.nuevaEnt = APP.nuevaCat = false;
   var leer = function(fila){ var d = {}; fila.querySelectorAll("[data-k]").forEach(function(el){ d[el.dataset.k] = el.value.trim(); }); return d; };
@@ -350,6 +380,7 @@ $("btnNuevaCategoria").addEventListener("click", function(){ APP.nuevaCat = true
 $("btnGuardarAjustes").addEventListener("click", function(){
   var a = {}; AJ_BOOL.forEach(function(k){ a[k] = $("aj_"+k).checked; });
   a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
+  a.direccionFelicitaciones = val("aj_direccionFelicitaciones");
   var fin = ocupado("btnGuardarAjustes","Guardando…");
   srv("apiGuardarAjustes", a).then(function(r){ fin(); if(r.ok===false){ aviso("autoAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("autoAviso","Automatización guardada.","ok"); })
     .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });

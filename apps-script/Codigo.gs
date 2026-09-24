@@ -1,7 +1,7 @@
 /**
  * =====================================================================================
- *  SISTEMA PQRS · MiRed Barranquilla IPS S.A.S. — Backend v7
- *  Libro: PQRS_BaseDatos_v4.xlsx   ·   Interfaz: Index.html (aplicación web)
+ *  SISTEMA PQRS · MiRed Barranquilla IPS S.A.S. — Backend v8
+ *  Libro: consolidado del SIAU (Google Sheets)   ·   Interfaz: Index.html (aplicación web y portal)
  * =====================================================================================
  *  Todo se opera desde la plataforma: radicar, analizar, direccionar al área,
  *  redireccionar si se envió mal, registrar la respuesta del área, responder al
@@ -17,8 +17,9 @@ const CFG = {
   HOJA_CONFIG: "Config",
 
   FILA_DATOS: 5,
-  FILA_FIN: 404,
-  NCOL: 53,
+  // FILA_FIN ya no es fija (v8): se calcula con la última fila con datos (ver _finDatos_).
+  NCOL: 57,
+  COLCHON_FORMULAS: 200,   // filas vacías con fórmulas listas después del último registro
 
   CFG_TERMINOS: "A6:D8",
   CFG_FEST_INI: 6, CFG_FEST_FIN: 39,
@@ -49,7 +50,10 @@ const C = {
   RTA_AREA:42, FECHA_RTA_AREA:43, RTA_USUARIO:44, FECHA_RTA_USUARIO:45, OPORTUNIDAD:46,
   NOTIF_RECEPCION:47, NOTIF_AREA:48, NOTIF_GESTION:49, NOTIF_CIERRE:50,
   OBSERVACIONES:51, ID_CORREO:52, REGISTRADO_POR:53,
+  // v8 · columnas nuevas al final (no desplazan las anteriores ni sus fórmulas)
+  NIVEL_RIESGO:54, POBLACION_PRIORIZADA:55, AUTORIZACION_DATOS:56, AREA_SUGERIDA:57,
 };
+var ENCABEZADOS_V8 = { 54: "NIVEL DE RIESGO (CIRCULARES SUPERSALUD)", 55: "POBLACIÓN PRIORIZADA", 56: "AUTORIZACIÓN TRATAMIENTO DE DATOS", 57: "ÁREA SUGERIDA" };
 
 // Campo de la plataforma -> columna
 const CAMPOS = {
@@ -61,9 +65,13 @@ const CAMPOS = {
   sede:C.SEDE, servicio:C.SERVICIO, servicioEspecifico:C.SERVICIO_ESP, modalidad:C.MODALIDAD,
   departamento:C.DEPARTAMENTO, tipoPqrs:C.TIPO_PQRS, clasificacion:C.CLASIF_INTERNA, tipologia:C.TIPOLOGIA,
   descripcion:C.DESCRIPCION, entidad:C.ENTIDAD, observaciones:C.OBSERVACIONES,
+  autorizacionDatos:C.AUTORIZACION_DATOS,
 };
 
 const LOGO_BASE64 = "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";
+
+// Mascota del SIAU (acuse de las felicitaciones). Se genera con tools/imagenes.mjs a partir de assets/.
+var MASCOTA_BASE64 = "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";
 
 // ---------------------------------------------------------------------------
 // APLICACIÓN WEB
@@ -75,13 +83,40 @@ function doGet(e) {
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
 }
 
+/*
+ * v8 · PORTAL: segunda puerta de entrada para la misma plataforma.
+ * La interfaz (Index.html) también puede publicarse como página estática (por ejemplo en GitHub
+ * Pages, con una dirección corta y sin el marco de Google). Esa página llama aquí con fetch
+ * (POST de texto plano, sin datos en la URL). Se exponen exactamente las mismas funciones públicas
+ * que ve google.script.run: todo pasa por el ingreso con usuario y contraseña y por api().
+ */
+var PUERTA_PORTAL = { estadoAcceso: true, iniciarSesion: true, cerrarSesion: true, crearPrimerAdministrador: true, api: true };
+function doPost(e) {
+  var r;
+  try {
+    var cuerpo = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    var fn = String(cuerpo.fn || ""), args = Array.isArray(cuerpo.args) ? cuerpo.args : [];
+    if (!PUERTA_PORTAL[fn]) r = { __error: "Acción no disponible." };
+    else {
+      var f = { estadoAcceso: estadoAcceso, iniciarSesion: iniciarSesion, cerrarSesion: cerrarSesion,
+                crearPrimerAdministrador: crearPrimerAdministrador, api: api }[fn];
+      r = { r: f.apply(null, args) };
+    }
+  } catch (err) { r = { __error: _explicarError_(err) }; }
+  return ContentService.createTextOutput(JSON.stringify(r)).setMimeType(ContentService.MimeType.JSON);
+}
+
 function onOpen() {
   SpreadsheetApp.getUi().createMenu("PQRS")
     .addItem("Abrir plataforma", "mostrarUrl")
     .addItem("Importar respuestas del formulario", "importarFormulario")
     .addItem("Procesar correo ahora", "procesarCorreoEntrante")
     .addItem("Revisar vencimientos y alertar", "rutinaDiaria")
+    .addItem("⚡ Identificar PQRS prioritarias (circulares Supersalud)", "identificarPrioritarias")
+    .addSeparator()
     .addItem("Instalar disparadores", "instalarDisparadores")
+    .addItem("Crear formulario QR nuevo (con autorización de datos)", "crearFormularioPQRS")
+    .addItem("Diagnóstico de la puesta en marcha", "diagnosticoPlataforma")
     .addItem("Reparar fechas y fórmulas de días", "repararFechasYFormulas")
     .addToUi();
 }
@@ -104,9 +139,9 @@ function instalarDisparadores() {
   ScriptApp.newTrigger("alEnviarFormulario").forSpreadsheet(ss).onFormSubmit().create();
   ScriptApp.newTrigger("rutinaDiaria").timeBased().atHour(7).everyDays(1).create();
   ScriptApp.newTrigger("procesarCorreoEntrante").timeBased().everyMinutes(5).create();
-  ScriptApp.newTrigger("revisarAlertas").timeBased().everyHours(1).create();
+  ScriptApp.newTrigger("revisarAlertas").timeBased().everyMinutes(30).create();
   SpreadsheetApp.getUi().alert("Listo:\n• Formulario QR → radica al enviarse\n• Correo → se revisa cada 5 minutos (EPS, entes de control y usuarios)\n" +
-    "• Cada hora → alerta de tutelas y derechos de petición sin direccionar\n• 7:00 a.m. → control diario de vencidas");
+    "• Cada 30 minutos → alertas de riesgo vital (8 y 24 h), priorizadas, tutelas y derechos de petición\n• 7:00 a.m. → control diario de vencidas y resumen de felicitaciones por área");
 }
 
 // ---------------------------------------------------------------------------
@@ -135,33 +170,112 @@ function _setParam(i, v) {
   _h(CFG.HOJA_CONFIG).getRange(CFG.CFG_PARAM_INI + i, 2).setValue(v);
 }
 
+// ---------------------------------------------------------------------------
+// v8 · RANGO DINÁMICO DEL CONSOLIDADO (sin tope de filas)
+// ---------------------------------------------------------------------------
+/*
+ * Hasta v7.3 los datos iban de la fila 5 a la 404 y lo que pasaba de ahí «no existía».
+ * Desde v8 el final se calcula con la última fila que tiene CÓDIGO o FECHA DE RADICACIÓN.
+ * Se recuerda mientras no cambie la última fila de la hoja (getLastRow), y _proximaFila lo
+ * actualiza al agregar un registro. CFG.FILA_FIN sigue existiendo como propiedad calculada.
+ */
+var _FIN_ = { fin: 0, ultima: -1 };
+function _finDatos_() {
+  var h = _h(CFG.HOJA_DATOS);
+  var ultima = h.getLastRow();
+  if (_FIN_.fin && _FIN_.ultima === ultima) return _FIN_.fin;
+  var fin = CFG.FILA_DATOS;
+  if (ultima >= CFG.FILA_DATOS) {
+    var v = h.getRange(CFG.FILA_DATOS, 1, ultima - CFG.FILA_DATOS + 1, C.FECHA_RADICACION).getValues();
+    for (var i = v.length - 1; i >= 0; i--) {
+      if (_lleno_(v[i][C.CODIGO - 1]) || _lleno_(v[i][C.FECHA_RADICACION - 1])) { fin = CFG.FILA_DATOS + i; break; }
+    }
+  }
+  _FIN_ = { fin: fin, ultima: ultima };
+  return fin;
+}
+function _lleno_(x) { return x !== "" && x !== null && x !== undefined; }
+Object.defineProperty(CFG, "FILA_FIN", { get: function () { return _finDatos_(); }, enumerable: true, configurable: true });
+
+/** Todas las filas de datos del consolidado (lectura fresca: los valores cambian con cada gestión). */
+function _datos_() {
+  var fin = _finDatos_();
+  return _h(CFG.HOJA_DATOS).getRange(CFG.FILA_DATOS, 1, fin - CFG.FILA_DATOS + 1, CFG.NCOL).getValues();
+}
+/** Columna de radicados en memoria (los códigos no cambian: se usa para buscar filas rápido). */
+var _CODS_ = null;
+function _codigos_() {
+  var fin = _finDatos_();
+  if (_CODS_ && _CODS_.fin === fin && _CODS_.ultima === _FIN_.ultima) return _CODS_.lista;
+  var lista = _h(CFG.HOJA_DATOS).getRange(CFG.FILA_DATOS, C.CODIGO, fin - CFG.FILA_DATOS + 1, 1).getValues()
+    .map(function (r) { return (r[0] || "").toString().trim().toUpperCase(); });
+  _CODS_ = { fin: fin, ultima: _FIN_.ultima, lista: lista };
+  return lista;
+}
+function _invalidarDatos_() { _CODS_ = null; }
+
+/** Fila donde se escribe el siguiente registro: siempre al final (conserva el orden cronológico). */
 function _proximaFila() {
   var h = _h(CFG.HOJA_DATOS);
-  var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var col = h.getRange(CFG.FILA_DATOS, C.FECHA_RADICACION, n, 1).getValues();
-  for (var i = 0; i < col.length; i++) if (col[i][0] === "" || col[i][0] === null) return CFG.FILA_DATOS + i;
-  var nueva = CFG.FILA_FIN + 1;
-  h.getRange(CFG.FILA_FIN, 1, 1, CFG.NCOL).copyTo(h.getRange(nueva, 1, 1, CFG.NCOL));
-  h.getRange(nueva, 1, 1, CFG.NCOL).clearContent();
-  CFG.FILA_FIN = nueva;
+  var fin = _finDatos_();
+  var primera = h.getRange(CFG.FILA_DATOS, C.CODIGO, 1, C.FECHA_RADICACION).getValues()[0];
+  var nueva = (fin === CFG.FILA_DATOS && !_lleno_(primera[0]) && !_lleno_(primera[C.FECHA_RADICACION - 1])) ? CFG.FILA_DATOS : fin + 1;
+  _asegurarFilas_(h, nueva);
+  _FIN_ = { fin: nueva, ultima: Math.max(_FIN_.ultima, nueva) };
+  _invalidarDatos_();
   return nueva;
 }
 
+/** Garantiza que la hoja tenga la fila y que las fórmulas de términos lleguen hasta ella (con colchón). */
+function _asegurarFilas_(h, fila) {
+  var colchon = CFG.COLCHON_FORMULAS;
+  try {
+    var max = h.getMaxRows();
+    if (max < fila + colchon) h.insertRowsAfter(max, fila + colchon - max);
+  } catch (e) { Logger.log("Filas: " + e); }
+  if (h.getRange(fila, C.DIAS).getFormula()) return;
+  var sep = PropertiesService.getScriptProperties().getProperty("SEPARADOR_FORMULAS");
+  if (!sep) { var ef = _escribirFormulas_(h, fila + colchon); if (!ef.ok) Logger.log(ef.mensaje); return; }
+  _formulasBloque_(h, fila, fila + colchon, sep);
+}
+
+/** Escribe las fórmulas de un bloque de filas con el separador ya detectado. */
+function _formulasBloque_(h, ini, fin, sep) {
+  var f1 = [], f2 = [];
+  for (var r = ini; r <= fin; r++) {
+    var fr = _formulasFila_(r);
+    f1.push(sep === ";" ? fr.bloque.map(_conPuntoYComa_) : fr.bloque);
+    f2.push([sep === ";" ? _conPuntoYComa_(fr.oportunidad) : fr.oportunidad]);
+  }
+  var n = fin - ini + 1;
+  h.getRange(ini, C.TERMINO, n, 5).setFormulas(f1);
+  h.getRange(ini, C.OPORTUNIDAD, n, 1).setFormulas(f2);
+  h.getRange(ini, C.DIAS, n, 1).setNumberFormat("0");
+  h.getRange(ini, C.TERMINO, n, 1).setNumberFormat("0");
+}
+
+/** Escribe varios campos de una fila en pocos bloques, sin tocar las columnas con fórmula. */
 function _escribir(fila, vals) {
   var h = _h(CFG.HOJA_DATOS);
-  Object.keys(vals).forEach(function (k) {
-    if (vals[k] !== undefined) h.getRange(fila, parseInt(k, 10)).setValue(vals[k]);
+  var cols = Object.keys(vals).map(function (k) { return parseInt(k, 10); }).filter(function (c) { return vals[c] !== undefined && c >= 1 && c <= CFG.NCOL; });
+  if (!cols.length) return;
+  var formula = {}; [C.TERMINO, C.TIPO_DIA, C.FECHA_MAX, C.SEMAFORO, C.DIAS, C.OPORTUNIDAD].forEach(function (c) { formula[c] = true; });
+  var actual = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  cols.forEach(function (c) { if (!formula[c]) actual[c - 1] = vals[c]; });
+  // tramos contiguos sin fórmulas que contienen alguna columna modificada
+  var tramos = [[1, C.TERMINO - 1], [C.DIAS + 1, C.OPORTUNIDAD - 1], [C.OPORTUNIDAD + 1, CFG.NCOL]];
+  tramos.forEach(function (t) {
+    var toca = cols.some(function (c) { return c >= t[0] && c <= t[1]; });
+    if (toca) h.getRange(fila, t[0], 1, t[1] - t[0] + 1).setValues([actual.slice(t[0] - 1, t[1])]);
   });
+  if (vals[C.CODIGO] !== undefined) _invalidarDatos_();
 }
 
 function _filaDe(codigo) {
-  var h = _h(CFG.HOJA_DATOS);
-  var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var cods = h.getRange(CFG.FILA_DATOS, C.CODIGO, n, 1).getValues();
   var buscado = (codigo || "").toString().trim().toUpperCase();
-  for (var i = 0; i < cods.length; i++) {
-    if ((cods[i][0] || "").toString().trim().toUpperCase() === buscado) return CFG.FILA_DATOS + i;
-  }
+  if (!buscado) return -1;
+  var cods = _codigos_();
+  for (var i = cods.length - 1; i >= 0; i--) if (cods[i] === buscado) return CFG.FILA_DATOS + i;
   return -1;
 }
 
@@ -175,29 +289,42 @@ function _traza(codigo, accion, detalle) {
 // ---------------------------------------------------------------------------
 var RE_RAD = /^([A-Z]+)-(\d{4})-(\d{2})-(\d{4,})$/;
 
-function _siguienteConsecutivo() {
-  var base = parseInt(_param(0), 10); if (isNaN(base)) base = 3174;
-  var h = _h(CFG.HOJA_DATOS);
-  var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var cods = h.getRange(CFG.FILA_DATOS, C.CODIGO, n, 1).getValues();
+/*
+ * v8 · Series de radicado:
+ *   SIAU-AAAA-MM-NNNN  → peticiones, quejas, reclamos, sugerencias, denuncias y tutelas (serie institucional
+ *                        que continúa el histórico: 3174 → … → SIAU-2026-09-3514 → 3515…).
+ *   FEL-AAAA-MM-NNNNN  → felicitaciones (serie propia: son más de mil al mes y antes no se codificaban;
+ *                        así no alteran la numeración institucional).
+ *   QR-AAAA-MM-NNNN    → solo para el histórico migrado: respuestas del formulario QR de 2026 que se
+ *                        gestionaron en la hoja del formulario y nunca recibieron radicado SIAU.
+ * Cada serie cuenta únicamente los códigos de su propio prefijo.
+ */
+function _prefijo_(tipo) {
+  if (_esFeli(tipo)) return (_param(8) || "FEL").toString().trim().toUpperCase() || "FEL";
+  return (_param(2) || "SIAU").toString().trim().toUpperCase() || "SIAU";
+}
+function _siguienteConsecutivo(prefijo) {
+  prefijo = (prefijo || _prefijo_("")).toUpperCase();
+  var institucional = prefijo === (_param(2) || "SIAU").toString().trim().toUpperCase();
+  var base = institucional ? parseInt(_param(0), 10) : 0;
+  if (isNaN(base)) base = institucional ? 3174 : 0;
   var max = base;
-  cods.forEach(function (c) {
-    var m = RE_RAD.exec((c[0] || "").toString().trim());
-    if (m) { var v = parseInt(m[4], 10); if (v > max) max = v; }
-  });
+  var ver = function (c) {
+    var m = RE_RAD.exec((c || "").toString().trim().toUpperCase());
+    if (m && m[1] === prefijo) { var v = parseInt(m[4], 10); if (v > max) max = v; }
+  };
+  _codigos_().forEach(ver);
   var ht = _h(CFG.HOJA_TRAZA), ut = ht.getLastRow();
-  if (ut >= CFG.TRAZA_FILA) ht.getRange(CFG.TRAZA_FILA, 2, ut - CFG.TRAZA_FILA + 1, 1).getValues().forEach(function (c) {
-    var m = RE_RAD.exec((c[0] || "").toString().trim());
-    if (m) { var v = parseInt(m[4], 10); if (v > max) max = v; }
-  });
+  if (ut >= CFG.TRAZA_FILA) ht.getRange(CFG.TRAZA_FILA, 2, ut - CFG.TRAZA_FILA + 1, 1).getValues().forEach(function (c) { ver(c[0]); });
   return max + 1;
 }
 
-function _nuevoCodigo(fecha) {
-  var pref = (_param(2) || "SIAU").toString().trim();
+function _nuevoCodigo(fecha, tipo) {
+  var pref = _prefijo_(tipo);
   var d = (fecha instanceof Date && !isNaN(fecha)) ? fecha : new Date();
-  var n = _siguienteConsecutivo();
-  return pref + "-" + Utilities.formatDate(d, _tz_(), "yyyy-MM") + "-" + ("0000" + n).slice(-4);
+  var n = _siguienteConsecutivo(pref);
+  var ancho = _esFeli(tipo) ? 5 : 4;
+  return pref + "-" + Utilities.formatDate(d, _tz_(), "yyyy-MM") + "-" + ("00000" + n).slice(-Math.max(ancho, String(n).length));
 }
 
 // ---------------------------------------------------------------------------
@@ -232,13 +359,16 @@ function _progreso(estado) {
   return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 6px;"><tr>' + out.join("") + '</tr></table>';
 }
 
-function _enviar(para, asunto, texto, html) {
+function _enviar(para, asunto, texto, html, extra) {
   try {
     var op = { name: CFG.REMITENTE, replyTo: (_param(3) || "siau@miredips.org") };
+    if (extra && extra.cc) op.cc = extra.cc;
+    if (extra && extra.imagenes) Object.keys(extra.imagenes).forEach(function (k) { op.inlineImages = op.inlineImages || {}; op.inlineImages[k] = extra.imagenes[k]; });
     if (_remitenteAlias_()) op.from = _remitenteAlias_();
     if (html) {
       op.htmlBody = html;
-      op.inlineImages = { logoNiRed: Utilities.newBlob(Utilities.base64Decode(LOGO_BASE64), "image/png", "logo.png") };
+      op.inlineImages = op.inlineImages || {};
+      op.inlineImages.logoNiRed = Utilities.newBlob(Utilities.base64Decode(LOGO_BASE64), "image/png", "logo.png");
     }
     GmailApp.sendEmail(para, asunto, texto, op);
     return { ok: true };
@@ -269,15 +399,9 @@ function appBootstrap_() {
     try { var salud = _saludFormulas_(); if (salud.reparado || !salud.ok) migracion = { hecho: !!salud.reparado, mensaje: salud.mensaje || "" }; }
     catch (e) { migracion = { hecho: false, mensaje: "No se pudieron revisar las fórmulas: " + (e.message || e) }; }
   }
-  var cfg = _h(CFG.HOJA_CONFIG);
-  var L = _filaEncabezadoListas_(cfg);
-  var cab = cfg.getRange(L, 1, 1, 14).getValues()[0];
-  var cuerpo = cfg.getRange(L + 1, 1, 50, 14).getValues();
-  var listas = {};
-  cab.forEach(function (nombre, i) {
-    if (!nombre) return;
-    listas[String(nombre).trim()] = cuerpo.map(function (r) { return r[i]; }).filter(String);
-  });
+  _cacheListas = null;
+  var base = _listasConfig_(), listas = {};
+  Object.keys(base).forEach(function (k) { listas[k] = base[k].slice(); });
   if (SESION && !SESION.todas && listas["SEDE"]) listas["SEDE"] = listas["SEDE"].filter(_sedeVisible_);
   return {
     listas: listas,
@@ -313,29 +437,38 @@ function apiResponsables_() {
   var h = _h(CFG.HOJA_RESP);
   var ultima = h.getLastRow();
   if (ultima < CFG.RESP_FILA) return [];
-  var datos = h.getRange(CFG.RESP_FILA, 1, ultima - CFG.RESP_FILA + 1, 7).getValues();
-  return datos.filter(function (r) { return r[1]; }).map(function (r, i) {
-    return { id: r[0] || (i + 1), area: r[1], nombre: r[2], cargo: r[3], correo: r[4], telefono: r[5],
-             activo: _norm(r[6]) !== "no", fila: CFG.RESP_FILA + i };
+  var datos = h.getRange(CFG.RESP_FILA, 1, ultima - CFG.RESP_FILA + 1, 11).getValues();
+  var lista = function (x) { return String(x || "").split(/\s*;\s*/).map(function (v) { return v.trim(); }).filter(String); };
+  var out = [];
+  datos.forEach(function (r, i) {
+    if (!r[1]) return;
+    out.push({ id: r[0] || (i + 1), area: r[1], nombre: r[2], cargo: r[3], correo: r[4], telefono: r[5],
+               activo: _norm(r[6]) !== "no", fila: CFG.RESP_FILA + i,
+               servicios: lista(r[7]), sedes: lista(r[8]).filter(function (x) { return !/^todas$/i.test(x); }),
+               palabras: lista(r[9]), copia: lista(r[10]).filter(_correoOk) });
   });
+  return out;
 }
 
 function apiGuardarResponsable_(r) {
   var h = _h(CFG.HOJA_RESP);
   if (!r.area) return { ok: false, mensaje: "El área o servicio es obligatorio." };
   if (r.correo && !_correoOk(r.correo)) return { ok: false, mensaje: "El correo no es válido." };
+  var txt = function (x) { return Array.isArray(x) ? x.join("; ") : String(x || ""); };
+  var copia = txt(r.copia);
+  if (copia && copia.split(/\s*;\s*/).filter(String).some(function (c) { return !_correoOk(c); })) return { ok: false, mensaje: "Revisa los correos en copia (sepáralos con «;»)." };
+  var fila = [r.area, r.nombre || "", r.cargo || "", r.correo || "", r.telefono || "", r.activo === false ? "NO" : "SI",
+              txt(r.servicios), txt(r.sedes), txt(r.palabras), copia];
 
   if (r.fila) {
-    h.getRange(r.fila, 2, 1, 6).setValues([[r.area, r.nombre || "", r.cargo || "", r.correo || "",
-      r.telefono || "", r.activo === false ? "NO" : "SI"]]);
+    h.getRange(r.fila, 2, 1, 10).setValues([fila]);
     _traza("—", "Responsable actualizado", r.area + " · " + (r.nombre || "") + " · " + (r.correo || "sin correo"));
   } else {
     var ultima = h.getLastRow();
     var ids = h.getRange(CFG.RESP_FILA, 1, Math.max(1, ultima - CFG.RESP_FILA + 1), 1).getValues()
                .map(function (x) { return parseInt(x[0], 10) || 0; });
     var nuevoId = Math.max.apply(null, ids.concat([0])) + 1;
-    h.appendRow([nuevoId, r.area, r.nombre || "", r.cargo || "", r.correo || "", r.telefono || "",
-                 r.activo === false ? "NO" : "SI"]);
+    h.appendRow([nuevoId].concat(fila));
     _traza("—", "Responsable creado", r.area + " · " + (r.nombre || "") + " · " + (r.correo || "sin correo"));
   }
   return { ok: true, responsables: apiResponsables_() };
@@ -366,7 +499,13 @@ function _acuseRecepcion_(fila) {
 
   var base = _datosCorreo(f);
   var feli = _esFeli(f[C.TIPO_PQRS - 1]);
+  // v8: el acuse dice qué se radicó y cómo se clasificó (tipo, nivel de riesgo y término que aplica)
+  var nivel = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1]);
+  var termino = feli ? "" : (HORAS_NIVEL[nivel] && _rango_(nivel) >= 2 ? HORAS_NIVEL[nivel] + " horas" :
+    (typeof f[C.TERMINO - 1] === "number" ? _terminoTexto_(f[C.TERMINO - 1], f[C.TIPO_DIA - 1], "") : ""));
+  var clasif = feli ? "" : (_rango_(nivel) >= 2 ? "Prioritaria · " + (nivel === "Vital NNA" ? "riesgo vital en menor de edad" : nivel === "Vital" ? "riesgo vital" : "riesgo priorizado") : "");
   var html = _plantilla({
+    extraDetalles: [["Tipo de solicitud", f[C.TIPO_PQRS - 1]], ["Clasificación", clasif], ["Término de respuesta", termino]],
     codigo: codigo, tipo: f[C.TIPO_PQRS - 1], estado: "Recibida", sinProgreso: feli,
     sede: base.sede, servicio: base.servicio, fechaRadicacion: base.fechaRadicacion, fechaMax: base.fechaMax,
     titulo: feli ? "¡Gracias por su felicitación!" : "Recibimos su solicitud",
@@ -374,14 +513,15 @@ function _acuseRecepcion_(fila) {
       ? "Gracias por tomarse el tiempo de escribirnos. Su mensaje quedó registrado y lo compartiremos con el equipo" +
         (base.servicio ? " de <b>" + _html_(base.servicio) + "</b>" : "") + (base.sede ? " en <b>" + _html_(base.sede) + "</b>" : "") +
         ".<br><br>El reconocimiento de nuestros usuarios motiva a quienes le atienden cada día y nos ayuda a mantener una atención humanizada."
-      : "Confirmamos la radicación de su <b>" + (f[C.TIPO_PQRS - 1] || "solicitud") + "</b> con el número que aparece arriba. " +
-        "La Oficina de Atención al Usuario la está revisando y le informaremos cada avance." +
-        (base.fechaMax ? " Le daremos respuesta a más tardar el <b>" + base.fechaMax + "</b>." : ""),
+      : "Confirmamos la radicación de su <b>" + _html_(String(f[C.TIPO_PQRS - 1] || "solicitud").toLowerCase()) + "</b> con el número que aparece arriba. " +
+        "La Oficina de Atención al Usuario la está revisando y le informaremos cada avance: cuando pase al área encargada y cuando tengamos la respuesta." +
+        (clasif ? "<br><br>Por lo que nos cuenta, su caso fue marcado como <b>prioritario</b> y se gestionará dentro de las <b>" + termino + "</b> siguientes a su recepción." :
+         (base.fechaMax ? " Le daremos respuesta a más tardar el <b>" + base.fechaMax + "</b>." : "")),
     descripcion: f[C.DESCRIPCION - 1],
   });
   var r = _enviar(correo,
-    (feli ? "Gracias por su felicitación – " : "Radicación de su PQRS – ") + codigo,
-    "Radicado " + codigo, html);
+    (feli ? "Gracias por su felicitación – " : "Radicación de su " + String(f[C.TIPO_PQRS - 1] || "PQRS").toLowerCase() + " – ") + codigo,
+    "Radicado " + codigo, html, feli && MASCOTA_BASE64 ? { imagenes: { mascotaSiau: Utilities.newBlob(Utilities.base64Decode(MASCOTA_BASE64), "image/png", "siau.png") } } : null);
   if (!r.ok) return "error: " + r.error;
 
   h.getRange(fila, C.NOTIF_RECEPCION).setValue(new Date());
@@ -405,7 +545,7 @@ function apiRadicar_(d) {
   if (!fRecepcion) return { ok: false, mensaje: "La fecha de recepción no es válida." };
 
   var fila = _proximaFila();
-  var codigo = _nuevoCodigo(fRadicacion);
+  var codigo = _nuevoCodigo(fRadicacion, d.tipoPqrs);
   var vals = {};
   vals[C.CODIGO] = codigo;
   vals[C.MARCA] = new Date();
@@ -429,15 +569,18 @@ function apiRadicar_(d) {
   _traza(codigo, "Radicación", "Canal " + vals[C.CANAL] + " · PQRS del " + _fmt(fPqrs) +
     " · recibida el " + _fmt(fRecepcion));
 
-  var clas = _aplicarClasificador_(fila, "sugerir");
+  var post = _postRadicacion_(fila, "sugerir");
+  var clas = post.tipo;
   SpreadsheetApp.flush();
   var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
   var base = _datosCorreo(f);
   var acuse = _acuseRecepcion_(fila);
   try { _avisoNuevoCaso_(fila, {}); } catch (e) { Logger.log(e); }
 
+  var auto = _direccionAutomatica_(fila);
   return { ok: true, codigo: codigo, fila: fila, fechaMax: base.fechaMax || "No aplica", acuse: acuse,
-           sugerido: clas && clas.tipo && _norm(clas.tipo) !== _norm(d.tipoPqrs) && clas.confianza !== "baja" ? clas.tipo : "" };
+           sugerido: clas && clas.tipo && _norm(clas.tipo) !== _norm(d.tipoPqrs) && clas.confianza !== "baja" ? clas.tipo : "",
+           riesgo: post.riesgo && post.riesgo.nivel ? post.riesgo : null, areas: post.areas || [], direccionada: auto || "" };
 }
 
 // ---------------------------------------------------------------------------
@@ -445,9 +588,10 @@ function apiRadicar_(d) {
 // ---------------------------------------------------------------------------
 function apiBandeja_(filtros) {
   filtros = filtros || {};
+  CATS_CACHE = _categorias_();
   var h = _h(CFG.HOJA_DATOS);
   var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var datos = h.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  var datos = _datos_();
   var texto = _norm(filtros.texto);
   var out = [];
 
@@ -474,6 +618,8 @@ function apiBandeja_(filtros) {
       prioridad: _prioridadDe_(f[C.CLASIF_INTERNA - 1], f[C.ENTIDAD - 1], CATS_CACHE || (CATS_CACHE = _categorias_())),
       etiquetas: _etiquetasObs_(f[C.OBSERVACIONES - 1]),
       remitente: (/Remitente institucional: ([^(·]+)/.exec(String(f[C.OBSERVACIONES - 1] || "")) || [])[1] || "",
+      nivel: _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], CATS_CACHE) || String(f[C.NIVEL_RIESGO - 1] || "").split(" · ")[0],
+      poblacion: String(f[C.POBLACION_PRIORIZADA - 1] || ""),
     };
     // Etapa del flujo: es como trabaja el SIAU (una pestaña por paso)
     if (filtros.etapa && filtros.etapa !== "todas") {
@@ -488,11 +634,16 @@ function apiBandeja_(filtros) {
       else if (filtros.etapa === "por_responder") pasa = !cerrada && conRta;
       else if (filtros.etapa === "criticas") pasa = !cerrada && (sem.indexOf("🔴") === 0 || sem.indexOf("🟡") === 0 || sem.indexOf("⚠") === 0);
       else if (filtros.etapa === "cerradas") pasa = cerrada;
+      else if (filtros.etapa === "prioritarias") pasa = !cerrada && (_rango_(item.nivel) >= 2 || item.prioridad === "Crítica" || item.prioridad === "Alta");
+      else if (filtros.etapa === "felicitaciones") pasa = _esFeli(item.tipo);
       if (!pasa) return;
     }
     if (filtros.estado && _norm(filtros.estado) !== _norm(item.estado)) return;
     if (filtros.semaforo && (item.semaforo || "").indexOf(filtros.semaforo) !== 0) return;
     if (filtros.canal && _norm(filtros.canal) !== _norm(item.canal)) return;
+    if (filtros.tipo && _norm(filtros.tipo) !== _norm(item.tipo)) return;
+    if (filtros.sede && _norm(filtros.sede) !== _norm(item.sede)) return;
+    if (filtros.anio) { var fr0 = f[C.FECHA_RADICACION - 1]; if (!(fr0 instanceof Date) || Utilities.formatDate(fr0, _tz_(), "yyyy") !== String(filtros.anio)) return; }
     if (texto) {
       var blob = _norm([item.codigo, item.solicitante, item.sede, item.servicio, item.tipo,
                         f[C.DESCRIPCION - 1], f[C.NUM_DOC_SOL - 1]].join(" "));
@@ -501,11 +652,15 @@ function apiBandeja_(filtros) {
     out.push(item);
   });
   out.reverse();
-  if (filtros.etapa !== "cerradas") {
+  var total = out.length;
+  if (filtros.etapa !== "cerradas" && filtros.etapa !== "felicitaciones") {
     var rango = { "Crítica": 0, "Alta": 1, "Media": 2, "Normal": 3 };
     out = out.map(function (x, i) { x._i = i; return x; }).sort(function (a, b) {
       return (rango[a.prioridad] - rango[b.prioridad]) || (a._i - b._i); });
   }
+  // v8: con miles de registros se envían los primeros 600 (el buscador y los filtros afinan el resto)
+  var limite = parseInt(filtros.limite, 10) || 600;
+  if (out.length > limite) { out = out.slice(0, limite); out.__recortado = total; }
   return out;
 }
 
@@ -553,7 +708,26 @@ function apiDetalle_(codigo) {
   d.recepcionHora = f[C.MARCA - 1] instanceof Date ? Utilities.formatDate(f[C.MARCA - 1], _tz_(), "dd/MM/yyyy HH:mm") : "";
   d.hiloId = "";
   if (f[C.ID_CORREO - 1]) { try { d.hiloId = GmailApp.getMessageById(f[C.ID_CORREO - 1]).getThread().getId(); } catch (e) {} }
+  // v8 · riesgo, población priorizada, autorización de datos y áreas sugeridas
+  var cats8 = CATS_CACHE || (CATS_CACHE = _categorias_());
+  d.nivelRiesgo = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats8) || String(f[C.NIVEL_RIESGO - 1] || "").split(" · ")[0];
+  d.riesgoTexto = String(f[C.NIVEL_RIESGO - 1] || "");
+  d.poblacionPriorizada = String(f[C.POBLACION_PRIORIZADA - 1] || "").split(/\s*;\s*/).filter(String);
+  d.riesgoManual = /\[Riesgo manual:/.test(String(f[C.OBSERVACIONES - 1] || ""));
+  d.riesgoRazones = ((/\[Riesgo: [^·\]]*·\s*([^\]]*)\]/.exec(String(f[C.OBSERVACIONES - 1] || "")) || [])[1] || "");
+  if (HORAS_NIVEL[d.nivelRiesgo] && _rango_(d.nivelRiesgo) >= 2) {
+    d.limiteHoras = _fmtHora_(_limiteHoras_(f, d.nivelRiesgo));
+    d.terminoTexto = HORAS_NIVEL[d.nivelRiesgo] + " horas · " + _nivelNorma_(d.nivelRiesgo);
+  } else if (catD0(f, cats8)) d.normaTermino = catD0(f, cats8);
+  d.autorizacionDatos = f[C.AUTORIZACION_DATOS - 1] || "";
+  d.areaSugerida = f[C.AREA_SUGERIDA - 1] || "";
+  try { d.areasSugeridas = f[C.CORREO_RESP - 1] ? [] : _sugerirArea_(f); } catch (e) { d.areasSugeridas = []; }
+  d.esFelicitacion = _esFeli(f[C.TIPO_PQRS - 1]);
   return d;
+}
+function catD0(f, cats) {
+  var c = cats.filter(function (x) { return _norm(x.nombre) === _norm(f[C.CLASIF_INTERNA - 1]); })[0];
+  return c && c.norma ? c.norma : "";
 }
 
 function _trazaDe(codigo) {
@@ -632,24 +806,27 @@ function apiEnviarAlArea_(codigo, idResponsable, nota) {
       "<br><br>No requiere gestión ni respuesta. Si desean enviar unas palabras al usuario, respondan a este correo y el SIAU se las hará llegar." +
       (nota ? "<br><br><b>Nota del SIAU:</b> " + _html_(nota) : ""),
     descripcion: f[C.DESCRIPCION - 1] });
+  var nivelA = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1]);
+  var prefijoRiesgo = _rango_(nivelA) >= 2 ? "[" + nivelA.toUpperCase() + " · " + HORAS_NIVEL[nivelA] + " H] " : "";
   var r1 = _enviar(resp.correo, feliArea
-      ? "[RECONOCIMIENTO · PQRS " + codigo + "] Felicitación para " + (base.servicio || resp.area)
-      : "[SOLICITUD INTERNA · PQRS " + codigo + "] " + (f[C.TIPO_PQRS - 1] || "") + " – " + (base.servicio || "") + (base.fechaMax ? " · vence " + base.fechaMax : ""),
-    (feliArea ? "Reconocimiento de un usuario — PQRS " : "Solicitud interna de gestión — PQRS ") + codigo + ".", htmlArea);
+      ? "[RECONOCIMIENTO · " + codigo + "] Felicitación para " + (base.servicio || resp.area)
+      : prefijoRiesgo + "[SOLICITUD INTERNA · PQRS " + codigo + "] " + (f[C.TIPO_PQRS - 1] || "") + " – " + (base.servicio || "") + (base.fechaMax ? " · vence " + base.fechaMax : ""),
+    (feliArea ? "Reconocimiento de un usuario — " : "Solicitud interna de gestión — PQRS ") + codigo + ".", htmlArea, { cc: (resp.copia || []).join(",") });
   if (!r1.ok) return { ok: false, mensaje: "No se pudo enviar al área: " + r1.error };
 
   h.getRange(fila, C.RESPONSABLE).setValue(base.responsable);
   h.getRange(fila, C.CORREO_RESP).setValue(resp.correo);
   h.getRange(fila, C.FECHA_ENVIO_AREA).setValue(new Date());
   h.getRange(fila, C.NOTIF_AREA).setValue(new Date());
-  h.getRange(fila, C.ESTADO).setValue("En gestión");
+  // v8: la felicitación no requiere gestión ni respuesta: al entregarse al área queda cerrada.
+  h.getRange(fila, C.ESTADO).setValue(feliArea ? "Respondida - Cerrada" : "En gestión");
   SpreadsheetApp.flush();
-  _traza(codigo, "Enviada al área", resp.area + " (" + resp.correo + ")" + (nota ? " · Nota: " + nota : ""));
+  _traza(codigo, feliArea ? "Felicitación entregada al área" : "Enviada al área", resp.area + " (" + resp.correo + ")" + (nota ? " · Nota: " + nota : ""));
 
-  // Aviso al usuario de que su PQRS está en gestión
-  var avisoUsuario = "el usuario no dejó correo";
+  // Aviso al usuario de que su PQRS está en gestión (las felicitaciones solo reciben el acuse)
+  var avisoUsuario = feliArea ? "no aplica (felicitación: el usuario ya recibió el agradecimiento)" : "el usuario no dejó correo";
   var correoUsr = f[C.CORREO - 1];
-  if (_correoOk(correoUsr)) {
+  if (!feliArea && _correoOk(correoUsr)) {
     var htmlUsr = _plantilla({
       codigo: codigo, tipo: f[C.TIPO_PQRS - 1], estado: "En gestión",
       sede: base.sede, servicio: base.servicio, fechaRadicacion: base.fechaRadicacion,
@@ -782,10 +959,28 @@ function apiResponderUsuario_(codigo, textoFinal, cerrar) {
   if (cerrar !== false) h.getRange(fila, C.ESTADO).setValue("Respondida - Cerrada");
   SpreadsheetApp.flush();
   _traza(codigo, "Respuesta enviada al usuario", "A " + correoUsr + " · " + textoFinal.substring(0, 250));
+  var avisoArea = _avisoCierreArea_(codigo, f, textoFinal);
 
   var det = apiDetalle_(codigo);
-  det.aviso = { usuario: "enviado a " + correoUsr };
+  det.aviso = { usuario: "enviado a " + correoUsr, area: avisoArea };
   return det;
+}
+
+/** v8 · Cuarto paso: el área sabe que su gestión se convirtió en la respuesta final y que el caso quedó cerrado. */
+function _avisoCierreArea_(codigo, f, textoFinal) {
+  if (_esFeli(f[C.TIPO_PQRS - 1]) || !_ajustes_().avisoCierreArea) return "";
+  var correoArea = String(f[C.CORREO_RESP - 1] || "").trim();
+  if (!_correoOk(correoArea)) return "";
+  var html = _correoHilo_({ interno: "AVISO INTERNO · PQRS CERRADA", kicker: f[C.TIPO_PQRS - 1], codigo: codigo,
+    titulo: "Se respondió al usuario y el caso quedó cerrado",
+    mensaje: "Gracias por su gestión. Con la información que envió su área, la Oficina de Atención al Usuario redactó y envió la respuesta oficial al usuario." +
+      "\n\nAbajo encuentra el texto enviado para su conocimiento. No requiere ninguna acción adicional, salvo las acciones de mejora que su área haya definido.",
+    fechas: { recepcion: _fmt(f[C.FECHA_RECEPCION - 1]), radicacion: _fmt(f[C.FECHA_RADICACION - 1]) },
+    detalles: [["Sede", f[C.SEDE - 1]], ["Servicio", f[C.SERVICIO - 1]], ["Respuesta enviada el", _fmt(new Date())]],
+    cita: textoFinal, citaTitulo: "Respuesta enviada al usuario" });
+  var r = _enviar(correoArea, "[CERRADA · PQRS " + codigo + "] Respuesta enviada al usuario", "PQRS " + codigo + " cerrada.", html);
+  if (r.ok) _traza(codigo, "Aviso de cierre al área", correoArea);
+  return r.ok ? "cierre notificado a " + correoArea : "";
 }
 
 /** Reenvía una notificación que falló o que el área dice no haber recibido. */
@@ -832,7 +1027,7 @@ function apiDashboard_(filtros) {
   filtros = filtros || {};
   var h = _h(CFG.HOJA_DATOS);
   var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var datos = h.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  var datos = _datos_();
   var tz = _tz_();
   var hoy = _soloFecha_(new Date());
   var anioActual = parseInt(Utilities.formatDate(hoy, tz, "yyyy"), 10);
@@ -1032,6 +1227,7 @@ function _sugerirMapeo(preguntas) {
     ["servicio", ["servicio","area a la que","especialidad"]],
     ["modalidad", ["modalidad"]],
     ["entidad", ["entidad presentada","ante quien"]],
+    ["autorizacionDatos", ["autorizacion de tratamiento","tratamiento de datos","autorizo"]],
     ["fechaPqrs", ["fecha de la pqrs","fecha del hecho","fecha de ocurrencia","fecha de los hechos"]],
     ["descripcion", ["describa","descripcion","relate","narre","cuentenos","detalle su",
                      "opinion","manifestacion","comentario","mensaje","observacion"]],
@@ -1115,18 +1311,23 @@ function apiImportarRespuestasForm_(opciones) {
 
   var hd = _h(CFG.HOJA_DATOS);
   var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var existentes = hd.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  var existentes = _datos_();
   var vistos = {};
   existentes.forEach(function (f) {
     if (f[C.CODIGO - 1]) vistos[_clave(f[C.MARCA - 1], f[C.DESCRIPCION - 1])] = true;
   });
 
-  var importadas = 0, acusados = 0, sinCorreo = 0;
+  var importadas = 0, acusados = 0, sinCorreo = 0, anteriores = 0;
   var noReconocidos = [];
   var limite = new Date(); limite.setDate(limite.getDate() - CFG.DIAS_ACUSE);
+  var desde = _importarDesde_();
+  var t0 = Date.now();
   for (var i = 1; i < filas.length; i++) {
     var fr = filas[i];
     if (!fr[0]) continue;
+    var marca0 = fr[0] instanceof Date ? fr[0] : new Date(fr[0]);
+    if (desde && !isNaN(marca0.getTime()) && marca0.getTime() <= desde) { anteriores++; continue; }   // v8: histórico ya migrado
+    if (Date.now() - t0 > 240000) break;   // margen ante el límite de 6 minutos de Apps Script
     var d = {};
     enc.forEach(function (titulo, j) {
       var campo = mapeo[titulo];
@@ -1149,7 +1350,7 @@ function apiImportarRespuestasForm_(opciones) {
     if (isNaN(marca.getTime())) continue;
     var soloFecha = _soloFecha_(marca);
     var fila = _proximaFila();
-    var codigo = _nuevoCodigo(soloFecha);
+    var codigo = _nuevoCodigo(soloFecha, d.tipoPqrs);
     var vals = {};
     vals[C.CODIGO] = codigo;
     vals[C.CANAL] = "QR - Formulario";
@@ -1170,7 +1371,7 @@ function apiImportarRespuestasForm_(opciones) {
     importadas++;
     _traza(codigo, "Radicación", "Importada del formulario QR (" + _fmt(marca) + ")");
     SpreadsheetApp.flush();
-    try { _aplicarClasificador_(fila, "auto"); } catch (e) { Logger.log(e); }
+    try { var clF = _postRadicacion_(fila, "auto"); if (clF.codigo) codigo = clF.codigo; } catch (e) { Logger.log(e); }
     if (marca >= limite) { try { SpreadsheetApp.flush(); _avisoNuevoCaso_(fila, {}); } catch (e) { Logger.log(e); } }
 
     // Acuse automático al usuario. Solo para respuestas recientes, para no
@@ -1185,6 +1386,7 @@ function apiImportarRespuestasForm_(opciones) {
   SpreadsheetApp.flush();
   _cacheListas = null;
   var msg = "Respuestas importadas: " + importadas;
+  if (anteriores) msg += " · " + anteriores + " anteriores a la fecha de corte (" + _fmtHora_(desde) + ") no se tocaron";
   if (importadas) {
     msg += " · acuses enviados: " + acusados;
     if (sinCorreo) msg += " · sin correo: " + sinCorreo;
@@ -1203,8 +1405,9 @@ function _listasConfig_() {
   if (_cacheListas) return _cacheListas;
   var cfg = _h(CFG.HOJA_CONFIG);
   var L = _filaEncabezadoListas_(cfg);
-  var cab = cfg.getRange(L, 1, 1, 14).getValues()[0];
-  var cuerpo = cfg.getRange(L + 1, 1, 50, 14).getValues();
+  var ncol = Math.max(14, Math.min(26, cfg.getLastColumn ? cfg.getLastColumn() : 14));
+  var cab = cfg.getRange(L, 1, 1, ncol).getValues()[0];
+  var cuerpo = cfg.getRange(L + 1, 1, 150, ncol).getValues();
   _cacheListas = {};
   cab.forEach(function (n, i) {
     if (!n) return;
@@ -1231,6 +1434,10 @@ function _normalizarValorLista_(valor, nombreLista) {
   var compacto = n.replace(/[^a-z0-9ñ]/g, "");   // v7: «SUPERSALUD» = «SUPER SALUD»
   for (i = 0; i < lista.length; i++) if (compacto && _norm(lista[i]).replace(/[^a-z0-9ñ]/g, "") === compacto) return { valor: lista[i], reconocido: true };
 
+  if (nombreLista === "SEDE") {   // v8: «Camino La Playa» = «C. LA PLAYA», «Camino Sur Occidente» = «C. SUROCCIDENTE»…
+    var ns = _nucleoSede_(bruto);
+    for (i = 0; i < lista.length; i++) if (ns && _nucleoSede_(lista[i]) === ns) return { valor: lista[i], reconocido: true };
+  }
   var expandido = n.replace(/^c\.\s*/, "camino ").replace(/^p\.\s*/, "paso ");
   for (i = 0; i < lista.length; i++) if (_norm(lista[i]) === expandido) return { valor: lista[i], reconocido: true };
 
@@ -1251,6 +1458,17 @@ function _normalizarValorLista_(valor, nombreLista) {
     }
   }
   return { valor: bruto, reconocido: false };
+}
+
+/** Núcleo comparable del nombre de una sede (sin «Camino/Paso», artículos, tildes ni espacios) + alias conocidos. */
+var ALIAS_SEDES = { "metropolitano": "saludmetropolitano", "saludmetropolitana": "saludmetropolitano", "universitariodistritaladelitadechar": "adelitadechar",
+  "manga": "lamanga", "bosquesdemaria": "bosquedemaria", "ciudadela": "ciudadela20dejulio", "elferry1demayo": "elferry", "ferry": "elferry",
+  "carlosmeiselii": "carlosmeissel", "carlosmeisel": "carlosmeissel", "villasdesanpablo": "villasanpablo", "villasanpablo": "villasanpablo",
+  "centroderecuperacionnutricionalrosour": "rosour", "sierrita": "lasierrita", "esmeraldalipaya": "esmeraldalipaya", "hospitalgeneraldebarranquilla": "hospitalgeneral",
+  "hospitalbq": "hospitalgeneral", "hospitalgeneral": "hospitalgeneral" };
+function _nucleoSede_(v) {
+  var n = _norm(v).replace(/^(c|p)\.\s*/, "").replace(/^(camino|paso)\s+/, "").replace(/1º|1°/g, "1").replace(/[^a-z0-9ñ]/g, "");
+  return ALIAS_SEDES[n] || n;
 }
 
 var CAMPO_LISTA = {
@@ -1306,14 +1524,17 @@ function apiEstadoFormulario_() {
     } else {
       var hd = _h(CFG.HOJA_DATOS);
       var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-      var existentes = hd.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+      var existentes = _datos_();
       var vistos = {};
       existentes.forEach(function (f) {
         if (f[C.CODIGO - 1]) vistos[_clave(f[C.MARCA - 1], f[C.DESCRIPCION - 1])] = true;
       });
+      var desdeE = _importarDesde_();
+      est.desde = desdeE ? _fmtHora_(desdeE) : "";
       for (var i = 1; i < filas.length; i++) {
         if (!filas[i][0]) continue;
         var m = filas[i][0] instanceof Date ? filas[i][0] : new Date(filas[i][0]);
+        if (desdeE && m.getTime() <= desdeE) { est.anteriores = (est.anteriores || 0) + 1; continue; }
         if (vistos[_clave(m, filas[i][colDesc])]) est.importadas++; else est.pendientes++;
       }
     }
@@ -1326,6 +1547,22 @@ function apiEstadoFormulario_() {
 
   return est;
 }
+
+/**
+ * v8 · Fecha de corte de la importación del formulario (Config B20). Todo lo respondido hasta esa
+ * marca temporal ya está en el consolidado (histórico migrado). Si está vacía, la primera
+ * importación la fija en «ahora» para no radicar de golpe años de respuestas antiguas.
+ */
+function _importarDesde_() {
+  var v = _param(9);
+  if (v instanceof Date && !isNaN(v.getTime())) return v.getTime();
+  if (v && !isNaN(new Date(v).getTime())) return new Date(v).getTime();
+  var ahora = new Date();
+  try { _setParam(9, ahora); _traza("—", "Importación del formulario activada", "Se importan las respuestas posteriores a " + _fmtHora_(ahora.getTime()) +
+    ". Para traer respuestas anteriores cambia la fecha en Config (celda B20)."); } catch (e) {}
+  return ahora.getTime();
+}
+function _fmtHora_(ms) { return ms ? Utilities.formatDate(new Date(ms), _tz_(), "dd/MM/yyyy HH:mm") : ""; }
 
 function _clave(marca, desc) {
   var m = (marca instanceof Date) ? marca.getTime() : String(marca);
@@ -1346,6 +1583,8 @@ function importarFormulario() {
 // ALERTA DIARIA
 // ---------------------------------------------------------------------------
 function rutinaDiaria() {
+  try { if (_ajustes_().direccionFelicitaciones === "resumen") apiDireccionarFelicitaciones_(); } catch (e) { Logger.log("Felicitaciones: " + e); }
+  try { _hojaFestivos_(); } catch (e) {}
   var d = apiDashboard_();
   if (!d.vencidas && !d.porVencer && !d.porRevisar) return;
   var resp = apiResponsables_();
@@ -1403,7 +1642,7 @@ function rutinaDiaria() {
 function apiResumenHoy_() {
   var h = _h(CFG.HOJA_DATOS);
   var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var datos = h.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  var datos = _datos_();
   var tz = _tz_();
   var hoy = _soloFecha_(new Date());
   var enOchoDias = new Date(hoy.getTime() + 8 * 86400000);
@@ -1475,7 +1714,7 @@ function apiResumenHoy_() {
     try { var c = apiCorreos_(true); r.correo = c.resumen; r.correosPendientes = c.resumen.relevantes; }
     catch (e) { r.correosPendientes = -1; }
   } else { r.correosPendientes = -1; r.sinCorreo = true; }
-  r.porSede = {}; r.prioritarias = [];
+  r.porSede = {}; r.prioritarias = []; r.prioritariasAbiertas = 0; r.felicitacionesPendientes = 0;
   var cats = _categorias_();
   datos.forEach(function (f) {
     if (!f[C.CODIGO - 1] || !_filaVisible_(f)) return;
@@ -1489,7 +1728,11 @@ function apiResumenHoy_() {
     var fr = f[C.FECHA_RADICACION - 1];
     if (fr instanceof Date && Utilities.formatDate(fr, tz, "yyyy-MM") === mesHoy) ps.mes++;
     var pr = _prioridadDe_(f[C.CLASIF_INTERNA - 1], f[C.ENTIDAD - 1], cats);
+    var nv = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats);
+    if (!cerrada && _esFeli(f[C.TIPO_PQRS - 1]) && !f[C.CORREO_RESP - 1]) r.felicitacionesPendientes++;
+    if (!cerrada && !_esFeli(f[C.TIPO_PQRS - 1]) && (pr === "Crítica" || pr === "Alta" || _rango_(nv) >= 2)) r.prioritariasAbiertas++;
     if (!cerrada && (pr === "Crítica" || pr === "Alta")) r.prioritarias.push({ codigo: f[C.CODIGO - 1], prioridad: pr,
+      limite: HORAS_NIVEL[nv] && _rango_(nv) >= 2 ? "antes de " + _fmtHora_(_limiteHoras_(f, nv)) : "",
       clasificacion: f[C.CLASIF_INTERNA - 1], tipo: f[C.TIPO_PQRS - 1], remitente: (/Remitente institucional: ([^(·]+)/.exec(String(f[C.OBSERVACIONES - 1] || "")) || [])[1] || f[C.EPS - 1] || "",
       fechaMax: _fmt(f[C.FECHA_MAX - 1]), semaforo: sem, conArea: !!f[C.CORREO_RESP - 1], orden: pr === "Crítica" ? 0 : 1 });
   });
@@ -1541,7 +1784,7 @@ function apiRadicarCorreo_(idMsg, d) {
 
   var soloFecha = _soloFecha_(d.fechaRecepcion) || _soloFecha_(msg.getDate());
   var fila = _proximaFila();
-  var codigo = _nuevoCodigo(soloFecha);
+  var codigo = _nuevoCodigo(soloFecha, d.tipoPqrs);
   var esFeli = _esFeli(d.tipoPqrs);
 
   var vals = {};
@@ -1580,7 +1823,7 @@ function apiRadicarCorreo_(idMsg, d) {
   if (hiloId) _guardarHilo_(hiloId, { categoria: d.clasificacion ? "institucional" : "pqrs", estado: "Radicado " + codigo, codigo: codigo,
     correoUsuario: d.correo || "", asunto: msg.getSubject() || "", accion: "Radicada como " + codigo + (d.automatico ? " (automático)" : "") });
   SpreadsheetApp.flush();
-  try { _aplicarClasificador_(fila, d.clasificacion ? "sugerir" : "auto"); } catch (e) { Logger.log(e); }
+  try { var clC = _postRadicacion_(fila, d.clasificacion ? "sugerir" : "auto"); if (clC.codigo) codigo = clC.codigo; } catch (e) { Logger.log(e); }
   var acuse = d.sinAcuse ? "en el mismo hilo" : _acuseRecepcion_(fila);
   if (!d.automatico) { try { _avisoNuevoCaso_(fila, {}); } catch (e) { Logger.log(e); } }
 
@@ -1714,13 +1957,18 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // ---------------------------------------------------------------------------
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
-var ESQUEMA = "7";
+var ESQUEMA = "8";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
   var r = _migrar_(true);
   try { SpreadsheetApp.getUi().alert(r.mensaje); } catch (e) {}
   return r;
+}
+
+/** Última fila que debe tener fórmulas: último registro + colchón. */
+function _finFormulas_(h) {
+  return Math.max(_finDatos_() + CFG.COLCHON_FORMULAS, CFG.FILA_DATOS + CFG.COLCHON_FORMULAS);
 }
 
 function _migrar_(forzar) {
@@ -1732,14 +1980,19 @@ function _migrar_(forzar) {
   try {
     if (!forzar && props.getProperty("ESQUEMA") === ESQUEMA) return { ok: true, hecho: false, mensaje: "" };
     var h = _h(CFG.HOJA_DATOS);
-    var enc = h.getRange(CFG.FILA_DATOS - 1, 1, 1, CFG.NCOL).getValues()[0].map(function (x) { return _norm(x); });
+    var enc = h.getRange(CFG.FILA_DATOS - 1, 1, 1, 53).getValues()[0].map(function (x) { return _norm(x); });
     if (enc[C.TERMINO - 1].indexOf("termino") === -1 || enc[C.DIAS - 1].indexOf("dias") === -1) {
       return { ok: false, hecho: false, mensaje: "Los encabezados del consolidado no coinciden con la versión esperada; no se tocaron las fórmulas." };
     }
-    var fin = Math.max(CFG.FILA_FIN, h.getLastRow());
-    var n = fin - CFG.FILA_DATOS + 1;
+    var cambios = [];
 
-    // 1) Fechas sin hora: se lleva cada valor a la medianoche que le corresponde.
+    // v8 · 1) Estructura: columnas nuevas, parámetros, festivos, términos, categorías, entidades y directorio.
+    try { cambios = cambios.concat(_estructuraV8_(h)); } catch (e) { cambios.push("estructura: " + (e.message || e)); }
+
+    var fin = _finFormulas_(h);
+    var n = _finDatos_() - CFG.FILA_DATOS + 1;
+
+    // 2) Fechas sin hora: se lleva cada valor a la medianoche que le corresponde.
     var corregidas = 0, tz = _tz_();
     [C.FECHA_PQRS, C.FECHA_RECEPCION, C.FECHA_RADICACION, C.FECHA_RTA_AREA, C.FECHA_RTA_USUARIO].forEach(function (col) {
       var rg = h.getRange(CFG.FILA_DATOS, col, n, 1);
@@ -1761,23 +2014,268 @@ function _migrar_(forzar) {
       if (cambio) rg.setValues(vals);
     });
 
-    // 2) Fórmulas de términos con INT() y búsqueda tolerante de la entidad.
+    // 3) Fórmulas de términos (festivos en su propia hoja, categorías de riesgo, EPS) hasta el último registro + colchón.
+    try { if (h.getMaxRows() < fin) h.insertRowsAfter(h.getMaxRows(), fin - h.getMaxRows()); } catch (e) {}
     var ef = _escribirFormulas_(h, fin);
     if (!ef.ok) return { ok: false, hecho: false, mensaje: ef.mensaje };
 
     props.setProperty("ESQUEMA", ESQUEMA);
-    _traza("—", "Actualización v7", "Fechas ajustadas: " + corregidas + " · fórmulas de términos y días reescritas con INT() y búsqueda tolerante de entidad");
+    _traza("—", "Actualización v8", "Fechas ajustadas: " + corregidas + " · fórmulas hasta la fila " + fin +
+      (cambios.length ? " · " + cambios.join(" · ") : ""));
     return { ok: true, hecho: true, corregidas: corregidas,
-             mensaje: "Consolidado actualizado a la versión 7: términos por categoría del correo (Supersalud, tutela, derecho de petición), días enteros y entidad tolerante" +
+             mensaje: "Consolidado actualizado a la versión 8: sin límite de filas, festivos automáticos, riesgo según las circulares de la Supersalud " +
+                      "(vital 24 h, vital en niñas, niños y adolescentes 8 h, priorizado 48 h) y directorio de áreas" +
                       (corregidas ? " · " + corregidas + " fecha(s) corregida(s)." : ".") };
   } finally {
     lock.releaseLock();
   }
 }
 
+/** Parámetros de Config (columna B, desde la fila 11): etiqueta y valor por defecto. */
+var PARAMS_V8 = [
+  [8, "Prefijo del radicado de felicitaciones", "FEL"],
+  [9, "Importar respuestas del formulario desde (fecha y hora)", ""],
+  [10, "Enlace a la política de tratamiento de datos personales", ""],
+  [11, "Enlace público del formulario QR", ""],
+];
+
+/** Cambios de estructura de la versión 8. Idempotente: solo agrega lo que falta. */
+function _estructuraV8_(h) {
+  var hechos = [];
+  // Encabezados de las columnas nuevas (BB:BE)
+  var enc = h.getRange(CFG.FILA_DATOS - 1, 54, 1, 4).getValues()[0];
+  var faltan = false;
+  [54, 55, 56, 57].forEach(function (c, i) { if (!enc[i]) { enc[i] = ENCABEZADOS_V8[c]; faltan = true; } });
+  if (faltan) {
+    try { if (h.getMaxColumns() < CFG.NCOL) h.insertColumnsAfter(h.getMaxColumns(), CFG.NCOL - h.getMaxColumns()); } catch (e) {}
+    h.getRange(CFG.FILA_DATOS - 1, 54, 1, 4).setValues([enc]);
+    try { h.getRange(CFG.FILA_DATOS - 1, 54, 1, 4).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF"); } catch (e) {}
+    hechos.push("columnas de riesgo, población, autorización de datos y área sugerida");
+  }
+  // Parámetros nuevos
+  var cfg = _h(CFG.HOJA_CONFIG);
+  PARAMS_V8.forEach(function (p) {
+    var fila = CFG.CFG_PARAM_INI + p[0];
+    if (!cfg.getRange(fila, 1).getValue()) cfg.getRange(fila, 1).setValue(p[1]);
+    if (p[2] && !cfg.getRange(fila, 2).getValue()) cfg.getRange(fila, 2).setValue(p[2]);
+  });
+  // Término para «EPS» como entidad presentada (fila 9 de la tabla de términos)
+  if (!cfg.getRange(9, 1).getValue()) {
+    cfg.getRange(9, 1, 1, 4).setValues([["EPS", 3, "Calendario", "Circular Supersalud 2023151000000010-5 – reclamo de riesgo simple (72 h) si la EPS no indica otro"]]);
+    hechos.push("término para EPS (72 h)");
+  }
+  // Festivos en su propia hoja (se calculan solos: Ley 51 de 1983 y Pascua)
+  var fest = _hojaFestivos_();
+  if (fest.creada) hechos.push("hoja Festivos " + fest.desde + "–" + fest.hasta);
+  // Categorías de riesgo y entidades de control nuevas
+  hechos = hechos.concat(_completarTabla_(_hojaCategorias_(), CAT_COLS, CATEGORIAS_BASE, "categoría"));
+  hechos = hechos.concat(_completarTabla_(_hojaEntidades_(), ENT_COLS, ENTIDADES_BASE, "entidad"));
+  // Directorio: columnas de enrutamiento en Responsables
+  hechos = hechos.concat(_directorioV8_());
+  return hechos;
+}
+
+// ---------------------------------------------------------------------------
+// v8 · FESTIVOS DE COLOMBIA (se calculan solos; ya no hay que digitarlos cada año)
+// ---------------------------------------------------------------------------
+/*
+ * Ley 51 de 1983 («Ley Emiliani»): Reyes, San José, San Pedro y San Pablo, Asunción, Raza,
+ * Todos los Santos e Independencia de Cartagena se trasladan al lunes siguiente. Jueves y
+ * Viernes Santo dependen de la Pascua; Ascensión (+43), Corpus Christi (+64) y Sagrado
+ * Corazón (+71) caen en lunes contados desde el domingo de Pascua.
+ */
+function _pascua_(y) {
+  var a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25),
+      g = Math.floor((b - f + 1) / 3), h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4,
+      l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  var mes = Math.floor((h + l - 7 * m + 114) / 31), dia = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(Date.UTC(y, mes - 1, dia));
+}
+function _festivosColombia_(y) {
+  var D = function (m, d) { return new Date(Date.UTC(y, m - 1, d)); };
+  var lunes = function (dt) { var w = dt.getUTCDay(); return w === 1 ? dt : new Date(dt.getTime() + ((8 - w) % 7) * 86400000); };
+  var mas = function (dt, n) { return new Date(dt.getTime() + n * 86400000); };
+  var p = _pascua_(y);
+  var l = [
+    [D(1, 1), "Año Nuevo"], [lunes(D(1, 6)), "Reyes Magos"], [lunes(D(3, 19)), "San José"],
+    [mas(p, -3), "Jueves Santo"], [mas(p, -2), "Viernes Santo"], [D(5, 1), "Día del Trabajo"],
+    [mas(p, 43), "Ascensión del Señor"], [mas(p, 64), "Corpus Christi"], [mas(p, 71), "Sagrado Corazón"],
+    [lunes(D(6, 29)), "San Pedro y San Pablo"], [D(7, 20), "Independencia"], [D(8, 7), "Batalla de Boyacá"],
+    [lunes(D(8, 15)), "Asunción de la Virgen"], [lunes(D(10, 12)), "Día de la Raza"], [lunes(D(11, 1)), "Todos los Santos"],
+    [lunes(D(11, 11)), "Independencia de Cartagena"], [D(12, 8), "Inmaculada Concepción"], [D(12, 25), "Navidad"],
+  ];
+  return l.map(function (x) { return [x[0].toISOString().substring(0, 10), x[1]]; })
+          .sort(function (a, b) { return a[0] < b[0] ? -1 : 1; });
+}
+/** Hoja Festivos (A: fecha, B: descripción), del año anterior a cinco años adelante. Agrega los años que falten. */
+function _hojaFestivos_() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var h = ss.getSheetByName("Festivos"), creada = false;
+  if (!h) {
+    h = ss.insertSheet("Festivos");
+    h.getRange(1, 1, 1, 2).setValues([["FECHA", "DESCRIPCIÓN"]]);
+    try { h.getRange(1, 1, 1, 2).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF"); h.setFrozenRows(1); } catch (e) {}
+    creada = true;
+  }
+  var tz = _tz_();
+  var anio = parseInt(Utilities.formatDate(new Date(), tz, "yyyy"), 10);
+  var u = h.getLastRow();
+  var existentes = {};
+  if (u >= 2) h.getRange(2, 1, u - 1, 1).getValues().forEach(function (r) {
+    if (r[0] instanceof Date) existentes[Utilities.formatDate(r[0], tz, "yyyy-MM-dd")] = true;
+    else if (r[0]) existentes[String(r[0]).substring(0, 10)] = true;
+  });
+  var nuevas = [];
+  for (var y = anio - 1; y <= anio + 5; y++) {
+    _festivosColombia_(y).forEach(function (f) {
+      if (!existentes[f[0]]) { existentes[f[0]] = true; nuevas.push([Utilities.parseDate(f[0], tz, "yyyy-MM-dd"), f[1]]); }
+    });
+  }
+  if (nuevas.length) {
+    h.getRange(Math.max(u, 1) + 1, 1, nuevas.length, 2).setValues(nuevas);
+    try { h.getRange(2, 1, Math.max(u, 1) - 1 + nuevas.length, 1).setNumberFormat("dd/MM/yyyy"); } catch (e) {}
+    creada = creada || nuevas.length > 0;
+  }
+  return { hoja: h, creada: creada, desde: anio - 1, hasta: anio + 5, nuevas: nuevas.length };
+}
+
+// ---------------------------------------------------------------------------
+// v8 · DIRECTORIO DE ÁREAS Y DIRECCIONAMIENTO (automático o manual)
+// ---------------------------------------------------------------------------
+/*
+ * La hoja Responsables es el directorio. Desde v8 cada área puede declarar qué servicios
+ * atiende, en qué sedes y qué palabras de la manifestación le corresponden. Con eso la
+ * plataforma sugiere el área al radicar (por cualquier canal) y, si se activa en
+ * Configuración ▸ Automatización, direcciona sola las felicitaciones o las PQRS con
+ * un área inequívoca.
+ */
+var RESP_COLS_V8 = ["SERVICIOS QUE ATIENDE (;)", "SEDES (; vacío = todas)", "PALABRAS CLAVE (;)", "CORREOS EN COPIA (;)"];
+// [patrón del nombre del área, servicios, palabras clave]
+var DIRECTORIO_BASE = [
+  [/^siau|atencion al usuario/, "ATENCIÓN AL USUARIO; ORIENTADOR; WHATSAPP", "informacion; orientacion; tramite; atencion al usuario"],
+  [/calidad/, "", "seguridad del paciente; evento adverso; error en la atencion; calidad"],
+  [/gerencia/, "", "gerente; gerencia; directivos"],
+  [/aliment/, "ALIMENTACIÓN", "comida; alimentacion; dieta; almuerzo; desayuno; cena"],
+  [/cirug/, "CIRUGÍA", "cirugia; operacion; quirofano; procedimiento quirurgico; programacion de cirugia"],
+  [/consulta externa/, "CONSULTA EXTERNA; CONSULTA EXTERNA - MEDICINA GENERAL; CONSULTA EXTERNA - NUTRICION; CONSULTA EXTERNA - PSICOLOGIA",
+   "consulta; medico general; control; nutricionista; psicologia; cita medica"],
+  [/intensivo adultos|intermedio adultos/, "CUIDADO INTENSIVO ADULTOS; CUIDADO INTERMEDIO ADULTOS", "uci adultos; cuidados intensivos"],
+  [/neonatal/, "CUIDADO INTENSIVO NEONATAL; CUIDADO INTERMEDIO NEONATAL", "uci neonatal; recien nacido; neonato"],
+  [/pediatric/, "CUIDADO INTENSIVO PEDIÁTRICO; CUIDADO INTERMEDIO PEDIÁTRICO", "uci pediatrica"],
+  [/docencia/, "DOCENCIA", "estudiante; practicante; interno; residente"],
+  [/farmacia|farmaceut/, "FARMACIA", "medicamento; farmacia; formula; insulina; entrega de medicamentos"],
+  [/hospitalizacion adult/, "HOSPITALIZACIÓN ADULTOS", "hospitalizacion; hospitalizado; piso"],
+  [/ginecolog/, "HOSPITALIZACIÓN GINECOLÓGICA", "parto; ginecologia; embarazo; gestante; maternidad"],
+  [/hospitalizacion pediatr/, "HOSPITALIZACIÓN PEDIATRÍA", "pediatria; hospitalizacion pediatrica"],
+  [/laboratorio/, "LABORATORIO CLINICO", "laboratorio; examenes; muestra; resultados de laboratorio"],
+  [/odontolog/, "CONSULTA EXTERNA - ODONTOLOGIA", "odontologia; odontologo; muela; diente; higiene oral"],
+  [/radiolog|imagen/, "RADIOLOGÍA E IMÁGENES DIAGNÓSTICAS; APOYO DIAGNOSTICO", "rayos x; radiografia; ecografia; tomografia; imagenes diagnosticas"],
+  [/telemedicina/, "TELEMEDICINA", "telemedicina; teleconsulta; videollamada"],
+  [/transfusional/, "UNIDAD TRANSFUSIONAL", "transfusion; sangre; banco de sangre"],
+  [/urgencia/, "URGENCIAS", "urgencias; triage; observacion; ambulancia; sala de espera de urgencias"],
+  [/vacuna/, "VACUNACIÓN", "vacuna; vacunacion; esquema de vacunacion"],
+  [/facturacion|admision/, "ADMISIONES", "factura; cobro; copago; cuota moderadora; admision; facturacion"],
+  [/autorizacion/, "AUTORIZACIONES", "autorizacion; orden medica; autorizar; remision"],
+  [/cita|agend|call/, "ASIGNACIÓN DE CITAS; CALL CENTER", "cita; agendar; agenda; call center; linea telefonica; reprogramar"],
+  [/talento humano/, "", "grosero; grosera; maltrato; mal trato; falta de respeto; actitud; trato"],
+  [/infraestructura|servicios generales|mantenimiento/, "", "aire acondicionado; bano; papel higienico; aseo; sillas; agua; infraestructura; ventilador"],
+];
+
+function _directorioV8_() {
+  var h = _h(CFG.HOJA_RESP), hechos = [];
+  var fe = CFG.RESP_FILA - 1;
+  var cab = h.getRange(fe, 8, 1, 4).getValues()[0];
+  if (!cab[0] && !cab[2]) {
+    h.getRange(fe, 8, 1, 4).setValues([RESP_COLS_V8]);
+    try { h.getRange(fe, 8, 1, 4).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF"); } catch (e) {}
+    hechos.push("directorio con servicios, sedes y palabras clave");
+  }
+  var u = h.getLastRow();
+  if (u < CFG.RESP_FILA) return hechos;
+  var filas = h.getRange(CFG.RESP_FILA, 1, u - CFG.RESP_FILA + 1, 11).getValues(), n = 0;
+  filas.forEach(function (r, i) {
+    if (!r[1] || r[7] || r[9]) return;           // ya tiene servicios o palabras clave
+    var area = _norm(r[1]);
+    for (var j = 0; j < DIRECTORIO_BASE.length; j++) {
+      if (DIRECTORIO_BASE[j][0].test(area)) {
+        h.getRange(CFG.RESP_FILA + i, 8, 1, 3).setValues([[DIRECTORIO_BASE[j][1], r[8] || "", DIRECTORIO_BASE[j][2]]]);
+        n++; break;
+      }
+    }
+  });
+  if (n) hechos.push(n + " área(s) con reglas de direccionamiento sugeridas");
+  return hechos;
+}
+
+/**
+ * Sugiere el área responsable de una PQRS. Devuelve las 3 mejores con su puntaje y razones.
+ * Servicio que atiende +6 · palabra clave en la descripción +2 (máx. 3 por área) · sede propia +1.
+ * Un área con sedes declaradas que no incluyen la sede del caso se descarta.
+ */
+function _sugerirArea_(f, lista) {
+  lista = (lista || apiResponsables_()).filter(function (r) { return r.activo; });
+  var servicio = _norm(f[C.SERVICIO - 1]), servEsp = _norm(f[C.SERVICIO_ESP - 1]), sede = _norm(f[C.SEDE - 1]);
+  var texto = " " + _norm(f[C.DESCRIPCION - 1]).replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ") + " ";
+  var out = [];
+  lista.forEach(function (r) {
+    var puntos = 0, razones = [];
+    if (r.sedes.length && sede && r.sedes.map(_norm).indexOf(sede) === -1) return;
+    if (r.sedes.length && sede) { puntos += 1; }
+    r.servicios.forEach(function (sv) {
+      var n = _norm(sv);
+      if (n && (n === servicio || n === servEsp)) { puntos += 6; razones.push("atiende " + sv); }
+    });
+    var k = 0;
+    r.palabras.forEach(function (p) {
+      var n = _norm(p);
+      if (k < 3 && n.length >= 3 && texto.indexOf(" " + n) !== -1) { puntos += 2; k++; razones.push("«" + p + "»"); }
+    });
+    if (puntos >= 2) out.push({ id: r.id, area: r.area, nombre: r.nombre, correo: r.correo, puntos: puntos, razones: razones });
+  });
+  out.sort(function (a, b) { return b.puntos - a.puntos; });
+  return out.slice(0, 3);
+}
+/** ¿La sugerencia es inequívoca? (para el direccionamiento automático) */
+function _areaClara_(sug) {
+  return sug.length && sug[0].puntos >= 6 && _correoOk(sug[0].correo) && (sug.length === 1 || sug[0].puntos - sug[1].puntos >= 4);
+}
+function apiSugerirArea_(codigo) {
+  var fila = _filaDe(codigo);
+  if (fila < 0) return { ok: false, mensaje: "Radicado no encontrado." };
+  var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  return { ok: true, sugerencias: _sugerirArea_(f) };
+}
+
+/** Agrega columnas y filas base que falten en una tabla de configuración (por nombre en la columna A o B). */
+function _completarTabla_(hoja, cols, base, nombre) {
+  var hechos = [];
+  var cab = hoja.getRange(1, 1, 1, cols.length).getValues()[0];
+  var nuevasCols = 0;
+  cols.forEach(function (c, i) { if (!cab[i]) { hoja.getRange(1, i + 1).setValue(c); nuevasCols++; } });
+  if (nuevasCols) try { hoja.getRange(1, 1, 1, cols.length).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF"); } catch (e) {}
+  var clave = nombre === "entidad" ? 1 : 0;   // entidades se identifican por ENTIDAD (columna B)
+  var u = hoja.getLastRow();
+  var existentes = u >= 2 ? hoja.getRange(2, 1, u - 1, cols.length).getValues() : [];
+  var mapa = {};
+  existentes.forEach(function (r, i) { mapa[_norm(r[clave])] = { fila: i + 2, r: r }; });
+  var agregadas = 0, completadas = 0;
+  base.forEach(function (b) {
+    var e = mapa[_norm(b[clave])];
+    if (!e) { hoja.appendRow(b); agregadas++; return; }
+    // columnas nuevas vacías en filas existentes: se completan con el valor base
+    var cambio = false;
+    for (var j = 0; j < cols.length; j++) if ((e.r[j] === "" || e.r[j] === null) && b[j] !== "" && j >= 7) { e.r[j] = b[j]; cambio = true; }
+    if (cambio) { hoja.getRange(e.fila, 1, 1, cols.length).setValues([e.r]); completadas++; }
+  });
+  if (nuevasCols) hechos.push(nuevasCols + " columna(s) nueva(s) en " + hoja.getName());
+  if (agregadas) hechos.push(agregadas + " " + nombre + "(es) nueva(s)");
+  if (completadas) hechos.push(completadas + " " + nombre + "(es) completada(s)");
+  return hechos;
+}
+
 /** Fórmulas (sintaxis en inglés) de una fila del consolidado: AF..AJ y AT. */
 function _formulasFila_(r) {
-  var T = "Config!$A$6:$D$9", FEST = "Config!$F$6:$F$39", UMB = "Config!$B$12";
+  var T = "Config!$A$6:$D$9", FEST = "Festivos!$A$2:$A$400", UMB = "Config!$B$12";
   var AE = "$AE" + r, E = "$E" + r, AS = "$AS" + r, AH = "$AH" + r, AF = "$AF" + r, AG = "$AG" + r;
   var FELI = 'LEFT(UPPER(TRIM($AA' + r + ')),8)="FELICITA"';
   var U = "UPPER(TRIM(" + AE + "))";
@@ -1821,7 +2319,8 @@ function _esErrorDeFormula_(v) { return /^#(ERROR|NAME|NOMBRE)/i.test((v || "").
  * punto y coma), repite con «;». Así funciona en cualquier configuración regional.
  */
 function _escribirFormulas_(h, fin) {
-  _hojaCategorias_();   // la tabla de categorías debe existir antes de referenciarla
+  _hojaCategorias_();   // las tablas referenciadas deben existir antes de escribir las fórmulas
+  _hojaFestivos_();
   var n = fin - CFG.FILA_DATOS + 1;
   var props = PropertiesService.getScriptProperties();
   var preferido = props.getProperty("SEPARADOR_FORMULAS") || ",";
@@ -1837,16 +2336,7 @@ function _escribirFormulas_(h, fin) {
     if (!vis.some(_esErrorDeFormula_)) sep = intentos[k];
   }
   if (!sep) return { ok: false, mensaje: "La hoja rechazó las fórmulas de términos (#ERROR!). Revisa la configuración regional en Archivo ▸ Configuración." };
-  var f1 = [], f2 = [];
-  for (var r = CFG.FILA_DATOS; r <= fin; r++) {
-    var fr = _formulasFila_(r);
-    f1.push(sep === ";" ? fr.bloque.map(_conPuntoYComa_) : fr.bloque);
-    f2.push([sep === ";" ? _conPuntoYComa_(fr.oportunidad) : fr.oportunidad]);
-  }
-  h.getRange(CFG.FILA_DATOS, C.TERMINO, n, 5).setFormulas(f1);
-  h.getRange(CFG.FILA_DATOS, C.OPORTUNIDAD, n, 1).setFormulas(f2);
-  h.getRange(CFG.FILA_DATOS, C.DIAS, n, 1).setNumberFormat("0");
-  h.getRange(CFG.FILA_DATOS, C.TERMINO, n, 1).setNumberFormat("0");
+  _formulasBloque_(h, CFG.FILA_DATOS, fin, sep);
   SpreadsheetApp.flush();
   props.setProperty("SEPARADOR_FORMULAS", sep);
   return { ok: true, separador: sep, filas: n };
@@ -1858,7 +2348,7 @@ function _escribirFormulas_(h, fin) {
  */
 function _saludFormulas_() {
   var h = _h(CFG.HOJA_DATOS);
-  var fin = Math.max(CFG.FILA_FIN, h.getLastRow());
+  var fin = _finDatos_();
   var n = fin - CFG.FILA_DATOS + 1;
   var problema = "";
   var muestra = h.getRange(CFG.FILA_DATOS, C.TERMINO, Math.min(n, 60), 5).getDisplayValues();
@@ -1869,13 +2359,14 @@ function _saludFormulas_() {
       if (problema) return;
       var f = h.getRange(r, C.DIAS).getFormula();
       var m = /\$E(\d+)/.exec(f || "");
-      if (f && f.indexOf("Categorias_Correo") === -1 && r === CFG.FILA_DATOS && h.getRange(r, C.TERMINO).getFormula().indexOf("Categorias_Correo") === -1) problema = "fórmulas sin la tabla de categorías";
+      if (f && r === CFG.FILA_DATOS && h.getRange(r, C.TERMINO).getFormula().indexOf("Categorias_Correo") === -1) problema = "fórmulas sin la tabla de categorías";
+      if (f && r === CFG.FILA_DATOS && h.getRange(r, C.FECHA_MAX).getFormula().indexOf("Festivos!") === -1) problema = "fórmulas con los festivos viejos";
       if (!f) problema = "fila " + r + " sin fórmula";
       else if (!m || parseInt(m[1], 10) !== r) problema = "la fila " + r + " apuntaba a la fila " + (m ? m[1] : "?");
     });
   }
   if (!problema) return { ok: true, reparado: false };
-  var ef = _escribirFormulas_(h, fin);
+  var ef = _escribirFormulas_(h, _finFormulas_(h));
   if (ef.ok) _traza("—", "Fórmulas reparadas", "Causa: " + problema + " · " + ef.filas + " filas · separador «" + ef.separador + "»");
   return { ok: ef.ok, reparado: ef.ok, mensaje: ef.ok ? "Se repararon las fórmulas del consolidado (" + problema + ")." : ef.mensaje };
 }
@@ -1907,7 +2398,7 @@ function _sumar_(ag, f, sem) {
 function apiResumenMensual_(anio) {
   var h = _h(CFG.HOJA_DATOS);
   var n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var datos = h.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  var datos = _datos_();
   var tz = _tz_();
   var hoy = new Date();
   var anioActual = parseInt(Utilities.formatDate(hoy, tz, "yyyy"), 10);
@@ -1961,12 +2452,14 @@ function apiNovedades_(desde, conCorreo) {
       var f = r[0];
       if (!(f instanceof Date) || f.getTime() <= desde) return;
       var acc = (r[2] || "").toString();
-      if (["Radicación", "Respuesta del área registrada"].indexOf(acc) === -1) return;
+      if (["Radicación", "Respuesta del área registrada", "Alerta de riesgo", "Correo de ente de control", "Alerta de meta interna"].indexOf(acc) === -1) return;
       var ev = { ts: f.getTime(), codigo: r[1], accion: acc, detalle: (r[3] || "").toString().substring(0, 140), usuario: r[4] };
-      if (acc === "Radicación" || acc === "Respuesta del área registrada") {
+      if (acc === "Alerta de riesgo" || acc === "Alerta de meta interna") ev.alerta = true;
+      if (acc === "Correo de ente de control") ev.ente = true;
+      if (r[1] && r[1] !== "—") {
         if (!datos) {
           var hd = _h(CFG.HOJA_DATOS);
-          datos = hd.getRange(CFG.FILA_DATOS, 1, CFG.FILA_FIN - CFG.FILA_DATOS + 1, CFG.NCOL).getValues();
+          datos = _datos_();
         }
         for (var i = datos.length - 1; i >= 0; i--) {
           if (datos[i][C.CODIGO - 1] === r[1]) {
@@ -1974,6 +2467,8 @@ function apiNovedades_(desde, conCorreo) {
             ev.visible = _filaVisible_(datos[i]);
             ev.prioridad = _prioridadDe_(datos[i][C.CLASIF_INTERNA - 1], datos[i][C.ENTIDAD - 1]);
             ev.clasificacion = datos[i][C.CLASIF_INTERNA - 1];
+            ev.nivel = _nivelDeCategoria_(datos[i][C.CLASIF_INTERNA - 1]);
+            ev.felicitacion = _esFeli(datos[i][C.TIPO_PQRS - 1]);
             break;
           }
         }
@@ -1995,7 +2490,7 @@ function apiNovedades_(desde, conCorreo) {
 // CORREO: SEPARAR LO RELEVANTE DE LAS NOTIFICACIONES DE ESTA PLATAFORMA
 // =====================================================================================
 var MARCA_SISTEMA = "Mensaje generado por el Sistema de PQRS de MiRed IPS";
-var RE_ASUNTO_SISTEMA = /^(radicaci[oó]n de su pqrs|gracias por su felicitaci[oó]n|su pqrs .+ est[aá] en tr[aá]mite|respuesta a su pqrs|estado de su pqrs|control pqrs|\[solicitud interna|\[interno)/i;
+var RE_ASUNTO_SISTEMA = /^(radicaci[oó]n de su [a-záéíóúñ]+|gracias por su felicitaci[oó]n|su pqrs .+ est[aá] en tr[aá]mite|respuesta a su pqrs|estado de su pqrs|control pqrs|\[(solicitud interna|interno|cerrada|reconocimientos?|alerta|riesgo|priorizada|vital|pqrs|por clasificar))/i;
 var RE_RESPUESTA = /^\s*((re|rv|fw|fwd|res|enc|aw|tr)\s*:\s*)+/i;
 var RE_REBOTE = /(delivery status notification|undeliverable|undelivered|no se ha podido entregar|no se pudo entregar|mail delivery (failed|subsystem)|returned mail|notificaci[oó]n de estado de entrega)/i;
 
@@ -2714,6 +3209,12 @@ var RUTAS = {
   apiUsuarios: [apiUsuarios_, P_ADMIN], apiGuardarUsuario: [apiGuardarUsuario_, P_ADMIN], apiRestablecerClave: [apiRestablecerClave_, P_ADMIN],
   apiAjustes: [apiAjustes_, P_ADMIN], apiGuardarAjustes: [apiGuardarAjustes_, P_ADMIN],
   apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
+
+  // v8
+  apiPrioritarias: [apiPrioritarias_, P_LEER], apiEvaluarRiesgo: [apiEvaluarRiesgo_, P_LEER], apiSugerirArea: [apiSugerirArea_, P_LEER, "codigo"],
+  apiIdentificarPrioritarias: [apiIdentificarPrioritarias_, P_RADICAR], apiFijarRiesgo: [apiFijarRiesgo_, P_RADICAR, "codigo"],
+  apiRedactarRespuesta: [apiRedactarRespuesta_, P_GESTION, "codigo"], apiDireccionarFelicitaciones: [apiDireccionarFelicitaciones_, P_GESTION],
+  apiFormularioQR: [apiFormularioQR_, P_ADMIN], apiCrearFormulario: [apiCrearFormulario_, P_ADMIN], apiDiagnostico: [apiDiagnostico_, P_ADMIN],
 };
 
 /*
@@ -2898,6 +3399,33 @@ function _tipoEnLista_(tipo) {
  *   modo "auto"     → confianza alta: se reclasifica y queda constancia (QR y correo)
  *   modo "sugerir"  → nunca cambia el tipo; deja la sugerencia (radicación presencial)
  */
+/**
+ * v8 · Si el tipo cambia entre felicitación y PQRS, el radicado se pasa a la serie correcta
+ * (FEL ↔ SIAU) para no mezclar la numeración institucional. La trazabilidad se conserva.
+ */
+function _recodificar_(fila, tipoNuevo) {
+  var h = _h(CFG.HOJA_DATOS);
+  var actual = String(h.getRange(fila, C.CODIGO).getValue() || "").trim();
+  var m = RE_RAD.exec(actual.toUpperCase());
+  if (!m) return actual;
+  var pref = _prefijo_(tipoNuevo);
+  if (m[1] === pref || m[1] === "QR") return actual;
+  var fecha = h.getRange(fila, C.FECHA_RADICACION).getValue();
+  var nuevo = _nuevoCodigo(fecha instanceof Date ? fecha : new Date(), tipoNuevo);
+  h.getRange(fila, C.CODIGO).setValue(nuevo);
+  var obs = String(h.getRange(fila, C.OBSERVACIONES).getValue() || "");
+  h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Código anterior: " + actual + "]");
+  var ht = _h(CFG.HOJA_TRAZA), ut = ht.getLastRow();
+  if (ut >= CFG.TRAZA_FILA) {
+    var rg = ht.getRange(CFG.TRAZA_FILA, 2, ut - CFG.TRAZA_FILA + 1, 1), v = rg.getValues(), cambio = false;
+    v.forEach(function (r) { if (String(r[0]).trim() === actual) { r[0] = nuevo; cambio = true; } });
+    if (cambio) rg.setValues(v);
+  }
+  _invalidarDatos_();
+  _traza(nuevo, "Radicado reasignado", actual + " → " + nuevo + " (el tipo pasó a " + tipoNuevo + ")");
+  return nuevo;
+}
+
 function _aplicarClasificador_(fila, modo) {
   var h = _h(CFG.HOJA_DATOS);
   var f = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
@@ -2910,7 +3438,11 @@ function _aplicarClasificador_(fila, modo) {
   if (modo === "auto" && (r.confianza === "alta" || !decl)) {
     h.getRange(fila, C.TIPO_PQRS).setValue(nuevo);
     h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Reclasificada: " + (decl || "sin tipo") + " → " + nuevo + "]");
-    _traza(f[C.CODIGO - 1], "Reclasificada automáticamente", "Declarado: " + (decl || "—") + " · según el texto: " + nuevo +
+    if (_esFeli(decl) !== _esFeli(nuevo)) {
+      if (_esFeli(decl) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
+      r.codigo = _recodificar_(fila, nuevo);
+    }
+    _traza(r.codigo || f[C.CODIGO - 1], "Reclasificada automáticamente", "Declarado: " + (decl || "—") + " · según el texto: " + nuevo +
       " (señales: " + r.razones.slice(0, 5).join(", ") + ")");
     r.aplicado = true;
   } else if (r.confianza !== "baja") {
@@ -2929,8 +3461,11 @@ function apiReclasificar_(codigo, tipo) {
   var obs = String(h.getRange(fila, C.OBSERVACIONES).getValue() || "").replace(/\s*\[(Tipo sugerido|Reclasificada)[^\]]*\]/g, "");
   h.getRange(fila, C.TIPO_PQRS).setValue(tipo);
   h.getRange(fila, C.OBSERVACIONES).setValue(obs + (antes !== tipo ? " [Reclasificada: " + (antes || "sin tipo") + " → " + tipo + "]" : ""));
+  if (_esFeli(antes) && !_esFeli(tipo) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
+  if (_esFeli(antes) !== _esFeli(tipo)) codigo = _recodificar_(fila, tipo);
   SpreadsheetApp.flush();
   _traza(codigo, "Tipo de PQRS ajustado", (antes || "—") + " → " + tipo);
+  try { _evaluarPrioridadFila_(fila, "auto"); } catch (e) { Logger.log(e); }
   return apiDetalle_(codigo);
 }
 function _etiquetasObs_(obs) {
@@ -2952,32 +3487,56 @@ function _etiquetasObs_(obs) {
  * para que el SIAU lo complete con un clic. Los correos de usuarios que son PQRS claras
  * también se radican solos; el técnico solo interviene si hace falta pedir un dato.
  */
-var ENT_COLS = ["TIPO", "ENTIDAD", "DOMINIOS O CORREOS (separados por ;)", "ENTIDAD PRESENTADA", "PRIORIDAD", "AVISAR A (correos)", "ACTIVA"];
+var ENT_COLS = ["TIPO", "ENTIDAD", "DOMINIOS O CORREOS (separados por ;)", "ENTIDAD PRESENTADA", "PRIORIDAD", "AVISAR A (correos)", "ACTIVA",
+                "CATEGORÍA POR DEFECTO"];
+// v8: se agregan los entes de control y los despachos judiciales. Los dominios marcados «verificar» en docs/PENDIENTES.md
+// se editan en Configuración ▸ Entidades sin tocar el código.
 var ENTIDADES_BASE = [
-  ["Ente de control", "Secretaría de Salud Distrital de Barranquilla", "@barranquilla.gov.co", "SECRETARIA DE SALUD", "Crítica", "", "SI"],
-  ["Ente de control", "Superintendencia Nacional de Salud (Supersalud)", "@supersalud.gov.co", "SUPERSALUD", "Crítica", "", "SI"],
-  ["Ente de control", "Contraloría", "@contraloria.gov.co", "SUPERSALUD", "Crítica", "", "SI"],
-  ["EPS", "Nueva EPS", "@nuevaeps.com.co", "EPS", "Alta", "", "SI"],
-  ["EPS", "Famisanar", "@famisanar.com.co", "EPS", "Alta", "", "SI"],
-  ["EPS", "Sura", "@sura.com.co", "EPS", "Alta", "", "SI"],
-  ["EPS", "Mutual Ser", "@mutualser.org; @mutualser.com", "EPS", "Alta", "", "SI"],
-  ["EPS (BPO)", "Mutual Ser - Affinity (BPO)", "@affinitybpo.com.co", "EPS", "Alta", "", "SI"],
-  ["EPS", "Salud Total", "@saludtotal.com.co", "EPS", "Alta", "", "SI"],
-  ["EPS", "EPS Familiar de Colombia", "@epsfamiliardecolombia.com", "EPS", "Alta", "", "SI"],
-  ["EPS", "EPS Familiar de Colombia - Documental", "documental@miredips.org", "EPS", "Alta", "", "SI"],
-  ["EPS", "Proteger EPS", "@protegereps.com", "EPS", "Alta", "", "SI"],
-  ["EPS", "Sanitas", "@epssanitas.com", "EPS", "Alta", "", "SI"],
-  ["EPS", "Coosalud", "@coosalud.com", "EPS", "Alta", "", "SI"],
+  ["Ente de control", "Secretaría de Salud Distrital de Barranquilla", "@barranquilla.gov.co", "SECRETARIA DE SALUD", "Crítica", "", "SI", ""],
+  ["Ente de control", "Superintendencia Nacional de Salud (Supersalud)", "@supersalud.gov.co", "SUPERSALUD", "Crítica", "", "SI", ""],
+  ["Ente de control", "Contraloría", "@contraloria.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["EPS", "Nueva EPS", "@nuevaeps.com.co", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Famisanar", "@famisanar.com.co", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Sura", "@sura.com.co", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Mutual Ser", "@mutualser.org; @mutualser.com", "EPS", "Alta", "", "SI", ""],
+  ["EPS (BPO)", "Mutual Ser - Affinity (BPO)", "@affinitybpo.com.co", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Salud Total", "@saludtotal.com.co", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "EPS Familiar de Colombia", "@epsfamiliardecolombia.com", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "EPS Familiar de Colombia - Documental", "documental@miredips.org", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Proteger EPS", "@protegereps.com", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Sanitas", "@epssanitas.com", "EPS", "Alta", "", "SI", ""],
+  ["EPS", "Coosalud", "@coosalud.com", "EPS", "Alta", "", "SI", ""],
+  ["Ente de control", "Secretaría de Salud Departamental del Atlántico", "@atlantico.gov.co", "SECRETARIA DE SALUD", "Crítica", "", "SI", ""],
+  ["Ente de control", "Contraloría Distrital de Barranquilla", "@contraloriabarranquilla.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Ente de control", "Procuraduría General de la Nación", "@procuraduria.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Ente de control", "Personería Distrital de Barranquilla", "@personeriabarranquilla.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Ente de control", "Defensoría del Pueblo", "@defensoria.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Ente de control", "Ministerio de Salud y Protección Social", "@minsalud.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Ente de control", "ICBF", "@icbf.gov.co", "SUPERSALUD", "Crítica", "", "SI", "REQUERIMIENTO ENTE DE CONTROL"],
+  ["Rama Judicial", "Despachos judiciales (tutelas)", "@cendoj.ramajudicial.gov.co; @ramajudicial.gov.co", "SUPERSALUD", "Crítica", "", "SI", "TUTELA"],
 ];
-var CAT_COLS = ["CATEGORÍA", "PALABRAS CLAVE (separadas por ;)", "PRIORIDAD", "DÍAS DE TÉRMINO", "TIPO DE DÍA", "META INTERNA (horas)", "TIPO DE PQRS"];
+var CAT_COLS = ["CATEGORÍA", "PALABRAS CLAVE (separadas por ;)", "PRIORIDAD", "DÍAS DE TÉRMINO", "TIPO DE DÍA", "META INTERNA (horas)", "TIPO DE PQRS",
+                "ALCANCE DE LA META", "NORMA", "NIVEL DE RIESGO"];
 // Términos: Circular Externa Supersalud 2023151000000010-5 de 2023 (vital 24 h, priorizado 48 h, simple 72 h);
+// Circular Externa Supersalud 2026151000000007-5 de 2026 (riesgo vital en niñas, niños y adolescentes: 8 h);
 // derecho de petición 15 días hábiles (Ley 1755 de 2015); tutela: el que fije el juez (48 h por defecto).
+// «ALCANCE DE LA META»: Direccionar = alerta si no se ha enviado al área; Responder = alerta si no se ha cerrado.
+// Las tres categorías «RIESGO … · N H» las asigna el motor de priorización (cualquier canal); las «SUPERSALUD …» llegan en el asunto del correo.
 var CATEGORIAS_BASE = [
-  ["TUTELA", "accion de tutela; tutela; fallo de tutela; auto admisorio; desacato; medida provisional; juzgado", "Crítica", 2, "Calendario", 8, "Tutela"],
-  ["SUPERSALUD RIESGO VITAL", "riesgo vital", "Crítica", 1, "Calendario", "", ""],
-  ["SUPERSALUD RIESGO PRIORIZADO", "riesgo priorizado; priorizado; priorizada", "Alta", 2, "Calendario", "", ""],
-  ["SUPERSALUD RIESGO SIMPLE", "riesgo simple", "Media", 3, "Calendario", "", ""],
-  ["DERECHO DE PETICIÓN", "derecho de peticion; derecho fundamental de peticion; articulo 23 de la constitucion", "Alta", 15, "Hábiles", 8, "Petición"],
+  ["TUTELA", "accion de tutela; tutela; fallo de tutela; auto admisorio; desacato; medida provisional; juzgado", "Crítica", 2, "Calendario", 8, "Tutela",
+   "Direccionar", "Decreto 2591 de 1991 – el término que fije el despacho (48 h por defecto)", "Tutela"],
+  ["SUPERSALUD RIESGO VITAL", "riesgo vital", "Crítica", 1, "Calendario", 4, "", "Direccionar", "Circular Externa Supersalud 2023151000000010-5 de 2023 – riesgo vital: 24 horas", "Vital"],
+  ["SUPERSALUD RIESGO PRIORIZADO", "riesgo priorizado; priorizado; priorizada", "Alta", 2, "Calendario", 12, "", "Direccionar", "Circular Externa Supersalud 2023151000000010-5 de 2023 – riesgo priorizado: 48 horas", "Priorizado"],
+  ["SUPERSALUD RIESGO SIMPLE", "riesgo simple", "Media", 3, "Calendario", "", "", "", "Circular Externa Supersalud 2023151000000010-5 de 2023 – riesgo simple: 72 horas", "Simple"],
+  ["DERECHO DE PETICIÓN", "derecho de peticion; derecho fundamental de peticion; articulo 23 de la constitucion", "Alta", 15, "Hábiles", 8, "Petición",
+   "Direccionar", "Ley 1755 de 2015, art. 14 – 15 días hábiles", ""],
+  ["RIESGO VITAL NNA · 8 H", "", "Crítica", 0, "Calendario", 8, "", "Responder",
+   "Circular Externa Supersalud 2026151000000007-5 de 2026 – riesgo vital en niñas, niños y adolescentes: respuesta de fondo en máximo 8 horas", "Vital NNA"],
+  ["RIESGO VITAL · 24 H", "", "Crítica", 1, "Calendario", 4, "", "Direccionar", "Circular Externa Supersalud 2023151000000010-5 de 2023 – riesgo vital: 24 horas", "Vital"],
+  ["RIESGO PRIORIZADO · 48 H", "", "Alta", 2, "Calendario", 12, "", "Direccionar",
+   "Circular Externa Supersalud 2023151000000010-5 de 2023 – riesgo priorizado (sujetos de especial protección): 48 horas", "Priorizado"],
+  ["REQUERIMIENTO ENTE DE CONTROL", "requerimiento de informacion; solicitud de informacion; traslado por competencia", "Alta", 10, "Hábiles", 8, "Petición",
+   "Direccionar", "Ley 1755 de 2015, art. 30 – peticiones entre autoridades: 10 días hábiles, salvo que el ente fije otro término", ""],
 ];
 var PRIORIDADES = ["Crítica", "Alta", "Media", "Normal"];
 
@@ -3000,7 +3559,8 @@ function _entidades_() {
   return h.getRange(2, 1, u - 1, ENT_COLS.length).getValues().map(function (r, i) {
     return { fila: i + 2, tipo: r[0], entidad: r[1], patrones: String(r[2] || "").split(/\s*[;,]\s*/).map(function (x) { return x.trim().toLowerCase(); }).filter(String),
              presentada: r[3] || (/ente/i.test(r[0]) ? "SUPERSALUD" : "EPS"), prioridad: r[4] || "Alta",
-             avisar: String(r[5] || "").split(/\s*[;,]\s*/).filter(_correoOk), activa: r[6] === "" || _si_(r[6]) };
+             avisar: String(r[5] || "").split(/\s*[;,]\s*/).filter(_correoOk), activa: r[6] === "" || _si_(r[6]),
+             categoria: String(r[7] || "").trim() };
   }).filter(function (e) { return e.entidad && e.patrones.length; });
 }
 function _categorias_() {
@@ -3008,7 +3568,8 @@ function _categorias_() {
   if (u < 2) return [];
   return h.getRange(2, 1, u - 1, CAT_COLS.length).getValues().map(function (r, i) {
     return { fila: i + 2, nombre: String(r[0] || "").trim(), claves: String(r[1] || "").split(/\s*;\s*/).map(_norm).filter(String),
-             prioridad: r[2] || "Media", dias: r[3], tipoDia: r[4], meta: parseFloat(r[5]) || 0, tipo: r[6] || "" };
+             prioridad: r[2] || "Media", dias: r[3], tipoDia: r[4], meta: parseFloat(r[5]) || 0, tipo: r[6] || "",
+             alcance: String(r[7] || "Direccionar"), norma: String(r[8] || ""), nivel: String(r[9] || "") };
   }).filter(function (c) { return c.nombre; });
 }
 
@@ -3065,7 +3626,10 @@ function _prioridadDe_(clasif, entidad, cats) {
 // Ajustes de la automatización (Configuración ▸ Automatización)
 // ---------------------------------------------------------------------------
 var AJUSTES_BASE = { autoInstitucional: true, autoUsuarios: true, acuseInstitucional: true, citasAuto: false,
-                     webhookChat: "", chatModo: "todas", avisarA: "", avisosSede: true, desde: 0, alias: "" };
+                     webhookChat: "", chatModo: "todas", avisarA: "", avisosSede: true, desde: 0, alias: "",
+                     // v8: direccionamiento con el directorio. Felicitaciones: "resumen" (un correo diario por área),
+                     // "inmediato" (una por una) o "manual". PQRS: solo si el área es inequívoca y se activa.
+                     direccionFelicitaciones: "resumen", direccionAuto: false, avisoCierreArea: true };
 function _ajustes_() {
   var a = {};
   try { a = JSON.parse(PropertiesService.getScriptProperties().getProperty("AJUSTES") || "{}"); } catch (e) {}
@@ -3112,15 +3676,17 @@ function apiGuardarEntidad_(e) {
   var h = _hojaEntidades_();
   if (!e || !e.entidad || !e.patrones) return { ok: false, mensaje: "Faltan la entidad y sus dominios." };
   var fila = e.fila || h.getLastRow() + 1;
-  h.getRange(fila, 1, 1, ENT_COLS.length).setValues([[e.tipo || "EPS", e.entidad, e.patrones, e.presentada || "EPS", e.prioridad || "Alta", e.avisar || "", e.activa === false ? "NO" : "SI"]]);
+  h.getRange(fila, 1, 1, ENT_COLS.length).setValues([[e.tipo || "EPS", e.entidad, e.patrones, e.presentada || "EPS", e.prioridad || "Alta", e.avisar || "",
+    e.activa === false ? "NO" : "SI", e.categoria || ""]]);
   _traza("—", "Entidad de correo guardada", e.entidad + " · " + e.patrones);
   return apiAjustes_();
 }
 function apiGuardarCategoria_(c) {
   var h = _hojaCategorias_();
-  if (!c || !c.nombre || !c.claves) return { ok: false, mensaje: "Faltan el nombre y las palabras clave." };
+  if (!c || !c.nombre) return { ok: false, mensaje: "Falta el nombre de la categoría." };
   var fila = c.fila || h.getLastRow() + 1;
-  h.getRange(fila, 1, 1, CAT_COLS.length).setValues([[String(c.nombre).toUpperCase(), c.claves, c.prioridad || "Media", c.dias || "", c.tipoDia || "Calendario", c.meta || "", c.tipo || ""]]);
+  h.getRange(fila, 1, 1, CAT_COLS.length).setValues([[String(c.nombre).toUpperCase(), c.claves || "", c.prioridad || "Media", c.dias === 0 ? 0 : (c.dias || ""),
+    c.tipoDia || "Calendario", c.meta || "", c.tipo || "", c.alcance || "Direccionar", c.norma || "", c.nivel || ""]]);
   _traza("—", "Categoría de correo guardada", c.nombre);
   return apiAjustes_();
 }
@@ -3231,6 +3797,10 @@ function _procesarCorreo_() {
     if (ent) {
       if (!a.autoInstitucional) return;
       var cat = _categoriaCorreo_(asunto, cuerpo, cats);
+      // v8: entes de control y despachos judiciales tienen una categoría por defecto (requerimiento, tutela)
+      if (!cat && ent.categoria) cat = cats.filter(function (c) { return _norm(c.nombre) === _norm(ent.categoria); })[0] || null;
+      if (!/eps/i.test(ent.tipo)) _traza("—", "Correo de ente de control", ent.entidad + " · " + Utilities.formatDate(m.getDate(), _tz_(), "dd/MM/yyyy HH:mm") +
+        (cat ? " · " + cat.nombre : " · por clasificar"));
       var prioridad = cat ? cat.prioridad : ent.prioridad;
       if (cat) {
         var tipo = cat.tipo || _clasificarTipo_(asunto + "\n" + cuerpo, "").tipo || "Petición";
@@ -3322,38 +3892,53 @@ function _acuseInstitucional_(m, codigo, ent, cat) {
 // ---------------------------------------------------------------------------
 function revisarAlertas() {
   var cats = _categorias_(), metas = {};
-  cats.forEach(function (c) { if (c.meta) metas[_norm(c.nombre)] = c.meta; });
-  var h = _h(CFG.HOJA_DATOS), n = CFG.FILA_FIN - CFG.FILA_DATOS + 1;
-  var datos = h.getRange(CFG.FILA_DATOS, 1, n, CFG.NCOL).getValues();
+  cats.forEach(function (c) { if (c.meta) metas[_norm(c.nombre)] = c; });
+  var datos = _datos_();
   var props = PropertiesService.getScriptProperties(), enviados = {};
   try { enviados = JSON.parse(props.getProperty("ALERTAS_META") || "{}"); } catch (e) {}
   var ahora = Date.now(), alertas = [];
   datos.forEach(function (f) {
-    var cod = f[C.CODIGO - 1], meta = metas[_norm(f[C.CLASIF_INTERNA - 1])];
-    if (!cod || !meta || enviados[cod]) return;
-    if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1 || f[C.CORREO_RESP - 1]) return;   // ya en gestión
-    var marca = f[C.MARCA - 1] instanceof Date ? f[C.MARCA - 1].getTime() : 0;
-    if (!marca || ahora < marca + meta * 3600000) return;
-    alertas.push(f); enviados[cod] = ahora;
+    var cod = f[C.CODIGO - 1], c = metas[_norm(f[C.CLASIF_INTERNA - 1])];
+    if (!cod || !c) return;
+    if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1) return;
+    var responder = /responder/i.test(c.alcance);
+    if (!responder && f[C.CORREO_RESP - 1]) return;               // ya se direccionó
+    var ini = _inicioHoras_(f), meta = c.meta * 3600000;
+    // «Responder» (riesgo vital NNA): aviso a la mitad de la meta y al cumplirse; «Direccionar»: al cumplirse.
+    var hitos = responder ? [0.5, 1] : [1];
+    hitos.forEach(function (k) {
+      var clave = cod + (k < 1 ? "|50" : "");
+      if (enviados[clave] || ahora < ini + meta * k) return;
+      enviados[clave] = ahora;
+      alertas.push({ f: f, c: c, k: k });
+    });
   });
-  if (!alertas.length) return { alertas: 0 };
+  // limpieza: se olvidan las alertas de más de 90 días
+  Object.keys(enviados).forEach(function (k) { if (ahora - enviados[k] > 90 * 86400000) delete enviados[k]; });
   props.setProperty("ALERTAS_META", JSON.stringify(enviados));
-  alertas.forEach(function (f) {
-    var cod = f[C.CODIGO - 1];
-    _traza(cod, "Alerta de meta interna", "Superó " + metas[_norm(f[C.CLASIF_INTERNA - 1])] + " h sin direccionar · " + f[C.CLASIF_INTERNA - 1]);
-    _avisoChat_(_lineaChat_("[ALERTA]", cod, [f[C.CLASIF_INTERNA - 1], "más de " + metas[_norm(f[C.CLASIF_INTERNA - 1])] + " h sin direccionar", f[C.SEDE - 1]], "Vence " + _fmt(f[C.FECHA_MAX - 1])));
+  if (!alertas.length) return { alertas: 0 };
+  alertas.forEach(function (a) {
+    var f = a.f, c = a.c, cod = f[C.CODIGO - 1];
+    var responder = /responder/i.test(c.alcance);
+    var queFalta = responder ? (f[C.CORREO_RESP - 1] ? "sin respuesta al usuario" : "sin direccionar ni responder") : "sin direccionar";
+    var horas = a.k < 1 ? Math.round(c.meta * a.k * 10) / 10 : c.meta;
+    var limite = _inicioHoras_(f) + c.meta * 3600000;
+    _traza(cod, "Alerta de meta interna", (a.k < 1 ? "Mitad de la meta: " : "Superó ") + horas + " h " + queFalta + " · " + f[C.CLASIF_INTERNA - 1]);
+    _avisoChat_(_lineaChat_(a.k < 1 ? "[ALERTA · MITAD DEL TÉRMINO]" : "[ALERTA]", cod,
+      [f[C.CLASIF_INTERNA - 1], (a.k < 1 ? "van " : "más de ") + horas + " h " + queFalta, f[C.SEDE - 1]], responder ? "Límite " + _fmtHora_(limite) : "Vence " + _fmt(f[C.FECHA_MAX - 1])));
     var dest = _correosAviso_(f[C.SEDE - 1], []);
-    if (dest.length) _enviar(dest.join(","), "[ALERTA PQRS] " + cod + " · " + f[C.CLASIF_INTERNA - 1] + " sin direccionar", cod,
-      _correoHilo_({ interno: "ALERTA DE VENCIMIENTO", kicker: f[C.TIPO_PQRS - 1], codigo: cod, titulo: "Requiere atención inmediata",
-        mensaje: "Esta " + String(f[C.CLASIF_INTERNA - 1] || "PQRS").toLowerCase() + " superó la meta interna de " + metas[_norm(f[C.CLASIF_INTERNA - 1])] +
-          " horas y aún no se ha direccionado al área responsable.",
-        fechas: { hechos: _fmt(f[C.FECHA_PQRS - 1]), recepcion: Utilities.formatDate(f[C.MARCA - 1], _tz_(), "dd/MM/yyyy HH:mm"), radicacion: _fmt(f[C.FECHA_RADICACION - 1]), max: _fmt(f[C.FECHA_MAX - 1]) },
-        detalles: [["Clasificación", f[C.CLASIF_INTERNA - 1]], ["Sede", f[C.SEDE - 1]]],
-        boton: { texto: "Direccionar ahora", url: _urlPlataforma_(cod) } }));
+    if (f[C.CORREO_RESP - 1] && responder && _correoOk(f[C.CORREO_RESP - 1])) dest.push(String(f[C.CORREO_RESP - 1]).toLowerCase());
+    if (dest.length) _enviar(dest.join(","), "[ALERTA PQRS] " + cod + " · " + f[C.CLASIF_INTERNA - 1] + " " + queFalta, cod,
+      _correoHilo_({ interno: a.k < 1 ? "ALERTA · VA LA MITAD DEL TÉRMINO" : "ALERTA DE VENCIMIENTO", kicker: f[C.TIPO_PQRS - 1], codigo: cod,
+        titulo: a.k < 1 ? "Quedan " + Math.round(c.meta * (1 - a.k) * 10) / 10 + " horas" : "Requiere atención inmediata",
+        mensaje: "Esta " + String(f[C.CLASIF_INTERNA - 1] || "PQRS").toLowerCase() + " lleva " + horas + " horas " + queFalta + "." +
+          (c.norma ? "\n\nNorma: " + c.norma + "." : "") + (responder ? "\n\nLímite para la respuesta de fondo: " + _fmtHora_(limite) + "." : ""),
+        fechas: { hechos: _fmt(f[C.FECHA_PQRS - 1]), recepcion: _fmtHora_(_inicioHoras_(f)), radicacion: _fmt(f[C.FECHA_RADICACION - 1]), max: responder ? _fmtHora_(limite) : _fmt(f[C.FECHA_MAX - 1]) },
+        detalles: [["Clasificación", f[C.CLASIF_INTERNA - 1]], ["Sede", f[C.SEDE - 1]], ["Área", f[C.RESPONSABLE - 1] || "Sin asignar"]],
+        boton: { texto: f[C.CORREO_RESP - 1] ? "Ver el caso" : "Direccionar ahora", url: _urlPlataforma_(cod) } }));
   });
   return { alertas: alertas.length };
 }
-
 
 /** Fechas clave de un radicado para las notificaciones (hechos, recepción, radicación, vencimiento). */
 function _fechasDe_(codigo) {
@@ -3426,8 +4011,10 @@ function _textoConfidencial_(interno) {
     ? "<b>Información confidencial.</b> Este mensaje contiene datos personales y de salud protegidos por la Ley 1581 de 2012 y por la reserva " +
       "de la historia clínica (Ley 23 de 1981 y Resolución 1995 de 1999). Úselo solo para gestionar esta PQRS: no lo reenvíe, no lo imprima " +
       "ni lo comparta fuera del proceso. Si lo recibió por error, avise a " + siau + " y elimínelo."
-    : "Este mensaje es exclusivo para el titular de la solicitud y puede contener datos personales protegidos por la Ley 1581 de 2012. " +
-      "Si lo recibió por error, avísenos respondiendo a este correo y elimínelo. MiRed IPS nunca le pedirá contraseñas ni pagos por este medio.";
+    : "<b>Protección de sus datos.</b> MiRed Barranquilla IPS S.A.S. trata sus datos personales y de salud solo para radicar, gestionar y responder su solicitud " +
+      "(Ley 1581 de 2012, Decreto 1377 de 2013 compilado en el Decreto 1074 de 2015, y reserva de la historia clínica). Usted puede conocer, actualizar, rectificar " +
+      "o suprimir sus datos y revocar la autorización escribiendo a " + siau + (_param(10) ? " · Política de tratamiento: " + _html_(_param(10)) : "") + ". " +
+      "Este mensaje es exclusivo para el titular; si lo recibió por error, avísenos y elimínelo. MiRed IPS nunca le pedirá contraseñas ni pagos por este medio.";
 }
 
 /**
@@ -3464,7 +4051,9 @@ function _correoDiseno_(o) {
     ? '<div style="' + P + 'font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:' + colorK + ';margin-bottom:8px;">' +
       '<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:' + colorK + ';margin-right:6px;vertical-align:1px;"></span>' + _html_(o.kicker) + '</div>'
     : '';
-  var icono = feliz
+  var icono = o.mascota
+    ? '<img src="cid:mascotaSiau" width="92" alt="SIAU MiRed IPS" style="display:block;border:0;margin:0 0 10px 0;"/>'
+    : feliz
     ? '<div style="width:52px;height:52px;border-radius:50%;background:#F2ECFA;text-align:center;line-height:52px;font-size:26px;color:#8455B8;margin-bottom:14px;">&#9733;</div>'
     : '';
   var rad = o.codigo
@@ -3562,7 +4151,7 @@ function _plantilla(o) {
   var variante = o.reconocimiento ? "reconocimiento" : (o.interno ? "interno" : (feli ? "felicitacion" : "usuario"));
   var fechas = { hechos: o.fechaHechos || fx.hechos, recepcion: o.fechaRecepcion || fx.recepcion,
                  radicacion: o.fechaRadicacion || fx.radicacion, max: feli ? "" : (o.fechaMax || fx.max) };
-  var detalles = [["Estado", feli && !o.interno ? "" : o.estado], ["Sede", o.sede], ["Servicio", o.servicio]];
+  var detalles = [["Estado", feli && !o.interno ? "" : o.estado]].concat(o.extraDetalles || []).concat([["Sede", o.sede], ["Servicio", o.servicio]]);
   if (o.interno && !o.reconocimiento) detalles = detalles.concat([["Días transcurridos", o.dias], ["Solicitante", o.solicitante],
     ["Documento", o.documento], ["Contacto", o.contacto], ["Área responsable", o.responsable]]);
   if (o.reconocimiento) detalles = detalles.concat([["Área", o.responsable]]);
@@ -3581,6 +4170,7 @@ function _plantilla(o) {
     fechas: fechas, detalles: detalles, bloques: bloques,
     cita: feli && o.descripcion ? { texto: o.descripcion, autor: o.interno ? "Palabras del usuario" : "Sus palabras" } : null,
     boton: o.boton || null,
+    mascota: feli && !o.interno && !!o.extraDetalles && !!MASCOTA_BASE64,
   });
 }
 
@@ -3600,4 +4190,548 @@ function _correoHilo_(o) {
     cita: o.cita ? { texto: o.cita, autor: o.citaTitulo || "Mensaje original" } : null,
     boton: o.boton || null,
   });
+}
+
+// =====================================================================================
+// v8 · PRIORIZACIÓN POR RIESGO (Circulares Supersalud 2023151000000010-5 y 2026151000000007-5)
+// =====================================================================================
+/*
+ * Lee la manifestación (de cualquier canal) y los datos del usuario, y decide si es:
+ *   Vital NNA  → riesgo vital en niñas, niños o adolescentes: respuesta de fondo en 8 horas (Circular 2026).
+ *   Vital      → riesgo inminente para la vida o la integridad: 24 horas (Circular 2023).
+ *   Priorizado → sujeto de especial protección (NNA, gestante, persona mayor, discapacidad, víctima,
+ *                cáncer, VIH, trasplante, enfermedad huérfana o de alto costo) con una barrera de acceso
+ *                o signos de alarma: 48 horas.
+ * Es explicable: guarda las señales que encontró. Nunca baja una prioridad ya asignada y respeta las
+ * categorías legales (tutela, derecho de petición, requerimiento de ente de control), a las que solo
+ * les anota el nivel de riesgo. El técnico o el administrador pueden corregirlo en el detalle.
+ */
+var RANGO_NIVEL = { "vital nna": 4, "vital": 3, "tutela": 3, "priorizado": 2, "simple": 1 };
+var CAT_POR_NIVEL = { "Vital NNA": "RIESGO VITAL NNA · 8 H", "Vital": "RIESGO VITAL · 24 H", "Priorizado": "RIESGO PRIORIZADO · 48 H" };
+var HORAS_NIVEL = { "Vital NNA": 8, "Vital": 24, "Priorizado": 48, "Simple": 72 };
+var CATS_LEGALES = /^(tutela|derecho de peticion|requerimiento ente de control)/;
+
+var SENALES_VITAL = [
+  [/riesgo vital|urgencia vital|peligr\w* (de |su |la )?vida|riesgo (para|de) (su |la |mi )?vida|se (esta|va a|nos va a) mori|se nos muere|puede morir|a punto de morir|se me muere/, 4, "riesgo para la vida"],
+  [/suicid|quitarse la vida|autolesi|hacerse dano/, 4, "riesgo suicida"],
+  [/no respira|dificultad (para|al) respirar|se (esta )?ahoga|asfixi|sin oxigeno|falta de oxigeno|saturando (bajo|mal)|saturacion baja/, 3, "dificultad respiratoria u oxígeno"],
+  [/convulsi/, 3, "convulsiones"],
+  [/hemorragi|sangrado (abundante|profuso|severo|activo|fuerte)|sangrando mucho|vomit\w* sangre|perdiendo mucha sangre/, 3, "sangrado importante"],
+  [/infarto|dolor (en el|de|del) pecho|paro (cardiaco|cardiorrespiratorio|respiratorio)|accidente cerebro|derrame cerebral|\bacv\b/, 3, "evento cardiovascular o cerebral"],
+  [/inconscien|perdio el conocimiento|perdida (del|de) conocimiento|desmay|no reacciona/, 3, "pérdida de conciencia"],
+  [/(sin|no (le|me|nos) (han )?(entregad|entrega|dad|dan|aplicad|aplican|autoriz)\w*|suspendi\w*|interrumpi\w*|no (hay|tienen)|falta de)\s.{0,50}(insulina|quimio|dialisis|hemodialisis|oxigeno|antirretrovir|anticoagul|inmunosupres|radioterapia)/, 3, "tratamiento vital interrumpido"],
+  [/(insulina|quimio|dialisis|hemodialisis|antirretrovir|radioterapia).{0,50}(no (me|le|nos) (han )?(entregad|dad|aplicad|autoriz)|suspendi|sin entrega|interrumpi)/, 3, "tratamiento vital interrumpido"],
+  [/embaraz.{0,60}(sangr|no (se|lo) (siente|mueve)|dolor fuerte|contracciones)|sangr.{0,40}embaraz|preeclampsia|eclampsia|trabajo de parto/, 3, "gestante con signos de alarma"],
+  [/(remision|traslado|\buci\b|cuidado intensivo|cama).{0,50}(no (hay|le dan|la dan|han|lo)|negad|pendiente|esperando|sin respuesta)|(no (hay|le dan|la dan|han)|negad|pendiente|esperando).{0,50}(remision|traslado|\buci\b|cuidado intensivo)/, 2, "remisión o UCI pendiente"],
+  [/estado (critico|grave|delicado)|muy grave|grave estado|deterioro|empeorando|cada vez peor/, 2, "estado grave o deterioro"],
+  [/dolor (extremo|insoportable|muy fuerte|intenso|severo)|grit\w* de dolor|retorciendose/, 2, "dolor extremo"],
+  [/deshidrat|desnutricion (severa|aguda)|no (ha )?come desde|fiebre (muy alta|alta|de (39|40|41))/, 1, "signos de alarma"],
+];
+var POBLACIONES = [
+  ["NNA", /\b(mi|su|el|la|un|una|del|de la|nuestr[oa]) (hij[oa]|bebe|nin[oa]|menor|niet[oa]|recien nacid[oa]|sobrin[oa])\b|\bneonat|\blactante|\binfante|\badolescente|\bmenor de edad|\bnin[oa]s?\b|\bbebes?\b/],
+  ["Gestante", /embarazad|gestante|\bembarazo|prenatal|semanas de gestacion|materna/],
+  ["Persona mayor", /adulto mayor|adultos mayores|tercera edad|ancian|persona mayor/],
+  ["Discapacidad", /discapacidad|silla de ruedas|invidente|\bciego|\bsord[oa]|lengua de senas|interprete de senas/],
+  ["Víctima del conflicto", /victima del conflicto|desplazad[oa] por|\bvictima de (la )?violencia/],
+  ["Cáncer", /cancer|oncolog|quimioterapia|radioterapia|tumor|leucemia|linfoma/],
+  ["VIH", /\bvih\b|\bsida\b|antirretrovir/],
+  ["Enfermedad huérfana", /enfermedad (huerfana|rara)|hemofilia/],
+  ["Trasplante", /trasplant/],
+  ["Alto costo", /dialisis|renal cronic|insuficiencia renal|artritis reumatoide|esclerosis/],
+];
+var RE_BARRERA = /(no (me|le|nos|la|lo) (han )?(quieren )?(entregan|entregaron|entregado|autoriz\w*|asignan|asignaron|programan|programaron|realizan|realizaron|atienden|atendieron|dan|dieron|han dado))|negaron|niegan|sin cita|no hay (agenda|citas|medicamento|cama)|cancelaron (la |mi |su )?(cita|cirugia|procedimiento)|reprogram|demora en (la )?(entrega|autorizacion|cita|cirugia|atencion)|(dias|semanas|meses) (esperando|sin)|pendiente (de |la )?(autorizacion|cirugia|cita|entrega)|horas esperando|no me han llamado/;
+
+function _edadNum_(v) {
+  if (typeof v === "number" && isFinite(v)) return v;
+  var m = /(\d{1,3})\s*(mes|meses)/i.exec(String(v || ""));
+  if (m) return 0;
+  m = /(\d{1,3})/.exec(String(v || ""));
+  return m ? parseInt(m[1], 10) : null;
+}
+function _nivelDeCategoria_(nombre, cats) {
+  var n = _norm(nombre); if (!n) return "";
+  var c = (cats || CATS_CACHE || (CATS_CACHE = _categorias_())).filter(function (x) { return _norm(x.nombre) === n; })[0];
+  if (c && c.nivel) return c.nivel;
+  if (/vital/.test(n) && /nna|nino|menor/.test(n)) return "Vital NNA";
+  if (/vital/.test(n)) return "Vital";
+  if (/priorizad/.test(n)) return "Priorizado";
+  if (/simple/.test(n)) return "Simple";
+  if (/tutela/.test(n)) return "Tutela";
+  return "";
+}
+function _rango_(nivel) { return RANGO_NIVEL[_norm(nivel)] || 0; }
+
+/** Evalúa una fila (arreglo) sin escribir nada. */
+function _evaluarRiesgo_(f, cats) {
+  var r = { nivel: "", categoria: "", razones: [], poblacion: [], puntos: 0, horas: 0 };
+  var tipo = f[C.TIPO_PQRS - 1];
+  if (_esFeli(tipo)) return r;
+  var t = " " + _norm([f[C.DESCRIPCION - 1], f[C.OBSERVACIONES - 1] && String(f[C.OBSERVACIONES - 1]).replace(/\[[^\]]*\]/g, "")].join(" "))
+            .replace(/[^a-z0-9ñ ]/g, " ").replace(/\s+/g, " ") + " ";
+  SENALES_VITAL.forEach(function (s) { if (s[0].test(t)) { r.puntos += s[1]; if (r.razones.indexOf(s[2]) === -1) r.razones.push(s[2]); } });
+  var edad = _edadNum_(f[C.EDAD - 1]);
+  var docs = _norm(f[C.TIPO_DOC_SOL - 1] + " " + f[C.TIPO_DOC_AFI - 1]);
+  var pobl = _norm(f[C.POBLACION - 1]), serv = _norm(f[C.SERVICIO - 1] + " " + f[C.SERVICIO_ESP - 1]);
+  var agregar = function (p) { if (r.poblacion.indexOf(p) === -1) r.poblacion.push(p); };
+  if ((edad !== null && edad < 18) || /tarjeta de identidad|registro civil|nacido vivo|\bti\b|\brc\b/.test(docs) || /menor/.test(pobl) || /neonat|pediatr/.test(serv)) agregar("NNA");
+  if (edad !== null && edad >= 60) agregar("Persona mayor");
+  if (/gestante/.test(pobl)) agregar("Gestante");
+  if (/adulto mayor|persona mayor/.test(pobl)) agregar("Persona mayor");
+  if (/discapacidad/.test(pobl)) agregar("Discapacidad");
+  if (/victima/.test(pobl)) agregar("Víctima del conflicto");
+  POBLACIONES.forEach(function (p) { if (p[1].test(t)) agregar(p[0]); });
+  var barrera = RE_BARRERA.test(t);
+  var actual = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats);
+  var nna = r.poblacion.indexOf("NNA") !== -1;
+  if (r.puntos >= 3 || actual === "Vital") r.nivel = nna ? "Vital NNA" : "Vital";
+  else if (r.poblacion.length && (barrera || r.puntos >= 2)) r.nivel = "Priorizado";
+  if (barrera && r.nivel) r.razones.push("barrera de acceso");
+  if (actual && _rango_(actual) > _rango_(r.nivel)) { r.nivel = actual === "Tutela" ? r.nivel : actual; }
+  r.categoria = CAT_POR_NIVEL[r.nivel] || "";
+  r.horas = HORAS_NIVEL[r.nivel] || 0;
+  return r;
+}
+
+/**
+ * Evalúa y guarda el riesgo de una fila. modo "auto" aplica la categoría (y con ella el término);
+ * "sugerir" solo anota el nivel. Devuelve el resultado con «aplicado» = true si cambió la categoría.
+ */
+function _evaluarPrioridadFila_(fila, modo, f, cats) {
+  var h = _h(CFG.HOJA_DATOS);
+  f = f || h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  if (!f[C.CODIGO - 1] || _esFeli(f[C.TIPO_PQRS - 1])) return { nivel: "" };
+  if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1) return { nivel: "" };
+  if (/\[Riesgo manual:/.test(String(f[C.OBSERVACIONES - 1] || ""))) return { nivel: _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats), manual: true };
+  var r = _evaluarRiesgo_(f, cats);
+  var texto = r.nivel ? r.nivel + (r.horas ? " · " + r.horas + " h" : "") : "";
+  var pobl = r.poblacion.join("; ");
+  if (String(f[C.NIVEL_RIESGO - 1] || "") !== texto) h.getRange(fila, C.NIVEL_RIESGO).setValue(texto);
+  if (String(f[C.POBLACION_PRIORIZADA - 1] || "") !== pobl) h.getRange(fila, C.POBLACION_PRIORIZADA).setValue(pobl);
+  if (!r.nivel) return r;
+  var actual = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats);
+  var legal = CATS_LEGALES.test(_norm(f[C.CLASIF_INTERNA - 1]));
+  if (modo === "auto" && r.categoria && !legal && _rango_(r.nivel) > _rango_(actual)) {
+    h.getRange(fila, C.CLASIF_INTERNA).setValue(r.categoria);
+    var obs = String(f[C.OBSERVACIONES - 1] || "").replace(/\s*\[Riesgo: [^\]]*\]/g, "");
+    h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Riesgo: " + r.nivel + " · " + r.razones.slice(0, 4).join(", ") + "]");
+    _traza(f[C.CODIGO - 1], "Priorizada por riesgo", r.categoria + " · señales: " + r.razones.join(", ") +
+      (r.poblacion.length ? " · población: " + pobl : "") + " · " + (_nivelNorma_(r.nivel)));
+    r.aplicado = true;
+  }
+  return r;
+}
+function _nivelNorma_(nivel) {
+  return nivel === "Vital NNA" ? "Circular Externa Supersalud 2026151000000007-5 de 2026 (8 horas)"
+    : "Circular Externa Supersalud 2023151000000010-5 de 2023 (" + (HORAS_NIVEL[nivel] || "") + " horas)";
+}
+
+/** Todo lo que se hace después de escribir una radicación nueva, sea cual sea el canal. */
+function _postRadicacion_(fila, modoTipo) {
+  var out = { codigo: "" };
+  SpreadsheetApp.flush();
+  out.tipo = _aplicarClasificador_(fila, modoTipo);
+  if (out.tipo && out.tipo.codigo) out.codigo = out.tipo.codigo;
+  SpreadsheetApp.flush();
+  try {
+    out.riesgo = _evaluarPrioridadFila_(fila, "auto");
+    if (out.riesgo && out.riesgo.aplicado) { SpreadsheetApp.flush(); _alertaPrioritaria_(fila, out.riesgo); }
+  } catch (e) { Logger.log("Riesgo: " + e); }
+  try {
+    var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+    out.areas = _sugerirArea_(f);
+    _h(CFG.HOJA_DATOS).getRange(fila, C.AREA_SUGERIDA).setValue(out.areas.length ? out.areas[0].area : "");
+  } catch (e) { Logger.log("Área: " + e); out.areas = []; }
+  return out;
+}
+
+/** Aviso inmediato de un caso priorizado (Chat, correo y alarma en la plataforma). Sin datos personales. */
+function _alertaPrioritaria_(fila, r) {
+  var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  var cod = f[C.CODIGO - 1];
+  var limite = _limiteHoras_(f, r.nivel);
+  var etq = r.nivel === "Vital NNA" ? "[RIESGO VITAL NNA · 8 H]" : r.nivel === "Vital" ? "[RIESGO VITAL · 24 H]" : "[PRIORIZADA · 48 H]";
+  _traza(cod, "Alerta de riesgo", r.nivel + " · responder antes de " + _fmtHora_(limite) + " · " + (r.poblacion.join(", ") || "sin población especial"));
+  _avisoChat_(_lineaChat_(etq, cod, [f[C.TIPO_PQRS - 1], f[C.SEDE - 1], r.razones.slice(0, 3).join(", ")], "Responder antes de " + _fmtHora_(limite)));
+  var dest = _correosAviso_(f[C.SEDE - 1], []);
+  if (!dest.length) return;
+  _enviar(dest.join(","), etq + " " + cod + " · requiere gestión inmediata", "PQRS " + cod + " priorizada: " + r.nivel,
+    _correoHilo_({ interno: "ALERTA · " + (r.nivel === "Priorizado" ? "PQRS PRIORIZADA" : "RIESGO VITAL") + " · " + _nivelNorma_(r.nivel).toUpperCase(),
+      kicker: f[C.TIPO_PQRS - 1], codigo: cod,
+      titulo: r.nivel === "Vital NNA" ? "Riesgo vital en una niña, niño o adolescente" : r.nivel === "Vital" ? "PQRS con riesgo vital" : "PQRS priorizada (sujeto de especial protección)",
+      mensaje: "La plataforma identificó esta PQRS como «" + r.nivel + "» y le asignó el término de " + r.horas + " horas (" + _nivelNorma_(r.nivel) + ").\n\n" +
+        "Señales: " + r.razones.join(", ") + (r.poblacion.length ? ".\nPoblación: " + r.poblacion.join(", ") + "." : ".") +
+        "\n\nDirecciónala de inmediato al área responsable. Por confidencialidad, este aviso no incluye datos del usuario ni la descripción.",
+      fechas: { recepcion: _fmtHora_(_inicioHoras_(f)), max: _fmtHora_(limite) },
+      detalles: [["Nivel de riesgo", r.nivel], ["Sede", f[C.SEDE - 1]], ["Servicio", f[C.SERVICIO - 1]], ["Canal", f[C.CANAL - 1]]],
+      boton: { texto: "Gestionar ahora", url: _urlPlataforma_(cod) } }));
+}
+function _inicioHoras_(f) {
+  var m = f[C.MARCA - 1];
+  if (m instanceof Date && !isNaN(m.getTime())) return m.getTime();
+  var r = f[C.FECHA_RECEPCION - 1];
+  return r instanceof Date ? r.getTime() : Date.now();
+}
+function _limiteHoras_(f, nivel) { return _inicioHoras_(f) + (HORAS_NIVEL[nivel] || 0) * 3600000; }
+
+/** Comando «Identificar PQRS prioritarias»: revisa todas las abiertas visibles y aplica la priorización. */
+function apiIdentificarPrioritarias_() {
+  var cats = _categorias_(); CATS_CACHE = cats;
+  var datos = _datos_(), nuevas = [], revisadas = 0;
+  var t0 = Date.now();
+  datos.forEach(function (f, i) {
+    if (Date.now() - t0 > 280000) return;
+    if (!f[C.CODIGO - 1] || !_filaVisible_(f) || _esFeli(f[C.TIPO_PQRS - 1])) return;
+    if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1) return;
+    revisadas++;
+    var r = _evaluarPrioridadFila_(CFG.FILA_DATOS + i, "auto", f, cats);
+    if (r.aplicado) { nuevas.push({ codigo: f[C.CODIGO - 1], nivel: r.nivel, razones: r.razones, poblacion: r.poblacion }); _alertaPrioritaria_(CFG.FILA_DATOS + i, r); }
+  });
+  SpreadsheetApp.flush();
+  _traza("—", "Identificar PQRS prioritarias", revisadas + " abiertas revisadas · " + nuevas.length + " priorizadas ahora" + (SESION ? " · por " + SESION.usuario : ""));
+  var lista = apiPrioritarias_();
+  return { ok: true, revisadas: revisadas, nuevas: nuevas, prioritarias: lista.items,
+           mensaje: revisadas + " PQRS abiertas revisadas · " + nuevas.length + " nuevas prioritarias · " + lista.items.length + " prioritarias en total." };
+}
+function identificarPrioritarias() {   // menú de la hoja
+  SpreadsheetApp.getUi();
+  var r = apiIdentificarPrioritarias_();
+  SpreadsheetApp.getUi().alert(r.mensaje + (r.nuevas.length ? "\n\n" + r.nuevas.map(function (x) { return x.codigo + " · " + x.nivel; }).join("\n") : ""));
+}
+
+/** PQRS abiertas prioritarias con el tiempo que les queda (para la vista «Prioritarias» y el Inicio). */
+function apiPrioritarias_() {
+  var cats = _categorias_(), ahora = Date.now(), items = [];
+  _datos_().forEach(function (f) {
+    if (!f[C.CODIGO - 1] || !_filaVisible_(f) || _esFeli(f[C.TIPO_PQRS - 1])) return;
+    if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1) return;
+    var nivel = _nivelDeCategoria_(f[C.CLASIF_INTERNA - 1], cats) || String(f[C.NIVEL_RIESGO - 1] || "").split(" · ")[0];
+    var prioridad = _prioridadDe_(f[C.CLASIF_INTERNA - 1], f[C.ENTIDAD - 1], cats);
+    if (_rango_(nivel) < 2 && prioridad !== "Crítica" && prioridad !== "Alta") return;
+    var limite = HORAS_NIVEL[nivel] && _rango_(nivel) >= 2 ? _limiteHoras_(f, nivel)
+      : (f[C.FECHA_MAX - 1] instanceof Date ? f[C.FECHA_MAX - 1].getTime() + 86399000 : 0);
+    var obs = String(f[C.OBSERVACIONES - 1] || "");
+    items.push({ codigo: f[C.CODIGO - 1], nivel: nivel || prioridad, prioridad: prioridad, clasificacion: f[C.CLASIF_INTERNA - 1],
+      tipo: f[C.TIPO_PQRS - 1], sede: f[C.SEDE - 1], servicio: f[C.SERVICIO - 1], canal: f[C.CANAL - 1],
+      poblacion: String(f[C.POBLACION_PRIORIZADA - 1] || "").split(/\s*;\s*/).filter(String),
+      razones: ((/\[Riesgo: [^·\]]*·\s*([^\]]*)\]/.exec(obs) || [])[1] || "").split(/,\s*/).filter(String),
+      remitente: (/Remitente institucional: ([^(·]+)/.exec(obs) || [])[1] || "",
+      conArea: !!f[C.CORREO_RESP - 1], responsable: f[C.RESPONSABLE - 1] || "", estado: f[C.ESTADO - 1] || "Recibida",
+      limite: limite, limiteTexto: _fmtHora_(limite), horasRestantes: limite ? Math.round((limite - ahora) / 360000) / 10 : null,
+      vencida: limite ? limite < ahora : false, orden: _rango_(nivel) * -1e13 + (limite || 9e15) });
+  });
+  items.sort(function (a, b) { return a.orden - b.orden; });
+  return { ok: true, items: items, ahora: ahora };
+}
+
+/** Ajuste manual del nivel de riesgo desde el detalle (técnico o administrador). */
+function apiFijarRiesgo_(codigo, nivel, motivo) {
+  var fila = _filaDe(codigo);
+  if (fila < 0) return { ok: false, mensaje: "Radicado no encontrado." };
+  var h = _h(CFG.HOJA_DATOS), f = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  var obs = String(f[C.OBSERVACIONES - 1] || "").replace(/\s*\[Riesgo( manual)?: [^\]]*\]/g, "");
+  if (nivel === "auto") {
+    h.getRange(fila, C.OBSERVACIONES).setValue(obs);
+    SpreadsheetApp.flush();
+    var r = _evaluarPrioridadFila_(fila, "auto");
+    _traza(codigo, "Riesgo recalculado", (r.nivel || "sin riesgo especial") + (motivo ? " · " + motivo : ""));
+    return apiDetalle_(codigo);
+  }
+  var cat = CAT_POR_NIVEL[nivel] || "";
+  var legal = CATS_LEGALES.test(_norm(f[C.CLASIF_INTERNA - 1]));
+  if (!legal) h.getRange(fila, C.CLASIF_INTERNA).setValue(cat);
+  h.getRange(fila, C.NIVEL_RIESGO).setValue(cat ? nivel + " · " + HORAS_NIVEL[nivel] + " h" : "");
+  h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Riesgo manual: " + (nivel || "sin riesgo especial") + (motivo ? " · " + motivo : "") + "]");
+  SpreadsheetApp.flush();
+  _traza(codigo, "Riesgo ajustado a mano", (f[C.NIVEL_RIESGO - 1] || "sin riesgo") + " → " + (nivel || "sin riesgo especial") + (motivo ? " · " + motivo : ""));
+  if (_rango_(nivel) >= 2) _alertaPrioritaria_(fila, { nivel: nivel, horas: HORAS_NIVEL[nivel], razones: ["ajuste manual" + (motivo ? ": " + motivo : "")], poblacion: String(f[C.POBLACION_PRIORIZADA - 1] || "").split(/\s*;\s*/).filter(String) });
+  return apiDetalle_(codigo);
+}
+
+/** Vista previa del riesgo mientras el técnico escribe la radicación (no guarda nada). */
+function apiEvaluarRiesgo_(d) {
+  d = d || {};
+  var f = []; for (var i = 0; i < CFG.NCOL; i++) f.push("");
+  f[C.CODIGO - 1] = "PREVIA"; f[C.TIPO_PQRS - 1] = d.tipoPqrs || ""; f[C.DESCRIPCION - 1] = d.descripcion || "";
+  f[C.EDAD - 1] = d.edad || ""; f[C.TIPO_DOC_SOL - 1] = d.tipoDocSolicitante || ""; f[C.TIPO_DOC_AFI - 1] = d.tipoDocAfiliado || "";
+  f[C.POBLACION - 1] = d.poblacion || ""; f[C.SERVICIO - 1] = d.servicio || ""; f[C.SEDE - 1] = d.sede || "";
+  var r = _evaluarRiesgo_(f);
+  r.areas = d.descripcion ? _sugerirArea_(f) : [];
+  r.norma = r.nivel ? _nivelNorma_(r.nivel) : "";
+  return r;
+}
+
+// =====================================================================================
+// v8 · DIRECCIONAMIENTO AUTOMÁTICO Y FELICITACIONES
+// =====================================================================================
+/**
+ * Después de radicar: si está activado, envía el caso al área que indica el directorio.
+ *   Felicitaciones → «inmediato»: se entrega al área apenas llega; «resumen»: rutinaDiaria manda
+ *                    un solo correo por área con las del día; «manual»: las entrega el SIAU.
+ *   PQRS           → solo con «direccionAuto» y un área inequívoca (servicio que atiende + palabras clave).
+ * Devuelve el nombre del área o "".
+ */
+function _direccionAutomatica_(fila) {
+  var a = _ajustes_();
+  var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  if (!f[C.CODIGO - 1] || f[C.CORREO_RESP - 1]) return "";
+  var feli = _esFeli(f[C.TIPO_PQRS - 1]);
+  if (feli && a.direccionFelicitaciones !== "inmediato") return "";
+  if (!feli && !a.direccionAuto) return "";
+  if (!feli && CATS_LEGALES.test(_norm(f[C.CLASIF_INTERNA - 1]))) return "";   // tutelas y peticiones las revisa el SIAU
+  var sug = _sugerirArea_(f);
+  var ok = feli ? (sug.length && _correoOk(sug[0].correo)) : _areaClara_(sug);
+  if (!ok) return "";
+  var r = apiEnviarAlArea_(f[C.CODIGO - 1], sug[0].id, feli ? "" : "Direccionada automáticamente según el directorio (" + sug[0].razones.join(", ") + ").");
+  if (r && r.ok === false) return "";
+  _traza(f[C.CODIGO - 1], "Direccionamiento automático", sug[0].area + " · " + sug[0].razones.join(", "));
+  return sug[0].area;
+}
+
+/**
+ * Resumen de felicitaciones por área (rutina diaria o botón del SIAU): un solo correo por área con las
+ * felicitaciones pendientes de entregar; cada una queda entregada y cerrada con trazabilidad.
+ * Las que no tienen un área clara quedan para el SIAU.
+ */
+function apiDireccionarFelicitaciones_(soloContar) {
+  var datos = _datos_(), porArea = {}, sinArea = 0, lista = apiResponsables_();
+  var porId = {}; lista.forEach(function (r) { porId[r.id] = r; });
+  datos.forEach(function (f, i) {
+    if (!f[C.CODIGO - 1] || !_esFeli(f[C.TIPO_PQRS - 1]) || f[C.CORREO_RESP - 1]) return;
+    if (_norm(f[C.ESTADO - 1]).indexOf("cerrada") !== -1 || !_filaVisible_(f)) return;
+    var sug = _sugerirArea_(f, lista);
+    if (!sug.length || !_correoOk(sug[0].correo)) { sinArea++; return; }
+    var k = sug[0].id;
+    (porArea[k] = porArea[k] || []).push({ fila: CFG.FILA_DATOS + i, f: f });
+  });
+  var areas = Object.keys(porArea);
+  var total = areas.reduce(function (s, k) { return s + porArea[k].length; }, 0);
+  if (soloContar === true) return { ok: true, pendientes: total, sinArea: sinArea, areas: areas.length };
+  var h = _h(CFG.HOJA_DATOS), enviadas = 0;
+  areas.forEach(function (k) {
+    var resp = porId[k], items = porArea[k];
+    var lineas = items.slice(0, 60).map(function (x) {
+      return x.f[C.CODIGO - 1] + " · " + _fmt(x.f[C.FECHA_RADICACION - 1]) + " · " + (x.f[C.SEDE - 1] || "") + (x.f[C.SERVICIO - 1] ? " · " + x.f[C.SERVICIO - 1] : "") +
+        "\n«" + String(x.f[C.DESCRIPCION - 1] || "").substring(0, 400) + "»";
+    });
+    var html = _correoDiseno_({ variante: "reconocimiento", etiqueta: "Reconocimiento · Uso interno", banda: "RECONOCIMIENTOS DE USUARIOS A SU EQUIPO",
+      kicker: "Felicitación", titulo: items.length === 1 ? "Un usuario reconoce la labor de su equipo" : items.length + " usuarios reconocen la labor de su equipo",
+      mensajeHtml: _parrafosHtml_("La Oficina de Atención al Usuario comparte con " + _html_(resp.area) + " las felicitaciones recibidas. " +
+        "Gracias por su compromiso con una atención humanizada, segura y cercana.<br><br>No requieren gestión ni respuesta. Compártanlas con el equipo."),
+      bloques: [{ titulo: "Palabras de los usuarios", html: _parrafos_(lineas.join("\n\n"), 'font-family:' + FF + ';font-size:13.5px;line-height:1.7;color:#3B4A52;font-style:italic;'), color: "#8455B8" }] });
+    var r = _enviar(resp.correo, "[RECONOCIMIENTOS] " + items.length + " felicitación(es) para " + resp.area,
+      items.length + " felicitaciones de usuarios para " + resp.area, html, { cc: (resp.copia || []).join(",") });
+    if (!r.ok) return;
+    var ahora = new Date();
+    items.forEach(function (x) {
+      _escribir(x.fila, (function () { var v = {};
+        v[C.RESPONSABLE] = resp.area + (resp.nombre ? " · " + resp.nombre : ""); v[C.CORREO_RESP] = resp.correo;
+        v[C.FECHA_ENVIO_AREA] = ahora; v[C.NOTIF_AREA] = ahora; v[C.ESTADO] = "Respondida - Cerrada"; return v; })());
+      _traza(x.f[C.CODIGO - 1], "Felicitación entregada al área", resp.area + " (resumen de reconocimientos)");
+      enviadas++;
+    });
+  });
+  return { ok: true, enviadas: enviadas, areas: areas.length, sinArea: sinArea,
+           mensaje: enviadas ? enviadas + " felicitación(es) entregada(s) a " + areas.length + " área(s)." + (sinArea ? " " + sinArea + " sin área clara: direcciónalas a mano." : "")
+                             : "No hay felicitaciones pendientes con área identificada." + (sinArea ? " " + sinArea + " sin área clara." : "") };
+}
+
+// =====================================================================================
+// v8 · REDACCIÓN DE LA RESPUESTA FORMAL AL USUARIO
+// =====================================================================================
+/*
+ * Toma lo que respondió el área (o un borrador) y lo convierte en una respuesta institucional:
+ * saludo con el nombre, referencia al radicado, fecha y servicio, el contenido del área limpio
+ * (sin citas del correo, firmas internas, saludos al SIAU ni MAYÚSCULAS SOSTENIDAS), cierre
+ * según el tipo de PQRS y datos de contacto. No usa servicios externos: los datos del usuario
+ * no salen de la cuenta del SIAU. El SIAU revisa y ajusta antes de enviar.
+ */
+function _oracion_(t) {
+  t = String(t || "");
+  var letras = t.replace(/[^A-Za-zÁÉÍÓÚÑáéíóúñ]/g, "");
+  var mayus = t.replace(/[^A-ZÁÉÍÓÚÑ]/g, "");
+  if (letras.length > 20 && mayus.length / letras.length > 0.7) {
+    t = t.toLowerCase().replace(/(^\s*|[.!?]\s+|\n\s*)([a-záéíóúñ])/g, function (m, a, b) { return a + b.toUpperCase(); });
+    t = t.replace(/\b(siau|eps|ips|uci|mired|pqrs|nna|sede)\b/gi, function (x) { return x.toUpperCase() === "MIRED" ? "MiRed" : x.toUpperCase(); });
+  }
+  return t;
+}
+function _limpiarRespuestaArea_(t) {
+  t = _sinCitas_(String(t || "")).replace(/\r/g, "");
+  var lineas = t.split("\n"), out = [];
+  var cortar = /^\s*(cordialmente|atentamente|saludos|quedo atent|quedamos atent|gracias|--|__|enviado desde|sent from)/i;
+  for (var i = 0; i < lineas.length; i++) {
+    var l = lineas[i];
+    if (i > 0 && cortar.test(l)) break;                                   // firma interna
+    if (/^\s*(buen(os|as)? (dias|días|tardes|noches)|hola|cordial saludo|estimad[oa]s?|apreciad[oa]s?|señores|senores)\b.{0,60}(siau|atencion al usuario|atención al usuario|compañer|equipo|,|:)?\s*$/i.test(l) && out.join("").trim() === "") continue;
+    out.push(l);
+  }
+  t = out.join("\n").replace(/[ \t]+/g, " ").replace(/\n{3,}/g, "\n\n").trim();
+  t = _oracion_(t);
+  // quitar referencias internas dirigidas al SIAU
+  t = t.replace(/\b(le|les) (informo|informamos|comento|comentamos) (al siau|a atención al usuario|a atencion al usuario) que\s*/gi, "")
+       .replace(/\bse le (informa|comunica) al (usuario|paciente)\b/gi, "le informamos");
+  if (t && !/[.!?]$/.test(t)) t += ".";
+  return t;
+}
+function apiRedactarRespuesta_(codigo, borrador) {
+  var fila = _filaDe(codigo);
+  if (fila < 0) return { ok: false, mensaje: "Radicado no encontrado." };
+  var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  var tipo = String(f[C.TIPO_PQRS - 1] || "solicitud"), tn = _norm(tipo);
+  var base = String(borrador || f[C.RTA_AREA - 1] || "").trim();
+  if (!base) return { ok: false, mensaje: "Aún no hay respuesta del área. Regístrala o escribe un borrador para redactarlo." };
+  var nombre = String(f[C.NOMBRE_SOL - 1] || "").trim();
+  nombre = nombre && !/@/.test(nombre) && !/eps|salud|secretar|super|juzgado|contralor|procurad|personer|defensor/i.test(nombre)
+    ? nombre.toLowerCase().replace(/(^|\s)([a-záéíóúñ])/g, function (m, a, b) { return a + b.toUpperCase(); }) : "";
+  var institucional = /eps|salud|secretar|super|juzgado|contralor|procurad|personer|defensor/i.test(String(f[C.NOMBRE_SOL - 1] || ""));
+  var saludo = institucional ? "Respetados señores:" : (nombre ? "Apreciado(a) " + nombre + ":" : "Apreciado(a) usuario(a):");
+  var art = /peticion|queja|felicitacion|sugerencia|denuncia|tutela/.test(tn) ? "su" : "su";
+  var ref = "Reciba un cordial saludo de MiRed Barranquilla IPS S.A.S. En atención a " + art + " " + tipo.toLowerCase() +
+    " radicada con el número " + f[C.CODIGO - 1] + " el " + _fmt(f[C.FECHA_RADICACION - 1]) +
+    (f[C.SERVICIO - 1] ? ", relacionada con el servicio de " + String(f[C.SERVICIO - 1]).toLowerCase() : "") +
+    (f[C.SEDE - 1] ? " en la sede " + f[C.SEDE - 1] : "") + ", nos permitimos informarle lo siguiente:";
+  var cuerpo = _limpiarRespuestaArea_(base);
+  var cierre = /queja|reclamo|denuncia/.test(tn)
+    ? "Lamentamos los inconvenientes que esta situación le haya ocasionado. Su manifestación fue analizada con el área responsable y nos permite fortalecer las acciones de mejora en la prestación de nuestros servicios."
+    : /sugerencia/.test(tn) ? "Agradecemos su sugerencia: fue compartida con el área responsable y será tenida en cuenta en nuestros planes de mejora."
+    : /felicit/.test(tn) ? "Agradecemos sinceramente sus palabras, que ya fueron compartidas con el equipo."
+    : "Esperamos haber atendido de fondo su solicitud.";
+  var contacto = "Si requiere información adicional, puede comunicarse con la Oficina de Atención al Usuario" +
+    (_param(3) ? " al correo " + _param(3) : "") + (_param(4) ? ", al teléfono " + _param(4) : "") + (_param(5) ? " o por WhatsApp al " + _param(5) : "") + ".";
+  var texto = [saludo, ref, cuerpo, cierre, contacto, "Atentamente,\n\nOficina de Atención al Usuario (SIAU)\nMiRed Barranquilla IPS S.A.S."].join("\n\n");
+  return { ok: true, texto: texto, original: base };
+}
+
+// =====================================================================================
+// v8 · FORMULARIO QR, CREACIÓN DEL FORMULARIO Y DIAGNÓSTICO
+// =====================================================================================
+/** Datos para el panel del QR: enlace público del formulario (Config B22 o el formulario vinculado). */
+function apiFormularioQR_() {
+  var url = String(_param(11) || "").trim(), edit = "", corto = "", titulo = "";
+  var id = String(_param(6) || "").trim();
+  try {
+    var form = id ? FormApp.openById(id) : null;
+    if (!form) {
+      SpreadsheetApp.getActiveSpreadsheet().getSheets().forEach(function (sh) {
+        try { if (!form && sh.getFormUrl && sh.getFormUrl()) form = FormApp.openByUrl(sh.getFormUrl()); } catch (e) {}
+      });
+    }
+    if (form) {
+      titulo = form.getTitle(); edit = form.getEditUrl();
+      if (!url) url = form.getPublishedUrl();
+      try { corto = form.shortenFormUrl(form.getPublishedUrl()); } catch (e) {}
+    }
+  } catch (e) { Logger.log("QR: " + e); }
+  return { ok: true, url: url, corto: corto, edicion: edit, titulo: titulo, plataforma: _urlPlataforma_(""),
+           mensaje: url ? "" : "No encontré el formulario. Vincúlalo a este libro, créalo con el botón «Crear formulario» o pega su enlace en Config (B22)." };
+}
+function _sedesAmigables_() {
+  return (_listasConfig_()["SEDE"] || []).filter(function (x) { return !/interprete/i.test(x); }).map(function (x) {
+    return String(x).trim().replace(/^C\.\s*/i, "Camino ").replace(/^P\.\s*/i, "Paso ").toLowerCase()
+      .replace(/(^|\s)([a-záéíóúñ0-9])/g, function (m, a, b) { return a + b.toUpperCase(); })
+      .replace(/\b(De|Del|La|Las|Los|El|Y)\b/g, function (w) { return w.toLowerCase(); }).replace(/^(\w)/, function (c) { return c.toUpperCase(); });
+  });
+}
+/**
+ * Crea un formulario QR nuevo (Google Forms) con las preguntas del consolidado, la autorización de
+ * tratamiento de datos (Ley 1581 de 2012) y la lista de sedes; lo vincula a este libro y guarda el mapeo.
+ * No borra el formulario anterior: se recomienda reemplazar el QR impreso cuando el nuevo esté probado.
+ */
+function apiCrearFormulario_() {
+  var L = _listasConfig_();
+  var titulo = "Cuéntenos su experiencia · MiRed IPS (PQRS)";
+  var form = FormApp.create(titulo);
+  form.setDescription("Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.\n\n" +
+    "Registre aquí su petición, queja, reclamo, sugerencia o felicitación. Recibirá en su correo el número de radicado y la fecha límite de respuesta.\n\n" +
+    "Si su situación pone en riesgo su vida o la de un menor de edad, además de diligenciar este formulario acérquese al personal de la sede.");
+  form.setCollectEmail(false).setAllowResponseEdits(false).setLimitOneResponsePerUser(false).setProgressBar(true);
+  var aviso = "Autorizo a MiRed Barranquilla IPS S.A.S. para tratar mis datos personales y de salud con la única finalidad de radicar, gestionar y responder esta solicitud, " +
+    "conforme a la Ley 1581 de 2012 y el Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015). Sé que los datos de salud son sensibles y que no estoy obligado(a) a entregarlos, " +
+    "y que puedo conocer, actualizar, rectificar y suprimir mis datos o revocar esta autorización escribiendo a " + (_param(3) || "siau@miredips.org") + "." +
+    (_param(10) ? " Política de tratamiento: " + _param(10) : "");
+  var lista = function (t, ops, req) { var it = form.addListItem().setTitle(t).setChoiceValues(ops); it.setRequired(!!req); return it; };
+  var opcion = function (t, ops, req) { var it = form.addMultipleChoiceItem().setTitle(t).setChoiceValues(ops); it.setRequired(!!req); return it; };
+  form.addMultipleChoiceItem().setTitle("Autorización de tratamiento de datos personales").setHelpText(aviso)
+    .setChoiceValues(["Sí autorizo", "No autorizo (radicaré sin datos de contacto)"]).setRequired(true);
+  opcion("Tipo de solicitud", ["Felicitación", "Queja", "Reclamo", "Petición", "Sugerencia", "Denuncia"], true);
+  opcion("Usted es:", ["Usuario", "Familiar o acompañante", "Colaborador"], true);
+  lista("Tipo de documento", L["TIPO DOCUMENTO"] && L["TIPO DOCUMENTO"].length ? L["TIPO DOCUMENTO"] : ["Cédula de ciudadanía", "Tarjeta de identidad", "Registro civil", "Cédula de extranjería", "Permiso por protección temporal", "Pasaporte"], false);
+  form.addTextItem().setTitle("Número de identificación").setRequired(false);
+  form.addTextItem().setTitle("Nombre completo del paciente").setRequired(false);
+  form.addTextItem().setTitle("Edad del paciente").setRequired(false);
+  opcion("Sexo", ["Femenino", "Masculino", "Otro"], false);
+  form.addTextItem().setTitle("Número de celular").setRequired(false);
+  form.addTextItem().setTitle("Correo electrónico (para enviarle el radicado y la respuesta)").setRequired(false);
+  form.addTextItem().setTitle("Dirección").setRequired(false);
+  lista("Población diferencial (si aplica)", L["POBLACIÓN DIFERENCIAL"] && L["POBLACIÓN DIFERENCIAL"].length ? L["POBLACIÓN DIFERENCIAL"] : ["No aplica", "Gestante", "Discapacidad", "Adulto mayor", "Menor de edad", "Víctima del conflicto", "Migrante", "Étnica", "Otro"], false);
+  lista("Seleccione su EPS", (L["EPS / PRESTADOR"] || []).filter(function (x) { return /eps|salud|ser|sanitas|sura|coosalud|famisanar|proteger|particular/i.test(x); }).concat(["Particular", "Otra"]), false);
+  opcion("Régimen", ["Subsidiado", "Contributivo", "Otro"], false);
+  lista("Sede donde fue atendido (Camino o Paso)", _sedesAmigables_(), true);
+  lista("Servicio o área relacionada con su opinión", L["SERVICIO"] && L["SERVICIO"].length ? L["SERVICIO"] : ["Consulta externa", "Urgencias"], true);
+  form.addDateItem().setTitle("Fecha en que ocurrieron los hechos").setRequired(false);
+  form.addParagraphTextItem().setTitle("Describa su solicitud").setHelpText("Cuéntenos qué pasó, cuándo y con quién. Si es una felicitación, a quién le quiere agradecer.").setRequired(true);
+  form.setConfirmationMessage("¡Gracias! Recibimos su mensaje. Si dejó su correo, le enviaremos el número de radicado y la fecha límite de respuesta. " +
+    "Oficina de Atención al Usuario · MiRed IPS.");
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  form.setDestination(FormApp.DestinationType.SPREADSHEET, ss.getId());
+  SpreadsheetApp.flush();
+  var hoja = "";
+  ss.getSheets().forEach(function (sh) { try { if (sh.getFormUrl && sh.getFormUrl() && _norm(sh.getFormUrl()).indexOf(_norm(form.getId())) !== -1) hoja = sh.getName(); } catch (e) {} });
+  var mapeo = {
+    "Tipo de solicitud": "tipoPqrs", "Usted es:": "tipoSolicitante", "Tipo de documento": "tipoDocSolicitante", "Número de identificación": "numDocSolicitante",
+    "Nombre completo del paciente": "nombreSolicitante", "Edad del paciente": "edad", "Sexo": "sexo", "Número de celular": "telefono",
+    "Correo electrónico (para enviarle el radicado y la respuesta)": "correo", "Dirección": "direccion", "Población diferencial (si aplica)": "poblacion",
+    "Seleccione su EPS": "eps", "Régimen": "regimen", "Sede donde fue atendido (Camino o Paso)": "sede", "Servicio o área relacionada con su opinión": "servicio",
+    "Fecha en que ocurrieron los hechos": "fechaPqrs", "Describa su solicitud": "descripcion", "Autorización de tratamiento de datos personales": "autorizacionDatos",
+  };
+  apiGuardarMapeo_(mapeo, form.getId(), hoja);
+  _setParam(11, form.getPublishedUrl());
+  if (!_param(9)) _setParam(9, new Date());
+  _traza("—", "Formulario QR creado", titulo + " · " + form.getPublishedUrl());
+  var r = apiFormularioQR_();
+  r.creado = true;
+  r.mensaje = "Formulario creado y vinculado a la hoja «" + (hoja || "Respuestas") + "». Instala los disparadores (menú PQRS) si aún no lo hiciste.";
+  return r;
+}
+function crearFormularioPQRS() {   // menú de la hoja
+  SpreadsheetApp.getUi();
+  var r = apiCrearFormulario_();
+  SpreadsheetApp.getUi().alert(r.mensaje + "\n\nEnlace para el QR:\n" + (r.corto || r.url) + "\n\nEdición:\n" + r.edicion);
+}
+
+/** Diagnóstico de la puesta en marcha (lo que suele impedir que los técnicos entren o que lleguen los avisos). */
+function apiDiagnostico_() {
+  var d = [], ok = function (bien, titulo, detalle, solucion) { d.push({ ok: !!bien, titulo: titulo, detalle: detalle || "", solucion: bien ? "" : (solucion || "") }); };
+  var enl = _enlaceAcceso_();
+  ok(enl.url && !enl.prueba, "Enlace de la plataforma (/exec)", enl.url || "Sin implementación",
+     "Implementar ▸ Nueva implementación ▸ Aplicación web ▸ Ejecutar como: Yo ▸ Quién tiene acceso: Cualquier persona. Comparte la URL que termina en /exec.");
+  ok(/siau/i.test(enl.cuenta || ""), "Cuenta dueña", enl.cuenta || "desconocida",
+     "La plataforma debe implementarse con la cuenta del SIAU para que los correos salgan de allí y el consolidado quede en su Drive.");
+  var trig = []; try { trig = ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }); } catch (e) {}
+  ["alEnviarFormulario", "procesarCorreoEntrante", "revisarAlertas", "rutinaDiaria"].forEach(function (n) {
+    ok(trig.indexOf(n) !== -1, "Disparador " + n, trig.indexOf(n) !== -1 ? "instalado" : "falta", "Hoja ▸ menú PQRS ▸ Instalar disparadores (con la cuenta del SIAU).");
+  });
+  var admins = _usuarios_().filter(function (u) { return u.activo && u.rol === "Administrador"; }).length;
+  var tecnicos = _usuarios_().filter(function (u) { return u.activo && u.rol === "Técnico"; }).length;
+  ok(admins > 0, "Administradores activos", String(admins), "Crea el primer administrador en la pantalla de ingreso.");
+  ok(tecnicos > 0, "Técnicos de sede", String(tecnicos), "Usuarios y sedes ▸ Nuevo usuario ▸ rol Técnico ▸ sus sedes ▸ Invitar.");
+  var form = apiEstadoFormulario_();
+  ok(form.vinculado, "Formulario QR vinculado", form.vinculado ? (form.hoja + " · " + form.respuestas + " respuestas") : "no vinculado",
+     "Configuración ▸ Formulario QR ▸ Crear formulario, o en el Form: Respuestas ▸ Vincular a Hojas de cálculo.");
+  var resp = apiResponsables_().filter(function (r) { return r.activo; });
+  var sinCorreo = resp.filter(function (r) { return !_correoOk(r.correo); }).length;
+  ok(!sinCorreo, "Directorio de áreas", resp.length + " áreas · " + sinCorreo + " sin correo", "Áreas responsables ▸ completa el correo de cada área.");
+  var a = _ajustes_();
+  ok(!!a.webhookChat || !!a.avisarA || a.avisosSede, "Avisos fuera de la plataforma", a.webhookChat ? "Google Chat configurado" : "solo correo",
+     "Configuración ▸ Automatización ▸ webhook de Google Chat (llega al celular con sonido).");
+  ok(PropertiesService.getScriptProperties().getProperty("ESQUEMA") === ESQUEMA, "Estructura del consolidado", "versión " + (PropertiesService.getScriptProperties().getProperty("ESQUEMA") || "?"),
+     "Abre la plataforma una vez como administrador o usa PQRS ▸ Reparar fechas y fórmulas.");
+  ok(!!_param(9), "Fecha de corte del formulario", _param(9) ? _fmtHora_(new Date(_param(9)).getTime()) : "sin fijar", "Se fija sola en la primera importación.");
+  return { ok: true, items: d, bien: d.filter(function (x) { return x.ok; }).length, total: d.length };
+}
+function diagnosticoPlataforma() {   // menú de la hoja
+  SpreadsheetApp.getUi();
+  var r = apiDiagnostico_();
+  SpreadsheetApp.getUi().alert("Diagnóstico: " + r.bien + " de " + r.total + " en orden\n\n" + r.items.map(function (x) {
+    return (x.ok ? "✔ " : "✖ ") + x.titulo + ": " + x.detalle + (x.solucion ? "\n    → " + x.solucion : ""); }).join("\n"));
 }

@@ -33,12 +33,15 @@ Hoja.prototype = {
     getValue:function(){ return h.celda(r,c); },
     setValues:function(v){ v.forEach(function(f,i){ f.forEach(function(x,j){ h.poner(r+i,c+j,x); }); }); return this; },
     setValue:function(v){ h.poner(r,c,v); return this; },
-    setFormulas:function(){ return this; }, getFormula:function(){ return "=IFERROR(VLOOKUP(Categorias_Correo),IF(OR($E"+r+"=\"\",1),\"\",1))"; },
+    setFormulas:function(){ return this; }, getFormula:function(){ return "=IFERROR(VLOOKUP(Categorias_Correo),WORKDAY(Festivos!$A$2:$A$400),IF(OR($E"+r+"=\"\",1),\"\",1))"; },
     getDisplayValues:function(){ var o=[]; for(var i=0;i<nr;i++){ var f=[]; for(var j=0;j<nc;j++) f.push(String(h.celda(r+i,c+j))); o.push(f); } return o; }, setNumberFormat:function(){ return this; }, clearContent:function(){ return this; }, copyTo:function(){ return this; },
     setFontWeight:function(){ return this; }, setBackground:function(){ return this; }, setFontColor:function(){ return this; } }; },
   appendRow:function(v){ this.d.push(v.slice()); },
   getDataRange:function(){ var n=this.getLastRow(); return this.getRange(1,1,n,Math.max.apply(null,this.d.slice(0,n).map(function(f){ return f.length; }).concat([1]))); },
-  getFormUrl:function(){ return this.formUrl||null; }, setColumnWidth:function(){}, setFrozenRows:function(){}, hideSheet:function(){}
+  getFormUrl:function(){ return this.formUrl||null; }, setColumnWidth:function(){}, setFrozenRows:function(){}, hideSheet:function(){},
+  getMaxRows:function(){ return Math.max(this.maxRows||1000, this.d.length); }, insertRowsAfter:function(r,n){ this.maxRows=this.getMaxRows()+n; },
+  getMaxColumns:function(){ return 60; }, insertColumnsAfter:function(){},
+  getLastColumn:function(){ return Math.max.apply(null,[0].concat(this.d.map(function(f){ var n=f.length; while(n>0&&(f[n-1]===""||f[n-1]===null||f[n-1]===undefined)) n--; return n; }))); }
 };
 
 var medianoche = function(s){ return Utilities.parseDate(s, TZ, "yyyy-MM-dd"); };
@@ -60,7 +63,7 @@ traza.poner(4,1,"FECHA Y HORA"); resp.poner(4,1,"ID");
  [7,"Talento humano","","","","","SI"],
  [8,"Asignación de citas","Paola Díaz","Coordinadora de agendamiento","citas@miredips.org","","SI"]].forEach(function(f,i){ f.forEach(function(v,j){ resp.poner(5+i,j+1,v); }); });
 [["SEDE",15,"Hábiles"],["SUPER SALUD",1,"Calendario"],["SECRETARIA DE SALUD",3,"Calendario"]].forEach(function(f,i){ f.forEach(function(v,j){ cfg.poner(6+i,j+1,v); }); });
-[3174,3,"SIAU","siau@miredips.org","(605) 385 0000","300 000 0000","",""].forEach(function(v,i){ cfg.poner(11+i,2,v); });
+[3174,3,"SIAU","siau@miredips.org","(605) 385 0000","300 000 0000","","","FEL","","","https://forms.gle/PQRSMiRedIPS"].forEach(function(v,i){ cfg.poner(11+i,2,v); });
 var SEDES=["Camino Bosque de María","Camino Ciudadela 20 de Julio","Camino La Playa","Camino Luz Chinita","Paso Soledad"];
 var SERV=["Urgencias","Consulta externa","Farmacia","Laboratorio clínico","Imágenes diagnósticas","Hospitalización","Odontología"];
 var TIPOS=["Queja","Petición","Reclamo","Sugerencia","Felicitación","Denuncia","Tutela"];
@@ -94,8 +97,11 @@ function recalcular(){
     if(!cons.celda(r,1)) continue;
     var tipo=cons.celda(r,27), ent=(cons.celda(r,31)||"").toString().toUpperCase().trim(), E=cons.celda(r,5), AS=cons.celda(r,45);
     var feli=tipo.toString().toUpperCase().indexOf("FELICITA")===0;
-    var term="", td="";
+    var term="", td="", cat=(cons.celda(r,28)||"").toString().toUpperCase().trim();
+    var cats=hojas && hojas["Categorias_Correo"], catFila=null;
+    if(cats && cat){ for(var q=2;q<=cats.d.length;q++) if(String(cats.celda(q,1)).toUpperCase().trim()===cat){ catFila=q; break; } }
     if(feli){ term="N/A"; td="N/A"; }
+    else if(catFila && cats.celda(catFila,4)!==""){ term=Number(cats.celda(catFila,4)); td=cats.celda(catFila,5)||"Calendario"; }
     else if(ent){ var k= ent.indexOf("SUPER")===0?"SUPER SALUD":(ent.indexOf("SECRETAR")===0?"SECRETARIA DE SALUD":(ent.indexOf("SEDE")===0?"SEDE":ent));
       var t={"SEDE":[15,"Hábiles"],"SUPER SALUD":[1,"Calendario"],"SECRETARIA DE SALUD":[3,"Calendario"]}[k];
       if(t){ term=t[0]; td=t[1]; } else term="⚠"; }
@@ -226,6 +232,24 @@ props.AJUSTES = JSON.stringify({ desde:1, autoInstitucional:true, autoUsuarios:t
   });
   try { API.procesarCorreoEntrante(); } catch(e){ console.error(e); }
   recalcular();
+  /* v8: casos de demostración de la priorización, una felicitación y el directorio con reglas */
+  try {
+    API.appBootstrap_();
+    var hoyTxt = Utilities.formatDate(HOY, TZ, "yyyy-MM-dd");
+    API.apiRadicar_({ canal:"Presencial", fechaRecepcion:hoyTxt, fechaRadicacion:hoyTxt, tipoPqrs:"Queja", sede:"Camino La Playa", servicio:"Urgencias", edad:3,
+      nombreSolicitante:"Marelys Fontalvo", correo:"marelys.f@correo.com", entidad:"SEDE MIRED",
+      descripcion:"Mi hija de 3 años convulsionó en la sala de espera de urgencias y llevamos cinco horas sin que la valoren. No le dan la remisión a pediatría y cada vez está peor." });
+    API.apiRadicar_({ canal:"Telefónico", fechaRecepcion:hoyTxt, fechaRadicacion:hoyTxt, tipoPqrs:"Reclamo", sede:"Camino Bosque de María", servicio:"Consulta externa",
+      nombreSolicitante:"Yuranis Pacheco", correo:"yuranis.p@correo.com", entidad:"SEDE MIRED", poblacion:"Gestante",
+      descripcion:"Estoy embarazada de 32 semanas y no me asignan la cita de control prenatal desde hace un mes. Me dicen que no hay agenda." });
+    API.apiRadicar_({ canal:"QR - Formulario", fechaRecepcion:hoyTxt, fechaRadicacion:hoyTxt, tipoPqrs:"Felicitación", sede:"Camino Luz Chinita", servicio:"Laboratorio clínico",
+      nombreSolicitante:"Ramiro Castro", correo:"ramiro.c@correo.com",
+      descripcion:"Quiero felicitar a la bacterióloga del laboratorio por su paciencia y amabilidad con mi mamá, que es adulta mayor." });
+    [[1,"URGENCIAS","","urgencias; triage; observacion"],[2,"CONSULTA EXTERNA","","consulta; control; cita medica; prenatal"],[5,"FARMACIA","","medicamento; farmacia; insulina"],
+     [6,"LABORATORIO CLINICO","","laboratorio; examenes; bacteriologa"],[8,"ASIGNACIÓN DE CITAS; CALL CENTER","","cita; agenda; agendar"],[7,"","","grosero; maltrato; falta de respeto"]].forEach(function(x){
+      resp.poner(4+x[0],8,x[1]); resp.poner(4+x[0],9,x[2]); resp.poner(4+x[0],10,x[3]); });
+    recalcular();
+  } catch(e){ console.error(e); }
 })();
 /* google.script.run simulado: llama al backend real con una pequeña demora (para ver los indicadores de carga). */
 function corredor(ok, mal){
@@ -243,11 +267,13 @@ window.google={ script:{ run:corredor(null,null) } };
 window.__simularEntrada=function(){
   var r=cons.getLastRow()+1; while(cons.celda(r,1)) r++;
   var fila=5; while(cons.celda(fila,1)) fila++;
-  var cod="SIAU-"+Utilities.formatDate(HOY,TZ,"yyyy-MM")+"-"+(++consecutivo);
-  var v={1:cod,2:"QR - Formulario",3:HOY,4:HOY,5:HOY,6:new Date(),10:"Paola Andrea Niebles",12:"paola.niebles@gmail.com",22:"Camino La Playa",23:"Urgencias",
-    27:"Queja",30:"Mi hijo esperó cuatro horas en urgencias sin valoración.",31:"SEDE MIRED",37:"Recibida",41:0,53:"Formulario QR"};
-  Object.keys(v).forEach(function(c){ cons.poner(fila,+c,v[c]); });
-  traza.appendRow([new Date(), cod, "Radicación", "Importada del formulario QR", "sistema"]);
+  var hoyTxt = Utilities.formatDate(HOY, TZ, "yyyy-MM-dd");
+  try { API.apiRadicar_({ canal:"QR - Formulario", fechaRecepcion:hoyTxt, fechaRadicacion:hoyTxt, tipoPqrs:"Queja", sede:"Camino La Playa", servicio:"Urgencias",
+    nombreSolicitante:"Paola Andrea Niebles", correo:"paola.niebles@gmail.com", entidad:"SEDE MIRED",
+    descripcion:"Mi hijo de 6 años tiene dificultad para respirar y lleva cuatro horas esperando en urgencias sin valoración." });
+    API.apiRadicar_({ canal:"QR - Formulario", fechaRecepcion:hoyTxt, fechaRadicacion:hoyTxt, tipoPqrs:"Felicitación", sede:"Camino La Playa", servicio:"Urgencias",
+    nombreSolicitante:"Elvia Rúa", correo:"elvia.r@correo.com", descripcion:"Excelente atención de las enfermeras de urgencias, muy humanas y amables." });
+  } catch(e){ console.error(e); }
   Hilo("t10",[M("m11","Wilson Ariza <wariza@gmail.com>","Reclamo: no me asignan cita con el especialista","Presento un reclamo porque llevo un mes solicitando la cita con ortopedia y no me la asignan.",0)]);
   recalcular();
 };

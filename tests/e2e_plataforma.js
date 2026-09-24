@@ -25,6 +25,12 @@ require("fs").mkdirSync(CAP, { recursive: true });
       if (w <= 1000) { await p.click("#btnMenu"); await p.waitForTimeout(300); }
       await p.click('#menu button[data-v="' + v + '"]'); await p.waitForTimeout(500);
     };
+    // v8 · vista de prioritarias con el comando de identificación
+    await irA("prioritarias"); await p.waitForSelector("#prioLista .pr-card", { timeout: 10000 }).catch(() => errores.push(w + " sin tarjetas de prioritarias"));
+    await p.click("#btnIdentificar"); await p.waitForSelector("#prioAviso .aviso", { timeout: 10000 }).catch(() => errores.push(w + " el comando Identificar no respondió"));
+    await p.waitForTimeout(400); await desb("prioritarias");
+    if (!/Riesgo vital · menor de edad/.test(await p.textContent("#prioLista"))) errores.push(w + " no aparece el caso de riesgo vital en menor de edad");
+    if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_prioritarias.png`, fullPage: true });
     await irA("bandeja"); await p.click('#etapas button[data-e="todas"]'); await p.waitForSelector("#listaBandeja .fila", { timeout: 8000 }); await p.waitForTimeout(400);
     await desb("bandeja"); await p.screenshot({ path: CAP + `z_${w}_bandeja.png` });
     await p.click("#listaBandeja .fila"); await p.waitForSelector(".det-head .cod", { timeout: 8000 }); await p.waitForTimeout(400);
@@ -46,6 +52,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
     await desb("modal usuario"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_usuario_nuevo.png` });
     await p.keyboard.press("Escape");
     await irA("config"); await p.waitForSelector("#tablaEntidades .cfg-fila[data-ent]", { timeout: 8000 }); await p.waitForTimeout(300);
+    await p.waitForSelector("#qrImagen svg", { timeout: 8000 }).catch(() => errores.push(w + " sin código QR del formulario"));
+    await p.click("#btnDiagnostico"); await p.waitForSelector("#diagCuerpo .dg", { timeout: 8000 }).catch(() => errores.push(w + " sin diagnóstico"));
     await desb("config"); if (w === 1366) await p.screenshot({ path: CAP + `z_${w}_config.png`, fullPage: true });
     // técnico
     if (w >= 1366) {   // barra lateral fija al desplazarse

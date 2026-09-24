@@ -92,8 +92,10 @@ const boot = G.appBootstrap_();
 assert(boot.migracion && boot.migracion.hecho, "migración ejecutada al arrancar: " + boot.migracion.mensaje);
 const fr = cons.celda(5, 5);
 assert(Utilities.formatDate(fr, TZ, "HH:mm") === "00:00" && Utilities.formatDate(fr, TZ, "dd") === "03", "fecha desplazada corregida a medianoche del día correcto (" + Utilities.formatDate(fr, TZ, "yyyy-MM-dd HH:mm") + ")");
-assert(Object.keys(cons.formulas).length === 400 * 6, "fórmulas reescritas: " + Object.keys(cons.formulas).length);
-assert(G.__props.ESQUEMA === "7", "versión de esquema guardada");
+const finDatos = 4 + n;   // último registro del libro de prueba
+assert(Object.keys(cons.formulas).length === (finDatos + 200 - 4) * 6, "fórmulas hasta el último registro + 200 filas de colchón: " + Object.keys(cons.formulas).length);
+assert(G.__props.ESQUEMA === "8", "versión de esquema guardada");
+assert(cons.formulas["5:34"].indexOf("Festivos!$A$2:$A$400") !== -1, "fecha máxima con la hoja de festivos");
 assert(G.appBootstrap_().migracion.hecho === false, "la migración no se repite");
 fs.writeFileSync(__dirname + "/salida/formulas_muestra.json", JSON.stringify({ AF: cons.formulas["5:32"], AG: cons.formulas["5:33"], AH: cons.formulas["5:34"], AI: cons.formulas["5:35"], AJ: cons.formulas["5:36"], AT: cons.formulas["5:46"] }, null, 1));
 
@@ -164,7 +166,8 @@ fs.writeFileSync(__dirname + "/salida/muestra_interno.html", interno);
 cons.formulas = {};
 for (let r = 5; r <= 404; r++) cons.formulas[r + ":36"] = "=IF(OR($E" + (r + 13) + "=\"\",1),\"\",1)";   // filas desplazadas, como en el libro del usuario
 const salud = G._saludFormulas_();
-assert(salud.reparado && cons.formulas["5:36"].indexOf("$E5") !== -1 && cons.formulas["404:36"].indexOf("$E404") !== -1, "fórmulas desplazadas reparadas: " + salud.mensaje);
+const finS = G._finDatos_();
+assert(salud.reparado && cons.formulas["5:36"].indexOf("$E5") !== -1 && cons.formulas[finS + ":36"].indexOf("$E" + finS) !== -1, "fórmulas desplazadas reparadas: " + salud.mensaje);
 assert(G._saludFormulas_().reparado === false, "segunda revisión: sin cambios");
 assert(G._conPuntoYComa_('=IF(A1="a,b",1,2)') === '=IF(A1="a,b";1;2)', "cambio de separador respeta los textos");
 
@@ -301,12 +304,13 @@ G.SESION = { usuario: "siau.admin", nombre: "Admin", rol: "Administrador", todas
 const rf = G.apiRadicar_({ descripcion: "Felicito a la doctora por su calidez.\n\nMuy amable todo el equipo.", fechaRecepcion: "2026-09-22", fechaRadicacion: "2026-09-22",
   tipoPqrs: "Felicitación", sede: sedes[0], servicio: "Urgencias", correo: "feliz@x.com" });
 const acF = G.__enviados.filter(e => e.para === "feliz@x.com" || (e.a || "") === "feliz@x.com").pop() || G.__enviados.find(e => /Gracias por su felicitación/.test(e.asunto));
-assert(acF && /Gracias por su felicitación/.test(acF.asunto) && /&#9733;/.test(acF.html) && !/Fecha límite/.test(acF.html) && /Sus palabras/.test(acF.html), "acuse de felicitación con diseño propio y sin vencimiento");
+assert(acF && /Gracias por su felicitación/.test(acF.asunto) && /(&#9733;|cid:mascotaSiau)/.test(acF.html) && !/Fecha límite/.test(acF.html) && /Sus palabras/.test(acF.html), "acuse de felicitación con diseño propio y sin vencimiento");
 assert((acF.html.match(/Muy amable todo el equipo/g) || []).length === 1 && /<p [^>]*>Muy amable todo el equipo/.test(acF.html), "las palabras del usuario conservan sus párrafos");
 const envF = G.apiEnviarAlArea_(rf.codigo, 1, "");
 const reco = G.__enviados.find(e => /^\[RECONOCIMIENTO/.test(e.asunto));
 assert(reco && /reconoce la labor de su equipo/.test(reco.html) && !/Qué se requiere/.test(reco.html), "a el área le llega un reconocimiento, no una solicitud de gestión");
-assert(G.__enviados.some(e => /^Entregamos su felicitación/.test(e.asunto)), "el usuario sabe que su felicitación llegó al equipo");
+assert(!G.__enviados.some(e => /^Entregamos su felicitación/.test(e.asunto)), "v8: la felicitación solo lleva el acuse (no se le escribe de nuevo al usuario)");
+assert(/cerrada/i.test(envF.estado) && /FEL-2026-09-\d{5}/.test(rf.codigo), "v8: felicitación con serie FEL y cerrada al entregarse al área: " + rf.codigo + " · " + envF.estado);
 G.apiResponderUsuario_(rf.codigo, "Cordial saludo.\n\nGracias por escribirnos.\n\nAtentamente,\nSIAU", true);
 const finF = G.__enviados.filter(e => /Gracias por su felicitación/.test(e.asunto)).pop();
 assert(/<p [^>]*>Gracias por escribirnos\.<\/p>/.test(finF.html) && /Atentamente,<br\/>SIAU/.test(finF.html), "respuesta final con párrafos separados");

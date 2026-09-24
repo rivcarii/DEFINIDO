@@ -43,22 +43,33 @@ function pintarDetalle(d){
 
   var acciones = "";
   var puede = (APP.sesion && APP.sesion.puede) || {gestion:true, correo:true, radicar:true};
+  var feli = !!d.esFelicitacion;
+  var sug = d.areasSugeridas || [];
   if(!puede.gestion){
     var paso = function(ok, t, d){ return '<div class="paso'+(ok?" ok":"")+'"><i>'+(ok?ic("check","s"):"")+'</i><div><b>'+t+'</b><span>'+esc(d||"Pendiente")+'</span></div></div>'; };
     acciones += '<div class="panel"><h4>'+ic("pulso","s")+'Seguimiento de la gestión</h4>'+
       '<p class="d">'+(puede.radicar ? 'Tú radicas y consultas. El direccionamiento a las áreas y la respuesta al usuario las hace el administrador del SIAU.'
         : 'Tu rol permite ver el caso y su trazabilidad.')+'</p>'+
       '<div class="pasos">'+paso(true, "Radicada", d.fechaRadicacion)+
-        paso(!!d.responsable, "Direccionada al área", d.responsable ? d.responsable : "El administrador la enviará al área responsable")+
-        paso(!!d.respuestaArea, "Gestión del área", d.fechaRespuestaArea ? "Respondió el "+d.fechaRespuestaArea : "")+
-        paso(cerrada, "Respuesta al usuario", cerrada ? "Enviada el "+(d.fechaRespuestaUsuario||"") : (d.fechaMax ? "Vence el "+d.fechaMax : ""))+'</div></div>';
+        paso(!!d.responsable, feli ? "Entregada al área" : "Direccionada al área", d.responsable ? d.responsable : (feli ? "Se entrega al área en el resumen diario de reconocimientos" : "El administrador la enviará al área responsable"))+
+        (feli ? '' : paso(!!d.respuestaArea, "Gestión del área", d.fechaRespuestaArea ? "Respondió el "+d.fechaRespuestaArea : "")+
+        paso(cerrada, "Respuesta al usuario", cerrada ? "Enviada el "+(d.fechaRespuestaUsuario||"") : (d.limiteHoras ? "Límite "+d.limiteHoras : (d.fechaMax ? "Vence el "+d.fechaMax : ""))))+'</div></div>';
+  } else if(!cerrada && feli){
+    acciones += '<div class="panel feliz-panel"><h4>'+ic("estrella","s")+'Entregar la felicitación al área</h4>'+
+      '<p class="d">El usuario ya recibió el agradecimiento. Al entregarla, el área recibe el reconocimiento y la felicitación queda cerrada (no requiere respuesta ni seguimiento).</p>'+
+      sugerenciasArea(sug)+
+      '<div class="grid"><div class="full"><label for="selArea">Área que recibe el reconocimiento</label>'+
+        '<select id="selArea"><option value="">— Seleccionar —</option>'+opcionesAreas(sug.length ? sug[0].id : null)+'</select></div>'+
+      '<div class="full"><label for="notaArea">Nota para el área (opcional)</label><input id="notaArea" placeholder="Ej.: menciona a la jefe de enfermería del turno de la noche"></div></div>'+
+      '<div class="acciones"><button class="b pri" id="btnEnviarArea" type="button">'+ic("estrella","s")+'Entregar y cerrar</button></div></div>';
   } else if(!cerrada){
     acciones += '<div class="panel"><h4>'+ic("enviar","s")+(conArea?"Redireccionar a otra área":"Direccionar al área responsable")+'</h4>'+
       '<p class="d">'+(conArea
         ? "Si se envió al área equivocada, elige la correcta: se le notifica y el área anterior queda informada."
         : "El área recibe la solicitud interna y el usuario, en un correo aparte, el aviso de que su caso está en trámite.")+'</p>'+
+      (conArea ? '' : sugerenciasArea(sug))+
       '<div class="grid"><div class="full"><label for="selArea">Área responsable</label>'+
-        '<select id="selArea"><option value="">— Seleccionar —</option>'+opcionesAreas(null)+'</select></div>'+
+        '<select id="selArea"><option value="">— Seleccionar —</option>'+opcionesAreas(!conArea && sug.length ? sug[0].id : null)+'</select></div>'+
       '<div class="full"><label for="notaArea">'+(conArea?"Motivo del redireccionamiento":"Indicaciones para el área (opcional)")+'</label>'+
         '<input id="notaArea" placeholder="'+(conArea?"Ej.: corresponde a facturación, no a urgencias":"Indicación para quien gestiona")+'"></div></div>'+
       '<div class="acciones"><button class="b pri" id="btnEnviarArea" type="button">'+ic("enviar","s")+
@@ -82,6 +93,7 @@ function pintarDetalle(d){
       '<div class="hint" style="margin-bottom:10px">Al elegirla se inserta el texto y puedes ajustarlo antes de enviar.</div>'+
       '<textarea id="txtRtaUsuario" placeholder="Respuesta final para el usuario…">'+esc(d.respuestaUsuario||"")+'</textarea>'+
       '<div class="acciones"><button class="b pri" id="btnResponder" type="button">'+ic("enviar","s")+'Enviar respuesta y cerrar</button>'+
+      '<button class="b sec mini" id="btnRedactar" type="button" title="Convierte la gestión del área (o tu borrador) en una respuesta institucional">'+ic("varita","s")+'Redactar respuesta formal</button>'+
       '<button class="b sec mini" id="btnUsarGestion" type="button">Traer la gestión del área</button>'+
       '<button class="b fant mini" id="btnNuevaPlantilla" type="button">Guardar como plantilla</button>'+
       (d.correo?'':'<span class="chip a">El usuario no dejó correo: se guardará para entrega física</span>')+'</div></div>';
@@ -103,6 +115,7 @@ function pintarDetalle(d){
     '</div>'+
     '<div class="hilo-acc">'+(d.hiloId && puede.correo ? '<button class="b sec mini" type="button" id="btnVerHilo">'+ic("correo","s")+'Ver conversación del correo</button>' : '')+'</div>'+
     '</div>'+
+    bandaRiesgo(d, puede, cerrada)+
     (d.etiquetas && d.etiquetas.sugerido && puede.radicar ? '<div class="banda-sug">'+ic("alerta","s")+'<div style="flex:1">Por lo que dice el texto, esta PQRS parece una <b>'+esc(d.etiquetas.sugerido)+'</b> y está registrada como <b>'+esc(d.tipoPqrs||"sin tipo")+'</b>.</div>'+
       '<button class="b pri mini" type="button" id="btnReclasificar" data-tipo="'+esc(d.etiquetas.sugerido)+'">Cambiar a '+esc(d.etiquetas.sugerido)+'</button>'+
       '<button class="b fant mini" type="button" id="btnMantener">Mantener</button></div>' : '')+
@@ -118,8 +131,11 @@ function pintarDetalle(d){
         ["Sede", d.sede], ["Servicio", d.servicio], ["Servicio específico", d.servicioEspecifico],
         ["Fecha de los hechos", d.fechaPqrs], ["Fecha de recepción", d.fechaRecepcion + (d.recepcionHora && d.canal && /correo/i.test(d.canal) ? " (" + d.recepcionHora.split(" ")[1] + ")" : "")], ["Fecha de radicación", d.fechaRadicacion],
         ["Entidad presentada", d.entidad],
-        ["Término", d.terminoTexto || (terminoOk ? d.termino : "Revisar la entidad presentada"), !terminoOk],
-        ["Vence", d.fechaMax], ["Días transcurridos", dias(d.dias)!=="" ? dias(d.dias)+(dias(d.dias)===1?" día":" días") : ""],
+        ["Término", d.terminoTexto || (terminoOk ? d.termino : "Revisar la entidad presentada"), !terminoOk && !feli],
+        ["Norma del término", d.normaTermino || ""],
+        ["Vence", d.limiteHoras ? d.limiteHoras : d.fechaMax, !!d.limiteHoras],
+        ["Nivel de riesgo", d.nivelRiesgo || ""], ["Población priorizada", (d.poblacionPriorizada||[]).join(", ")],
+        ["Autorización de datos", d.autorizacionDatos || ""], ["Días transcurridos", dias(d.dias)!=="" ? dias(d.dias)+(dias(d.dias)===1?" día":" días") : ""],
         ["Área responsable", d.responsable], ["Correo del área", d.correoResponsable],
         ["Radicada por", d.registradoPor],
         ["Notificaciones", [notif.recepcion?"recepción "+notif.recepcion:"", notif.area?"área "+notif.area:"",
@@ -155,6 +171,7 @@ function pintarDetalle(d){
     srv("apiReclasificar", d.codigo, d.tipoPqrs).then(trasGestion(fin, "Se mantiene el tipo registrado.")).catch(fallo(fin));
   });
   if($("btnEnviarArea")) $("btnEnviarArea").addEventListener("click", enviarAlArea);
+  activarDetalleV8(d);
   if($("btnGuardarRtaArea")) $("btnGuardarRtaArea").addEventListener("click", guardarRtaArea);
   if($("btnResponder")) $("btnResponder").addEventListener("click", responderUsuario);
   if($("selPlantilla")) $("selPlantilla").addEventListener("change", function(){
@@ -203,7 +220,7 @@ function enviarAlArea(){
   var fin=ocupado("btnEnviarArea","Enviando…");
   var esRedir = !!APP.detalle.correoResponsable;
   srv(esRedir ? "apiRedireccionar" : "apiEnviarAlArea", APP.detalle.codigo, id, nota)
-    .then(trasGestion(fin, esRedir ? "PQRS redireccionada." : "PQRS enviada al área y usuario notificado."))
+    .then(trasGestion(fin, esRedir ? "PQRS redireccionada." : (APP.detalle.esFelicitacion ? "Felicitación entregada al área y cerrada." : "PQRS enviada al área y usuario notificado.")))
     .catch(fallo(fin));
 }
 function guardarRtaArea(){
@@ -236,6 +253,9 @@ $("btnRadicar").addEventListener("click", function(){
    "numDocAfiliado","nombreAfiliado","edad","sexo","poblacion","eps","regimen","sede","servicio",
    "servicioEspecifico","modalidad","tipoPqrs","entidad","tipologia","descripcion","observaciones"]
    .forEach(function(k){ d[k]=val("r_"+k); });
+  var aut = document.querySelector('input[name="r_aut"]:checked');
+  d.autorizacionDatos = (aut ? aut.value : "Sí autoriza") + " · " + new Date().toLocaleDateString("es-CO");
+  if(aut && aut.value==="Anónima"){ d.nombreSolicitante = d.nombreSolicitante || "Anónimo"; }
   var faltan=[];
   if(!d.fechaRecepcion) faltan.push("Fecha de recepción");
   if(!d.fechaRadicacion) faltan.push("Fecha de radicación");
@@ -249,10 +269,15 @@ $("btnRadicar").addEventListener("click", function(){
     APP.ultimoCodigo = r.codigo; APP.propios[r.codigo] = true;
     $("radExito").querySelector(".cod").textContent = r.codigo;
     if(r.sugerido) toast({ tipo:"correo", titulo:"Revisa el tipo de PQRS", texto:"El texto parece una "+r.sugerido+". Puedes cambiarlo al abrir el caso.", dur:9000 });
+    var rg = r.riesgo || {};
     $("radResumen").innerHTML =
+      (rg.nivel ? '<div><span>Nivel de riesgo</span><span class="alerta">'+esc(rg.nivel)+(rg.horas?" · "+rg.horas+" horas":"")+'</span></div>' : '')+
       '<div><span>Fecha límite de respuesta</span><span>'+esc(r.fechaMax)+'</span></div>'+
       '<div><span>Acuse al usuario</span><span>'+esc(r.acuse)+'</span></div>'+
-      '<div><span>Siguiente paso</span><span>Direccionarla al área</span></div>';
+      (r.direccionada ? '<div><span>Direccionada sola a</span><span>'+esc(r.direccionada)+'</span></div>' :
+        '<div><span>Siguiente paso</span><span>'+(r.areas && r.areas.length ? "Direccionarla a "+esc(r.areas[0].area)+" (sugerida)" : "Direccionarla al área")+'</span></div>');
+    if(rg.nivel && /vital|priorizado/i.test(rg.nivel)){ sonar(/vital/i.test(rg.nivel) ? "Vital" : "Crítica"); }
+    if(/felicit/i.test(d.tipoPqrs)) celebrar();
     $("radForm").hidden = true; $("radExito").hidden = false;
     $("radExito").classList.remove("anim"); void $("radExito").offsetWidth; $("radExito").classList.add("anim");
     toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+" · acuse: "+r.acuse, dur:6000 });
@@ -266,6 +291,8 @@ function limpiarRadicar(){
    "sede","servicio","modalidad","tipoPqrs","tipologia"].forEach(function(k){ $("r_"+k).value=""; });
   valoresPorDefecto();
   aviso("radAviso","");
+  if($("radRiesgo")) $("radRiesgo").innerHTML = "";
+  var a0 = document.querySelector('input[name="r_aut"][value="Sí autoriza"]'); if(a0) a0.checked = true;
 }
 $("btnLimpiar").addEventListener("click", limpiarRadicar);
 $("btnOtra").addEventListener("click", function(){ limpiarRadicar(); $("radExito").hidden=true; $("radForm").hidden=false; });
@@ -492,9 +519,12 @@ function pintarResponsables(){
     '<span>Correo de notificación</span><span>Teléfono</span><span></span></div>';
   html += APP.responsables.map(function(r,i){
     if(!r.correo) sinCorreo++;
-    var blob = norm([r.area,r.nombre,r.cargo,r.correo].join(" "));
+    var blob = norm([r.area,r.nombre,r.cargo,r.correo,(r.servicios||[]).join(" "),(r.palabras||[]).join(" ")].join(" "));
     var oculto = filtro && blob.indexOf(filtro)===-1 && r.fila;
     if(!oculto) visibles++;
+    var campoLista = function(k, t, ph){
+      return '<label><span>'+t+'</span><input value="'+esc((r[k]||[]).join ? (r[k]||[]).join("; ") : (r[k]||""))+'" data-k="'+k+'" placeholder="'+ph+'"></label>';
+    };
     var campo = function(k, t, ph, ancho, extra){
       return '<label class="'+(ancho?"ancho":"")+'"><span>'+t+'</span><input value="'+esc(r[k]||"")+'" data-k="'+k+'"'+
         (ph?' placeholder="'+ph+'"':'')+(extra||"")+'></label>';
@@ -506,6 +536,11 @@ function pintarResponsables(){
       campo("cargo","Cargo","Cargo")+
       campo("correo","Correo de notificación","correo@miredips.org",true,' type="email" class="'+(r.correo?"":"falta")+'"')+
       campo("telefono","Teléfono","")+
+      '<div class="resp-reglas">'+
+        campoLista("servicios","Servicios que atiende","URGENCIAS; CONSULTA EXTERNA")+
+        campoLista("sedes","Sedes (vacío = todas)","C. LA PLAYA; P. LA 21")+
+        campoLista("palabras","Palabras clave de la manifestación","medicamento; farmacia; insulina")+
+        campoLista("copia","Correos en copia","coordinador@miredips.org")+'</div>'+
       (r.fila ? '<button class="icono" type="button" data-del="'+esc(r.fila)+'" title="Desactivar" aria-label="Desactivar">'+ic("papelera","s")+'</button>'
               : '<button class="icono" type="button" data-quitar="'+i+'" title="Descartar fila" aria-label="Descartar fila">'+ic("x","s")+'</button>')+
     '</div>';
@@ -531,7 +566,7 @@ function pintarResponsables(){
 $("respBuscar").addEventListener("input", pintarResponsables);
 $("btnNuevoResp").addEventListener("click", function(){
   $("respBuscar").value = "";
-  APP.responsables.push({ id:"", area:"", nombre:"", cargo:"", correo:"", telefono:"", activo:true, fila:null });
+  APP.responsables.push({ id:"", area:"", nombre:"", cargo:"", correo:"", telefono:"", activo:true, fila:null, servicios:[], sedes:[], palabras:[], copia:[] });
   pintarResponsables();
   var ult = $("respLista").querySelector(".resp-fila.nuevo:last-child input"); if(ult) ult.focus();
 });
@@ -543,7 +578,8 @@ $("btnGuardarResp").addEventListener("click", function(){
     var distinto = !r.fila;
     f.querySelectorAll("input").forEach(function(inp){
       datos[inp.dataset.k] = inp.value.trim();
-      if((r[inp.dataset.k]||"") !== datos[inp.dataset.k]) distinto = true;
+      var antes = r[inp.dataset.k]; if(antes && antes.join) antes = antes.join("; ");
+      if((antes||"") !== datos[inp.dataset.k]) distinto = true;
     });
     if(datos.area && distinto) cambios.push(datos);
   });
