@@ -1,0 +1,405 @@
+<body>
+<div id="carga"></div>
+
+<!-- Iconos de línea (símbolos, sin emojis) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-inicio" viewBox="0 0 24 24"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/><path d="M10 21v-6h4v6"/></symbol>
+  <symbol id="i-bandeja" viewBox="0 0 24 24"><path d="M3 13h5l1.5 3h5L16 13h5"/><path d="M5.5 5h13L21 13v6a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1v-6z"/></symbol>
+  <symbol id="i-correo" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/></symbol>
+  <symbol id="i-radicar" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5"/><path d="M12 11v6M9 14h6"/></symbol>
+  <symbol id="i-tablero" viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></symbol>
+  <symbol id="i-personas" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/></symbol>
+  <symbol id="i-ajustes" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></symbol>
+  <symbol id="i-campana" viewBox="0 0 24 24"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"/></symbol>
+  <symbol id="i-actualizar" viewBox="0 0 24 24"><path d="M21 12a9 9 0 0 1-15.5 6.2L3 16"/><path d="M3 12a9 9 0 0 1 15.5-6.2L21 8"/><path d="M21 3v5h-5M3 21v-5h5"/></symbol>
+  <symbol id="i-buscar" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-atras" viewBox="0 0 24 24"><path d="M19 12H5M11 18l-6-6 6-6"/></symbol>
+  <symbol id="i-enviar" viewBox="0 0 24 24"><path d="M22 2 11 13"/><path d="M22 2 15 22l-4-9-9-4z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="m4 12.5 5 5L20 6.5"/></symbol>
+  <symbol id="i-alerta" viewBox="0 0 24 24"><path d="M12 3 2 20h20z"/><path d="M12 10v4.5M12 17.5v.01"/></symbol>
+  <symbol id="i-reloj" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-flecha" viewBox="0 0 24 24"><path d="m9 6 6 6-6 6"/></symbol>
+  <symbol id="i-sede" viewBox="0 0 24 24"><path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16"/><path d="M15 10h4a1 1 0 0 1 1 1v10M2 21h20M8 8h3M8 12h3M8 16h3"/></symbol>
+  <symbol id="i-papelera" viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"/></symbol>
+  <symbol id="i-calendario" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></symbol>
+  <symbol id="i-responder" viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 5 5v6"/></symbol>
+  <symbol id="i-oculto" viewBox="0 0 24 24"><path d="M3 3l18 18M10.6 5.1A10 10 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3.2 3.9M6.6 6.6A17 17 0 0 0 2 12s4 7 10 7a9.7 9.7 0 0 0 5.4-1.6"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></symbol>
+  <symbol id="i-usuario" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-area" viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 13h18"/></symbol>
+  <symbol id="i-rebote" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6.5 8.5-6.5"/><path d="M15 15l4 4M19 15l-4 4"/></symbol>
+  <symbol id="i-qr" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></symbol>
+  <symbol id="i-pulso" viewBox="0 0 24 24"><path d="M3 12h4l3-8 4 16 3-8h4"/></symbol>
+  <symbol id="i-sube" viewBox="0 0 24 24"><path d="M7 17 17 7M9 7h8v8"/></symbol>
+  <symbol id="i-baja" viewBox="0 0 24 24"><path d="M7 7l10 10M17 9v8H9"/></symbol>
+  <symbol id="i-mas" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-clip" viewBox="0 0 24 24"><path d="m21 11-8.6 8.6a5.5 5.5 0 0 1-7.8-7.8l9.2-9.2a3.7 3.7 0 0 1 5.2 5.2l-9.2 9.2a1.8 1.8 0 0 1-2.6-2.6l8.5-8.5"/></symbol>
+  <symbol id="i-pdf" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M8.5 13h1.5a1.5 1.5 0 0 1 0 3H8.5v-3zm0 3v2M13 13v5h1a2 2 0 0 0 2-2v-1a2 2 0 0 0-2-2h-1"/></symbol>
+  <symbol id="i-imagen" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-9 9"/></symbol>
+  <symbol id="i-archivo" viewBox="0 0 24 24"><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></symbol>
+  <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></symbol>
+  <symbol id="i-sonido" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></symbol>
+  <symbol id="i-silencio" viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m22 9-6 6M16 9l6 6"/></symbol>
+  <symbol id="i-candado" viewBox="0 0 24 24"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></symbol>
+  <symbol id="i-salir" viewBox="0 0 24 24"><path d="M15 17l5-5-5-5M20 12H9M12 21H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h7"/></symbol>
+  <symbol id="i-escudo" viewBox="0 0 24 24"><path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z"/></symbol>
+  <symbol id="i-ojo" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></symbol>
+  <symbol id="i-link" viewBox="0 0 24 24"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></symbol>
+</svg>
+
+<!-- ===================== ACCESO ===================== -->
+<div id="acceso" class="acceso" hidden>
+  <div class="acceso-marca">
+    <div>
+      <div class="acceso-logo"><img id="logoAcceso" alt="MiRed IPS" src=""></div>
+      <h1>Sistema de Gestión<br>de PQRS</h1>
+      <p>Todas las vías de ingreso en un solo lugar: formulario QR, correo institucional, EPS y entes de control, y la atención presencial de cada sede. Con términos, prioridades y trazabilidad a tiempo.</p>
+      <div class="canales">
+        <div class="canal"><svg class="ic"><use href="#i-qr"/></svg>Formulario QR</div>
+        <div class="canal"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS</div>
+        <div class="canal"><svg class="ic"><use href="#i-sede"/></svg>Sedes y ventanilla</div>
+        <div class="canal"><svg class="ic"><use href="#i-alerta"/></svg>Alertas de vencimiento</div>
+      </div>
+    </div>
+    <div class="acceso-pie">Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
+  </div>
+  <div class="acceso-form">
+    <div class="form-card" id="formAcceso">
+      <h2 id="accTitulo">Ingresar</h2>
+      <p class="sub" id="accSub">Usa el usuario y la contraseña que te asignó el administrador.</p>
+      <div id="accAviso"></div>
+      <div id="accCampos"></div>
+      <button class="b pri" id="btnAcceso" type="button">Ingresar</button>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="app" hidden>
+<aside class="lateral" id="lateral">
+  <div class="lat-marca"><img id="logo" alt="MiRed IPS" src=""><div class="marca">Gestión de PQRS<small>SIAU · MiRed IPS</small></div></div>
+  <nav id="menu">
+    <p class="grupo">Operación</p>
+    <button class="on" data-v="inicio"><svg class="ic"><use href="#i-inicio"/></svg>Inicio</button>
+    <button data-v="bandeja"><svg class="ic"><use href="#i-bandeja"/></svg>Bandeja de PQRS</button>
+    <button data-v="correo" data-perm="correo"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS <span class="badge" id="navCorreo" hidden>0</span></button>
+    <button data-v="radicar" data-perm="radicar"><svg class="ic"><use href="#i-radicar"/></svg>Radicar PQRS</button>
+    <p class="grupo">Análisis</p>
+    <button data-v="tablero"><svg class="ic"><use href="#i-tablero"/></svg>Tablero</button>
+    <p class="grupo" data-perm="admin">Administración</p>
+    <button data-v="responsables" data-perm="admin"><svg class="ic"><use href="#i-area"/></svg>Áreas responsables</button>
+    <button data-v="usuarios" data-perm="admin"><svg class="ic"><use href="#i-personas"/></svg>Usuarios y sedes</button>
+    <button data-v="config" data-perm="admin"><svg class="ic"><use href="#i-ajustes"/></svg>Configuración</button>
+  </nav>
+  <div class="lat-usuario"><span class="avatar" id="latAvatar">?</span><div><b id="quien"></b><span id="latRol"></span></div></div>
+</aside>
+<div class="velo-lat" id="veloLat"></div>
+<div class="principal">
+<header class="top">
+  <div class="franja"><i></i><i></i><i></i><i></i></div>
+  <div class="top-in">
+    <button class="campana" id="btnMenu" type="button" aria-label="Menú"><svg class="ic"><use href="#i-menu"/></svg></button>
+    <div class="titulo-vista"><h1 id="tituloVista">Inicio</h1><span id="subVista"></span></div>
+    <div class="buscar-global"><svg class="ic s"><use href="#i-buscar"/></svg><input id="buscarRad" placeholder="Buscar radicado o nombre y Enter"></div>
+    <div class="top-der">
+      <span class="sedes-chip" id="sedesChip" title=""></span>
+      <button class="campana" id="btnSonido" type="button" title="Sonido de alertas" aria-label="Sonido de alertas"><svg class="ic"><use href="#i-sonido"/></svg></button>
+      <button class="campana" id="btnCampana" type="button" title="Notificaciones" aria-label="Notificaciones">
+        <svg class="ic"><use href="#i-campana"/></svg><span class="punto" id="campanaN" hidden>0</span>
+      </button>
+      <button class="perfil" id="btnPerfil" type="button" aria-label="Mi cuenta"><span class="avatar" id="avatar">?</span></button>
+    </div>
+  </div>
+  <div class="centro panel-flot" id="centro" hidden>
+    <div class="centro-cab"><b>Notificaciones</b><button class="b fant mini" id="btnLeidas" type="button">Marcar como leídas</button></div>
+    <div class="centro-lista" id="centroLista"><div class="vacio">Sin novedades en esta sesión.</div></div>
+  </div>
+  <div class="panel-flot menu-perfil" id="menuPerfil" hidden>
+    <div class="cab"><span class="avatar" id="avatar2">?</span><div><b id="perfilNombre"></b><span id="perfilRol"></span></div></div>
+    <button type="button" id="btnEscritorio"><svg class="ic s"><use href="#i-campana"/></svg>Activar avisos del escritorio</button>
+    <button type="button" id="btnMiClave"><svg class="ic s"><use href="#i-candado"/></svg>Cambiar mi contraseña</button>
+    <button type="button" class="peligro" id="btnSalir"><svg class="ic s"><use href="#i-salir"/></svg>Cerrar sesión</button>
+  </div>
+</header>
+
+<main>
+  <div id="arranque">
+    <div class="sk-tarjetas"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>
+    <div class="sk sk-bloque"></div>
+  </div>
+
+  <!-- ===================== INICIO ===================== -->
+  <section id="v-inicio" hidden>
+    <div id="inicioCuerpo"></div>
+    <div class="card panel-mes anim">
+      <div class="card-tit">
+        <div><h3><svg class="ic"><use href="#i-calendario"/></svg>PQRS por mes</h3>
+          <div class="d">Toca un mes para ver qué sede tuvo más manifestaciones y cómo se distribuyen.</div></div>
+        <div class="anios" id="anios"></div>
+      </div>
+      <div id="meses"></div>
+      <div class="leyenda" id="leyendaTipos"></div>
+    </div>
+  </section>
+
+  <!-- ===================== BANDEJA ===================== -->
+  <section id="v-bandeja" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Bandeja de PQRS</h2>
+      <p class="sub">Cada pestaña es un paso del proceso. Abre una PQRS para direccionarla, registrar la respuesta del área o cerrarla.</p></div></div>
+    <div class="etapas" id="etapas">
+      <button class="on" data-e="sin_direccionar">Sin direccionar</button>
+      <button data-e="en_gestion">En gestión</button>
+      <button data-e="por_responder">Por responder</button>
+      <button data-e="criticas">Vencidas y por vencer</button>
+      <button data-e="cerradas">Cerradas</button>
+      <button data-e="todas">Todas</button>
+    </div>
+    <div class="filtros">
+      <div class="buscar"><label for="fTexto">Buscar</label><svg class="ic s"><use href="#i-buscar"/></svg>
+        <input id="fTexto" placeholder="Radicado, nombre, documento, sede… (Enter)"></div>
+      <div><label for="fEstado">Estado</label><select id="fEstado"><option value="">Todos</option></select></div>
+      <div><label for="fSemaforo">Semáforo</label><select id="fSemaforo">
+        <option value="">Todos</option><option value="🔴">Vencidas</option>
+        <option value="🟡">Por vencer</option><option value="🟢">En término</option>
+        <option value="✅">Cerradas</option><option value="⭐">Felicitaciones</option>
+        <option value="⚠">Con datos por corregir</option></select></div>
+      <div><label for="fCanal">Canal</label><select id="fCanal"><option value="">Todos</option></select></div>
+      <div><button class="b sec" id="btnRefrescar" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
+    </div>
+    <div id="listaBandeja" class="lista"></div>
+  </section>
+
+  <!-- ===================== DETALLE ===================== -->
+  <section id="v-detalle" hidden>
+    <button class="b fant" type="button" id="btnVolver" style="margin-bottom:12px"><svg class="ic s"><use href="#i-atras"/></svg>Volver a la bandeja</button>
+    <div id="detalleCuerpo"></div>
+  </section>
+
+  <!-- ===================== CORREO ===================== -->
+  <section id="v-correo" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Correo de atención al usuario</h2>
+      <p class="sub">Organizado por conversaciones: radica, pide datos o documentos, direcciona a un área (incluidas las citas) y responde sin salir del mismo hilo de correo.</p></div>
+      <button class="b sec" id="btnBuscarCorreos" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Revisar correo</button></div>
+    <div id="correoAviso"></div>
+    <div id="vistaLista">
+      <div class="seg" id="segCorreo"></div>
+      <div id="notaSistema"></div>
+      <div id="listaCorreos"></div>
+    </div>
+    <div id="vistaHilo" hidden></div>
+  </section>
+
+  <!-- ===================== RADICAR ===================== -->
+  <section id="v-radicar" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Radicar una PQRS</h2>
+      <p class="sub">Solo para lo que se atiende en ventanilla, buzón o teléfono. Lo del formulario QR y el correo entra solo y aparece en la bandeja.</p></div></div>
+    <div class="card">
+      <div id="radAviso"></div>
+      <div id="radForm">
+        <fieldset><legend>Fechas y canal</legend>
+          <div class="grid">
+            <div><label class="req" for="r_canal">Canal de recepción</label><select id="r_canal"></select></div>
+            <div><label for="r_fechaPqrs">Fecha de la PQRS</label><input type="date" id="r_fechaPqrs">
+              <div class="hint">La que trae el documento del usuario.</div></div>
+            <div><label class="req" for="r_fechaRecepcion">Fecha de recepción</label><input type="date" id="r_fechaRecepcion">
+              <div class="hint">Cuando llegó al SIAU.</div></div>
+            <div><label class="req" for="r_fechaRadicacion">Fecha de radicación</label><input type="date" id="r_fechaRadicacion">
+              <div class="hint">Desde esta fecha corre el término legal.</div></div>
+          </div>
+        </fieldset>
+        <fieldset><legend>Quién presenta la PQRS</legend>
+          <div class="grid">
+            <div><label for="r_tipoSolicitante">Tipo de solicitante</label><select id="r_tipoSolicitante"></select></div>
+            <div><label for="r_tipoDocSolicitante">Tipo de documento</label><select id="r_tipoDocSolicitante"></select></div>
+            <div><label for="r_numDocSolicitante">N° de documento</label><input id="r_numDocSolicitante" inputmode="numeric"></div>
+            <div><label for="r_nombreSolicitante">Nombre y apellidos</label><input id="r_nombreSolicitante"></div>
+            <div><label for="r_telefono">Teléfono / celular</label><input id="r_telefono" inputmode="numeric"></div>
+            <div><label for="r_correo">Correo electrónico</label><input type="email" id="r_correo" placeholder="usuario@correo.com">
+              <div class="hint">Sin correo no se le puede notificar ningún avance.</div></div>
+            <div class="full"><label for="r_direccion">Dirección</label><input id="r_direccion"></div>
+          </div>
+        </fieldset>
+        <fieldset><legend>Paciente o afiliado (si es distinto)</legend>
+          <div class="grid">
+            <div><label for="r_tipoDocAfiliado">Tipo de documento</label><select id="r_tipoDocAfiliado"></select></div>
+            <div><label for="r_numDocAfiliado">N° de documento</label><input id="r_numDocAfiliado" inputmode="numeric"></div>
+            <div><label for="r_nombreAfiliado">Nombre y apellidos</label><input id="r_nombreAfiliado"></div>
+            <div><label for="r_edad">Edad</label><input type="number" id="r_edad" min="0" max="120"></div>
+            <div><label for="r_sexo">Sexo</label><select id="r_sexo"></select></div>
+            <div><label for="r_poblacion">Población diferencial</label><select id="r_poblacion"></select></div>
+            <div><label for="r_eps">EPS / Prestador</label><select id="r_eps"></select></div>
+            <div><label for="r_regimen">Régimen</label><select id="r_regimen"></select></div>
+          </div>
+        </fieldset>
+        <fieldset><legend>El hecho</legend>
+          <div class="grid">
+            <div><label for="r_sede">Sede</label><select id="r_sede"></select></div>
+            <div><label for="r_servicio">Servicio donde ocurre</label><select id="r_servicio"></select></div>
+            <div><label for="r_servicioEspecifico">Servicio específico</label><input id="r_servicioEspecifico"></div>
+            <div><label for="r_modalidad">Modalidad de atención</label><select id="r_modalidad"></select></div>
+            <div><label class="req" for="r_tipoPqrs">Tipo de PQRS</label><select id="r_tipoPqrs"></select></div>
+            <div><label for="r_entidad">Entidad presentada</label><select id="r_entidad"></select>
+              <div class="hint">Define el término: sede 15 días hábiles, entes de control 24 y 72 horas.</div></div>
+            <div><label for="r_tipologia">Tipología</label><select id="r_tipologia"></select></div>
+            <div class="full"><label class="req" for="r_descripcion">Descripción</label>
+              <textarea id="r_descripcion" placeholder="Transcribe literalmente lo que manifiesta el usuario…"></textarea><div id="sugTipo"></div></div>
+            <div class="full"><label for="r_observaciones">Observaciones internas</label><input id="r_observaciones"></div>
+          </div>
+        </fieldset>
+        <div class="acciones">
+          <button class="b pri" id="btnRadicar" type="button"><svg class="ic s"><use href="#i-check"/></svg>Radicar PQRS</button>
+          <button class="b sec" id="btnLimpiar" type="button">Limpiar</button>
+        </div>
+      </div>
+      <div id="radExito" hidden style="text-align:center;padding:16px 4px">
+        <div style="width:54px;height:54px;border-radius:16px;background:var(--ok-wash);color:var(--ok);display:grid;place-items:center;margin:0 auto 10px">
+          <svg class="ic l"><use href="#i-check"/></svg></div>
+        <div style="font-size:13px;color:var(--ink-2)">PQRS radicada</div>
+        <div class="cod" style="font-family:var(--mono);font-size:30px;font-weight:700;color:var(--teal-dark);margin:6px 0">—</div>
+        <p style="font-size:12.5px;color:var(--ink-3);margin:0 0 16px">Escribe este radicado en el documento físico antes de archivarlo.</p>
+        <div id="radResumen" class="ficha" style="max-width:440px;margin:0 auto 18px;text-align:left"></div>
+        <div class="acciones" style="justify-content:center">
+          <button class="b pri" id="btnIrDetalle" type="button"><svg class="ic s"><use href="#i-enviar"/></svg>Abrir y direccionar</button>
+          <button class="b sec" id="btnOtra" type="button">Radicar otra</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== TABLERO ===================== -->
+  <section id="v-tablero" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Tablero de gestión</h2>
+      <p class="sub">Elige año y mes. La gráfica mensual muestra siempre los 12 meses del año elegido.</p></div></div>
+    <div class="bi-slicers">
+      <div><label for="dAnio">Año</label><select id="dAnio"></select></div>
+      <div><label for="dMes">Mes</label><select id="dMes">
+        <option value="0">Todo el año</option><option value="1">Enero</option><option value="2">Febrero</option>
+        <option value="3">Marzo</option><option value="4">Abril</option><option value="5">Mayo</option>
+        <option value="6">Junio</option><option value="7">Julio</option><option value="8">Agosto</option>
+        <option value="9">Septiembre</option><option value="10">Octubre</option><option value="11">Noviembre</option>
+        <option value="12">Diciembre</option></select></div>
+      <div><label for="dSede">Sede</label><select id="dSede"><option value="">Todas</option></select></div>
+      <div><label for="dServicio">Servicio</label><select id="dServicio"><option value="">Todos</option></select></div>
+      <div><button class="b sec" id="btnRefrescarTablero" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
+    </div>
+    <div id="tableroCuerpo"></div>
+  </section>
+
+  <!-- ===================== RESPONSABLES ===================== -->
+  <section id="v-responsables" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Responsables de gestión</h2>
+      <p class="sub">A estos correos llega la solicitud interna cuando direccionas una PQRS. Edita directamente sobre la fila y guarda.</p></div></div>
+    <div class="card">
+      <div id="respAviso"></div>
+      <div class="resp-barra">
+        <div class="buscar"><svg class="ic s"><use href="#i-buscar"/></svg><input id="respBuscar" placeholder="Buscar área, persona o correo"></div>
+        <span class="resp-cont" id="respCont"></span>
+      </div>
+      <div class="resp-tabla" id="respLista"></div>
+      <div class="acciones">
+        <button class="b pri" id="btnGuardarResp" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar cambios</button>
+        <button class="b sec" id="btnNuevoResp" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar área o responsable</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== USUARIOS ===================== -->
+  <section id="v-usuarios" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Usuarios y sedes asignadas</h2>
+      <p class="sub">Cada técnico de atención al usuario ingresa con su usuario y ve solo las PQRS de sus sedes. Los administradores ven todo y gestionan los accesos.</p></div>
+      <button class="b pri" id="btnNuevoUsr" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Crear usuario</button></div>
+    <div id="usrAviso"></div>
+    <div id="usrEnlace"></div>
+    <div class="resp-barra"><div class="buscar"><svg class="ic s"><use href="#i-buscar"/></svg><input id="usrBuscar" placeholder="Buscar por nombre, usuario o sede"></div><span class="resp-cont" id="usrCont"></span></div>
+    <div class="usr-lista" id="usrLista"></div>
+  </section>
+
+  <!-- ===================== CONFIGURACIÓN ===================== -->
+  <section id="v-config" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Configuración</h2>
+      <p class="sub">Vincula el Google Form que ya tienes y define qué pregunta alimenta cada campo del consolidado.</p></div></div>
+    <div class="card" style="margin-bottom:16px">
+      <div id="autoAviso"></div>
+      <fieldset><legend>Automatización del canal correo</legend>
+        <p class="sub" style="margin:0 0 14px">Cada 5 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela o derecho de petición), se envía el acuse y se radica con sus adjuntos. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
+        <div class="grid">
+          <label class="interruptor"><input type="checkbox" id="aj_autoInstitucional"><i></i>Radicar solo lo de EPS y entes de control</label>
+          <label class="interruptor"><input type="checkbox" id="aj_acuseInstitucional"><i></i>Acuse de recibo automático a EPS y entes</label>
+          <label class="interruptor"><input type="checkbox" id="aj_autoUsuarios"><i></i>Radicar solas las PQRS claras de usuarios</label>
+          <label class="interruptor"><input type="checkbox" id="aj_citasAuto"><i></i>Direccionar solas las solicitudes de citas</label>
+          <label class="interruptor"><input type="checkbox" id="aj_avisosSede"><i></i>Avisar por correo a los técnicos de cada sede</label>
+        </div>
+        <div class="grid" style="margin-top:14px">
+          <div class="full"><label for="aj_webhookChat">Webhook de Google Chat (avisos fuera de la plataforma)</label>
+            <input id="aj_webhookChat" placeholder="https://chat.googleapis.com/v1/spaces/…">
+            <div class="hint">En el espacio de Google Chat del SIAU: Apps e integraciones ▸ Webhooks ▸ Agregar. Los avisos llegan al celular y al computador con sonido.</div></div>
+          <div><label for="aj_chatModo">Qué enviar a Google Chat</label><select id="aj_chatModo"><option value="todas">Todas las PQRS nuevas y alertas</option><option value="prioritarias">Solo prioridad crítica y alta</option></select></div>
+          <div><label for="aj_avisarA">Correos que reciben todos los avisos</label><input id="aj_avisarA" placeholder="lider.siau@miredips.org; calidad@miredips.org"></div>
+          <div class="full"><label for="aj_alias">Cuenta que envía las notificaciones</label><select id="aj_alias"></select>
+            <div class="hint" id="ajCuenta"></div></div>
+        </div>
+        <div class="acciones">
+          <button class="b pri" id="btnGuardarAjustes" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar automatización</button>
+          <button class="b sec" id="btnProbarAviso" type="button"><svg class="ic s"><use href="#i-campana"/></svg>Enviar aviso de prueba</button>
+          <button class="b sec" id="btnProcesarAhora" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Procesar correo ahora</button>
+          <span class="hint" id="ajDisparadores"></span>
+        </div>
+      </fieldset>
+      <fieldset><legend>Entidades identificadas por dominio de correo</legend>
+        <p class="sub" style="margin:0 0 10px">Si el remitente coincide con un dominio (o con un correo exacto como documental@miredips.org), el caso se marca como de esa EPS o ente y se prioriza.</p>
+        <div class="tabla-cfg" id="tablaEntidades"></div>
+        <div class="acciones"><button class="b sec mini" id="btnNuevaEntidad" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar entidad</button></div>
+      </fieldset>
+      <fieldset style="margin-bottom:0"><legend>Categorías del asunto, prioridad y términos</legend>
+        <p class="sub" style="margin:0 0 10px">El término de estas categorías manda sobre el de la entidad. «Meta interna» genera una alerta si el caso no se ha direccionado en esas horas.</p>
+        <div class="tabla-cfg" id="tablaCategorias"></div>
+        <div class="acciones"><button class="b sec mini" id="btnNuevaCategoria" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar categoría</button></div>
+      </fieldset>
+    </div>
+    <div class="card">
+      <div id="cfgAviso"></div>
+      <fieldset><legend>Estado del canal QR</legend>
+        <p class="sub" style="margin:0 0 12px">Comprueba si las respuestas del formulario están entrando al consolidado y si el acuse automático puede salir.</p>
+        <div class="acciones" style="margin-top:0">
+          <button class="b sec" id="btnVerificarForm" type="button"><svg class="ic s"><use href="#i-qr"/></svg>Verificar canal del formulario</button>
+          <button class="b pri" id="btnImportarEstado" type="button">Importar respuestas ahora</button>
+        </div>
+        <div id="cfgEstado" style="margin-top:14px"></div>
+      </fieldset>
+      <fieldset><legend>Vincular un formulario existente</legend>
+        <div class="grid">
+          <div class="full"><label for="cfgUrl">URL de edición del Google Form</label>
+            <input id="cfgUrl" placeholder="https://docs.google.com/forms/d/…/edit">
+            <div class="hint">O deja el campo vacío si el formulario ya está vinculado a este libro: leeré la hoja de respuestas.</div></div>
+        </div>
+        <div class="acciones"><button class="b pri" id="btnLeerForm" type="button">Leer preguntas</button></div>
+      </fieldset>
+      <div id="cfgMapeo" hidden>
+        <fieldset><legend>Equivalencias</legend>
+          <p class="sub" style="margin:0 0 12px">Revisa lo que reconocí solo y ajusta lo que falte.</p>
+          <div id="cfgPares"></div>
+          <div class="acciones">
+            <button class="b pri" id="btnGuardarMapeo" type="button">Guardar equivalencias</button>
+            <button class="b sec" id="btnImportar" type="button">Importar respuestas ahora</button>
+          </div>
+          <label style="display:flex;gap:8px;align-items:flex-start;margin-top:12px;font-weight:400;color:var(--ink-2)">
+            <input type="checkbox" id="cfgAcuse" checked style="width:auto;margin-top:2px">
+            <span>Enviar el acuse de recibo a lo que se importe. Solo se escribe a quien respondió en los últimos 5 días,
+              para no notificar respuestas antiguas al cargar el histórico.</span>
+          </label>
+        </fieldset>
+      </div>
+    </div>
+  </section>
+</main>
+</div>
+<nav class="tabbar" id="tabbar">
+  <button data-v="inicio" class="on"><svg class="ic"><use href="#i-inicio"/></svg>Inicio</button>
+  <button data-v="bandeja"><svg class="ic"><use href="#i-bandeja"/></svg>Bandeja</button>
+  <button data-v="radicar" data-perm="radicar"><svg class="ic"><use href="#i-radicar"/></svg>Radicar</button>
+  <button data-v="correo" data-perm="correo"><svg class="ic"><use href="#i-correo"/></svg>Correo<span class="badge" id="navCorreo2" hidden>0</span></button>
+  <button data-accion="menu" id="tabMas"><svg class="ic"><use href="#i-menu"/></svg>Más</button>
+</nav>
+</div>
+
+<div id="toasts" aria-live="polite"></div>
+<div id="modal" hidden></div>

@@ -1,0 +1,957 @@
+<script>
+var APP = { listas:{}, responsables:[], usuario:"", detalle:null, bandeja:[], mapeo:null,
+            etapa:"sin_direccionar", plantillas:[], correo:null, correoCat:"institucional", correosCargados:false,
+            anio:null, resumenAnual:null, desde:0, ticks:0, notifs:[], propios:{}, correoPrevio:null };
+var APP_INICIAL = JSON.stringify(APP);   /* v7.1: al cerrar sesión se vuelve a este estado (nada del usuario anterior queda en memoria) */
+var CICLO = null;
+
+/* ============================ utilidades ============================ */
+function $(id){ return document.getElementById(id); }
+function esc(s){ return (s===null||s===undefined?"":String(s))
+  .replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function ic(n, cl){ return '<svg class="ic'+(cl?" "+cl:"")+'"><use href="#i-'+n+'"/></svg>'; }
+function llenar(id, ops, vacio){
+  var s=$(id); if(!s) return;
+  s.innerHTML="";
+  if(vacio!==false) s.appendChild(new Option("— Seleccionar —",""));
+  (ops||[]).forEach(function(o){ s.appendChild(new Option(o,o)); });
+}
+function hoyISO(){ var d=new Date();
+  return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2); }
+function norm(s){ return (s||"").toString().toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").trim(); }
+function claseSem(s){ s=s||"";
+  if(s.indexOf("🔴")===0) return "r"; if(s.indexOf("🟡")===0) return "a";
+  if(s.indexOf("🟢")===0) return "v"; if(s.indexOf("⭐")===0) return "f";
+  if(s.indexOf("⚠")===0) return "a"; if(s.indexOf("✅")===0) return "c"; return "c"; }
+/* La hoja guarda el semáforo con un símbolo al inicio; la interfaz muestra solo el texto. */
+function textoSem(s){ return (s||"").toString().replace(/^[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ]+/,"").trim() || "Sin dato"; }
+function chip(s){ return '<span class="chip '+claseSem(s)+'">'+esc(textoSem(s))+'</span>'; }
+function dias(v){ var n=Number(v); return (v===""||v===null||v===undefined||isNaN(n)) ? "" : Math.max(0,Math.round(n)); }
+var MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+
+/* Colores por tipo de PQRS: paleta del logo MiRed (orden validado para daltonismo). */
+var TIPOS_ORDEN = ["Queja","Petición","Sugerencia","Felicitación","Reclamo","Tutela","Denuncia"];
+var TIPO_COLOR = { "queja":"#E20A31", "peticion":"#006D93", "sugerencia":"#00985A", "felicitacion":"#8455B8",
+                   "reclamo":"#B98A00", "tutela":"#3D5FA8", "denuncia":"#B4531A" };
+function colorTipo(t){ var k=norm(t); for(var p in TIPO_COLOR){ if(k.indexOf(p)===0) return TIPO_COLOR[p]; } return "#8398A3"; }
+function tipoTag(t){ return '<span class="tipo"><i style="background:'+colorTipo(t)+'"></i>'+esc(t||"Sin clasificar")+'</span>'; }
+function ordenarTipos(obj){
+  return Object.keys(obj||{}).sort(function(a,b){
+    var ia=TIPOS_ORDEN.map(norm).indexOf(norm(a)), ib=TIPOS_ORDEN.map(norm).indexOf(norm(b));
+    return (ia<0?99:ia)-(ib<0?99:ib);
+  });
+}
+
+function aviso(cont, texto, tipo){
+  var el=$(cont); if(!el) return;
+  var i = tipo==="err" ? "alerta" : (tipo==="ok" ? "check" : "pulso");
+  el.innerHTML = texto ? '<div class="aviso '+(tipo||"info")+'">'+ic(i,"s")+'<div>'+texto+'</div></div>' : "";
+}
+
+/* Llamadas al servidor con indicador de carga global. */
+var enVuelo = 0;
+function carga(delta){ enVuelo=Math.max(0,enVuelo+delta); $("carga").classList.toggle("on", enVuelo>0); }
+/* Toda llamada pasa por api(token, función, argumentos): el servidor valida sesión, rol y sede. */
+var TOKEN = null;
+try { TOKEN = sessionStorage.getItem("pqrs_token") || localStorage.getItem("pqrs_token"); } catch(e) {}
+function llamar(fn, args, conCarga){
+  return new Promise(function(ok, mal){
+    if(!TOKEN) return;   /* sin sesión no se consulta nada (p. ej. un temporizador que quedó pendiente al salir) */
+    if(conCarga) carga(1);
+    var token = TOKEN;   /* si la sesión cambia mientras llega la respuesta, se descarta (no se mezclan datos entre usuarios) */
+    google.script.run.withSuccessHandler(function(x){
+      if(conCarga) carga(-1);
+      if(TOKEN !== token) return;
+      if(x && x.__sesion === false){ sesionTerminada(x.mensaje); mal(new Error(x.mensaje)); return; }
+      ok(x);
+    }).withFailureHandler(function(e){ if(conCarga) carga(-1); if(TOKEN !== token) return; mal(e); }).api(token, fn, args);
+  });
+}
+function srv(fn){ return llamar(fn, Array.prototype.slice.call(arguments,1), true); }
+function srvSilencioso(fn){ return llamar(fn, Array.prototype.slice.call(arguments,1), false); }
+/* Funciones públicas (antes de iniciar sesión). */
+function pub(fn){
+  var args = Array.prototype.slice.call(arguments,1);
+  return new Promise(function(ok, mal){
+    carga(1);
+    var r = google.script.run.withSuccessHandler(function(x){ carga(-1); ok(x); }).withFailureHandler(function(e){ carga(-1); mal(e); });
+    r[fn].apply(r, args);
+  });
+}
+function msgErr(e){ return esc(e && e.message ? e.message : e); }
+function ocupado(id, texto){
+  var b = (typeof id==="string") ? $(id) : id; if(!b) return function(){};
+  var antes=b.innerHTML; b.disabled=true; b.innerHTML='<span class="spin"></span>'+esc(texto);
+  return function(){ b.disabled=false; b.innerHTML=antes; };
+}
+function esqueleto(n){ var h='<div class="sk-lista">'; for(var i=0;i<(n||5);i++) h+='<div class="sk sk-fila"></div>'; return h+'</div>'; }
+function vacio(icono, texto){ return '<div class="vacio">'+ic(icono)+'<div>'+texto+'</div></div>'; }
+function contar(el, fin){
+  var n=Number(fin); if(!el || isNaN(n) || n<=0){ if(el) el.textContent=fin; return; }
+  var t0=null, dur=650;
+  function paso(t){ if(!t0) t0=t; var p=Math.min(1,(t-t0)/dur); el.textContent=Math.round(n*(1-Math.pow(1-p,3))); if(p<1) requestAnimationFrame(paso); }
+  requestAnimationFrame(paso);
+}
+function animarNumeros(raiz){ (raiz||document).querySelectorAll("[data-n]").forEach(function(el){ contar(el, el.dataset.n); }); }
+
+/* ============================ navegación ============================ */
+var TITULOS = { inicio:["Inicio","Resumen de tus sedes"], bandeja:["Bandeja de PQRS","Gestión por etapas"], correo:["Correo y EPS","Canal de correo unificado"],
+  detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], tablero:["Tablero","Indicadores por mes y sede"],
+  responsables:["Áreas responsables","Correos de notificación"], usuarios:["Usuarios y sedes","Accesos a la plataforma"], config:["Configuración","Automatización y canales"] };
+function ver(v){
+  var permitido = document.querySelector('#menu [data-v="'+v+'"]');
+  if(permitido && permitido.hidden) v = "inicio";
+  if(TITULOS[v]){ $("tituloVista").textContent = TITULOS[v][0]; $("subVista").textContent = TITULOS[v][1]; }
+  cerrarLateral();
+  ["inicio","bandeja","correo","detalle","radicar","tablero","responsables","usuarios","config"].forEach(function(x){
+    var s=$("v-"+x); if(!s) return;
+    s.hidden = (x!==v);
+    if(x===v){ s.classList.remove("anim"); void s.offsetWidth; s.classList.add("anim"); }
+  });
+  document.querySelectorAll("nav button[data-v]").forEach(function(b){
+    b.classList.toggle("on", b.dataset.v===v || (v==="detalle" && b.dataset.v==="bandeja"));
+  });
+  $("menuPerfil").hidden = true;
+  $("centro").hidden = true;
+  if(v==="inicio") cargarInicio();
+  if(v==="tablero") cargarTablero();
+  if(v==="correo"){ $("vistaHilo").hidden = true; $("vistaLista").hidden = false; if(!APP.correosCargados) buscarCorreos(); }
+  if(v==="responsables") pintarResponsables();
+  if(v==="usuarios") cargarUsuarios();
+  if(v==="config") cargarAjustes();
+  window.scrollTo({top:0});
+}
+document.querySelectorAll("nav button[data-v]").forEach(function(b){
+  b.addEventListener("click", function(){ ver(b.dataset.v); if(b.dataset.v==="bandeja") cargarBandeja(); });
+});
+
+/* ============================ arranque ============================ */
+function arrancar(d){
+  APP.listas = d.listas || {}; APP.responsables = d.responsables || []; APP.usuario = d.usuario;
+  APP.sesion = d.sesion || { rol:"Administrador", todas:true, puede:{gestion:true,correo:true,admin:true}, sedes:["TODAS"], nombre:d.usuario };
+  APP.categorias = d.categorias || [];
+  aplicarSesion();
+  APP.desde = d.ahora || Date.now();
+  if(d.logo) $("logo").src = "data:image/png;base64," + d.logo;
+  $("quien").textContent = APP.sesion.nombre || d.usuario || "";
+  var L = APP.listas;
+  llenar("r_canal", ["Presencial","Buzón de sugerencias","Telefónico"]); llenar("r_tipoSolicitante", L["TIPO SOLICITANTE"]);
+  llenar("r_tipoDocSolicitante", L["TIPO DOCUMENTO"]); llenar("r_tipoDocAfiliado", L["TIPO DOCUMENTO"]);
+  llenar("r_sexo", L["SEXO"]); llenar("r_poblacion", L["POBLACIÓN DIFERENCIAL"]);
+  llenar("r_eps", L["EPS / PRESTADOR"]); llenar("r_regimen", L["RÉGIMEN"]);
+  llenar("r_sede", L["SEDE"]); llenar("r_servicio", L["SERVICIO"]);
+  llenar("r_modalidad", L["MODALIDAD DE ATENCIÓN"]); llenar("r_tipoPqrs", L["TIPO DE PQRS"]);
+  llenar("r_entidad", L["ENTIDAD PRESENTADA"]); llenar("r_tipologia", L["TIPOLOGÍA"]);
+  llenar("fEstado", L["ESTADO"], false); llenar("fCanal", L["CANAL"], false);
+  $("fEstado").insertBefore(new Option("Todos",""), $("fEstado").firstChild); $("fEstado").value="";
+  $("fCanal").insertBefore(new Option("Todos",""), $("fCanal").firstChild); $("fCanal").value="";
+  valoresPorDefecto();
+  if (!(L["SEDE"] && L["SEDE"].length)) {
+    aviso("radAviso", "No pude cargar las listas de la hoja <b>Config</b>. Revisa que la fila de encabezados (SEDE, SERVICIO, EPS…) siga en su lugar.", "err");
+  }
+  $("leyendaTipos").innerHTML = TIPOS_ORDEN.map(tipoTag).join("");
+  $("arranque").hidden = true;
+  ver("inicio");
+  if(d.migracion && d.migracion.hecho) toast({ tipo:"area", titulo:"Consolidado actualizado", texto:d.migracion.mensaje, dur:12000 });
+  else if(d.migracion && d.migracion.mensaje) toast({ tipo:"err", titulo:"Revisión pendiente", texto:d.migracion.mensaje, dur:12000 });
+  srvSilencioso("apiPlantillas").then(function(pl){ APP.plantillas = pl || []; });
+  if(CICLO) clearInterval(CICLO);
+  CICLO = setInterval(sondear, 60000);
+  abrirEnlaceDirecto();
+}
+/* Enlace de los avisos: …/exec?pqrs=SIAU-2026-09-0001 abre ese radicado después de ingresar. */
+function abrirEnlaceDirecto(){
+  try {
+    if(!(window.google && google.script && google.script.url)) return;
+    google.script.url.getLocation(function(l){
+      var c = l && l.parameter && l.parameter.pqrs;
+      if(c && !APP.enlaceUsado && /^[A-Z]{2,6}-\d{4}-\d{2}-\d{3,}$/i.test(c)){ APP.enlaceUsado = true; abrirDetalle(String(c).toUpperCase()); }
+    });
+  } catch(e) {}
+}
+function entidadSede(){
+  var ops = APP.listas["ENTIDAD PRESENTADA"] || [];
+  for(var i=0;i<ops.length;i++) if(norm(ops[i]).indexOf("sede")===0) return ops[i];
+  return ops[0] || "";
+}
+function valoresPorDefecto(){
+  $("r_canal").value = "Presencial";
+  $("r_entidad").value = entidadSede();
+  $("r_fechaRecepcion").value = hoyISO();
+  $("r_fechaRadicacion").value = hoyISO();
+}
+function cargarApp(){
+  $("acceso").hidden = true; $("app").hidden = false;
+  srv("appBootstrap").then(arrancar).catch(function(e){
+    $("arranque").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>No pude conectar con el consolidado.<br>'+msgErr(e)+'</div></div>';
+  });
+}
+
+/* ============================ avisos emergentes ============================ */
+function toast(o){
+  var el = document.createElement("div");
+  var dur = o.dur || 8000;
+  el.className = "toast " + (o.tipo||"");
+  var icono = {correo:"correo", area:"area", err:"alerta"}[o.tipo] || "radicar";
+  el.innerHTML = '<div class="bola">'+ic(icono)+'</div><div><b>'+esc(o.titulo)+'</b><p>'+esc(o.texto||"")+'</p>'+
+    (o.accion ? '<button class="ir" type="button">'+esc(o.accion)+ic("flecha","s")+'</button>' : '')+
+    '</div><button class="x" type="button" aria-label="Cerrar">'+ic("x","s")+'</button>'+
+    '<div class="tiempo" style="animation-duration:'+dur+'ms"></div>';
+  $("toasts").appendChild(el);
+  var quitar = function(){ if(!el.parentNode) return; el.style.transition="opacity .2s,transform .2s"; el.style.opacity="0"; el.style.transform="translateX(20px)";
+    setTimeout(function(){ if(el.parentNode) el.parentNode.removeChild(el); }, 220); };
+  var t = setTimeout(quitar, dur);
+  el.querySelector(".x").addEventListener("click", function(){ clearTimeout(t); quitar(); });
+  if(o.accion && o.alPulsar) el.querySelector(".ir").addEventListener("click", function(){ clearTimeout(t); quitar(); o.alPulsar(); });
+  while($("toasts").children.length > 4) $("toasts").removeChild($("toasts").firstChild);
+}
+function notificar(n){
+  n.hora = new Date(); n.nueva = true;
+  sonar(n.prioridad); escritorio(n.titulo, n.texto);
+  APP.notifs.unshift(n); APP.notifs = APP.notifs.slice(0,40);
+  pintarCentro();
+  toast({ tipo:n.tipo, titulo:n.titulo, texto:n.texto, accion:n.accion, alPulsar:n.ir });
+}
+function pintarCentro(){
+  var nuevas = APP.notifs.filter(function(x){ return x.nueva; }).length;
+  $("campanaN").hidden = !nuevas; $("campanaN").textContent = nuevas > 9 ? "9+" : nuevas;
+  $("centroLista").innerHTML = APP.notifs.length ? APP.notifs.map(function(n,i){
+    var icono = {correo:"correo", area:"area", err:"alerta"}[n.tipo] || "radicar";
+    return '<button class="nt'+(n.nueva?" nueva":"")+'" type="button" data-i="'+i+'"><div class="bola">'+ic(icono,"s")+'</div>'+
+      '<div><b>'+esc(n.titulo)+'</b><span>'+esc(n.texto)+'</span><em>'+
+      n.hora.toLocaleTimeString("es-CO",{hour:"2-digit",minute:"2-digit"})+'</em></div></button>';
+  }).join("") : '<div class="vacio">Sin novedades en esta sesión.<br>Las PQRS que entren por el formulario o el correo aparecerán aquí.</div>';
+  $("centroLista").querySelectorAll(".nt").forEach(function(b){
+    b.addEventListener("click", function(){ var n=APP.notifs[parseInt(b.dataset.i,10)]; n.nueva=false; pintarCentro(); $("centro").hidden=true; if(n.ir) n.ir(); });
+  });
+}
+$("btnCampana").addEventListener("click", function(e){ e.stopPropagation(); $("centro").hidden = !$("centro").hidden; });
+$("btnLeidas").addEventListener("click", function(){ APP.notifs.forEach(function(n){ n.nueva=false; }); pintarCentro(); });
+document.addEventListener("click", function(e){ if(!$("centro").hidden && !$("centro").contains(e.target)) $("centro").hidden = true; });
+
+/* Consulta en segundo plano: PQRS nuevas cada minuto y el correo cada 3 minutos. */
+function sondear(){
+  if(!TOKEN) return;
+  APP.ticks++;
+  var conCorreo = (APP.ticks % 3 === 0);
+  srvSilencioso("apiNovedades", APP.desde, conCorreo).then(function(r){
+    if(!r) return;
+    APP.desde = r.ahora || Date.now();
+    (r.eventos||[]).forEach(function(ev){
+      if(APP.propios[ev.codigo] && ev.accion==="Radicación") return;
+      if(ev.accion==="Radicación"){
+        var pri = ev.prioridad && ev.prioridad!=="Normal" ? ev.prioridad : "";
+        notificar({ tipo: pri==="Crítica" ? "err" : "", prioridad: pri, titulo:(pri ? "Prioridad "+pri.toLowerCase()+" · " : "Nueva PQRS · ")+ev.codigo,
+          texto:[ev.clasificacion, ev.tipo, ev.canal, ev.sede].filter(Boolean).join(" · "),
+          accion:"Abrir", ir:function(){ abrirDetalle(ev.codigo); } });
+      } else {
+        notificar({ tipo:"area", titulo:"Respondió el área · "+ev.codigo, texto:"El área registró su gestión. Ábrela para redactar la respuesta al usuario.", accion:"Abrir", ir:function(){ abrirDetalle(ev.codigo); } });
+      }
+    });
+    if(r.correo && !r.correo.error){
+      var rel = r.correo.relevantes || 0;
+      marcarCorreoNav(rel);
+      if(APP.correoPrevio!==null && rel > APP.correoPrevio){
+        var dif = rel - APP.correoPrevio;
+        notificar({ tipo:"correo", titulo: dif===1 ? "1 correo nuevo por revisar" : dif+" correos nuevos por revisar",
+          texto:"PQRS posibles: "+r.correo.pqrs+" · citas: "+(r.correo.cita||0)+" · en conversación: "+(r.correo.curso||0)+" · áreas: "+r.correo.area,
+          accion:"Ir al correo", ir:function(){ APP.correosCargados=false; ver("correo"); } });
+      }
+      APP.correoPrevio = rel;
+    }
+    if(r.eventos && r.eventos.length && !$("v-inicio").hidden) cargarInicio(true);
+  }).catch(function(){ /* sin conexión: se reintenta en el siguiente ciclo */ });
+}
+function marcarCorreoNav(n){ ["navCorreo","navCorreo2"].forEach(function(id){ var b=$(id); if(!b) return; b.hidden = !(n>0); b.textContent = n; }); }
+
+/* ============================ INICIO ============================ */
+function cargarInicio(silencioso){
+  if(!silencioso) $("inicioCuerpo").innerHTML = '<div class="sk-tarjetas"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div><div class="sk sk-bloque"></div>';
+  srv("apiResumenHoy").then(pintarInicio).catch(function(e){
+    $("inicioCuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>';
+  });
+  cargarMeses(APP.anio);
+}
+
+/* Coincidencia tolerante con las listas de Config («SUPERSALUD» = «SUPER SALUD», «Mutual Ser» ⊂ «MUTUAL SER EPS»). */
+function igualLista(o, valor, ops){
+  var c = function(x){ return norm(x).replace(/[^a-z0-9ñ]/g,""); }, a = c(o), v = c(valor);
+  if(!v) return false;
+  if(a===v) return true;
+  for(var i=0;i<(ops||[]).length;i++) if(c(ops[i])===v) return false;   // hay una exacta: no adivinar
+  var primera = (ops||[]).filter(function(x){ var k=c(x); return v.length>=4 && (k.indexOf(v)!==-1 || v.indexOf(k)!==-1 && k.length>=4); })[0];
+  return primera===o;
+}
+function saludo(){ var h=new Date().getHours(); return h<12 ? "Buenos días" : (h<19 ? "Buenas tardes" : "Buenas noches"); }
+
+function pintarInicio(r){
+  if(r.correosPendientes >= 0){ marcarCorreoNav(r.correosPendientes); if(APP.correoPrevio===null) APP.correoPrevio = r.correosPendientes; }
+  var fecha = new Date().toLocaleDateString("es-CO",{weekday:"long", day:"numeric", month:"long", year:"numeric"});
+  fecha = fecha.charAt(0).toUpperCase() + fecha.slice(1);
+  var frase = r.abiertas
+    ? "Hay <b>"+r.abiertas+"</b> PQRS abiertas"+(r.vencidas? ", <b>"+r.vencidas+"</b> vencidas" : "")+
+      (r.porVencer? " y <b>"+r.porVencer+"</b> vencen en los próximos 8 días" : "")+"."+
+      (r.sinDireccionar? ((APP.sesion && APP.sesion.puede && !APP.sesion.puede.gestion)
+        ? " <b>"+r.sinDireccionar+"</b> esperan que el administrador las direccione al área."
+        : " Empieza por las <b>"+r.sinDireccionar+"</b> que aún no tienen área.") : "")
+    : "No hay PQRS abiertas. Todo está al día.";
+  var dm = r.radicadasMes - r.radicadasMesAnterior;
+  var delta = r.radicadasMesAnterior
+    ? '<span class="delta '+(dm>0?"sube":(dm<0?"baja":"igual"))+'">'+ic(dm>0?"sube":"baja","s")+Math.abs(Math.round(dm/r.radicadasMesAnterior*100))+'%</span> vs mes anterior'
+    : "Primer mes con registros";
+  var cumpl = (r.cumplimientoMes===null||r.cumplimientoMes===undefined) ? "—" : r.cumplimientoMes+"%";
+
+  var accion = function(n, titulo, detalle, clase, icono, destino){
+    return '<button class="accion '+clase+(n?'':' cero')+'" type="button" data-accion="'+destino+'">'+
+      '<div class="cab"><span class="n" data-n="'+n+'">'+n+'</span><span class="ico">'+ic(icono)+'</span></div>'+
+      '<span class="t">'+titulo+'</span><span class="d">'+detalle+'</span></button>';
+  };
+  var c = r.correo || {pqrs:0, cita:0, curso:0, area:0, usuario:0, rebote:0, sistema:0};
+
+  var html =
+  '<div class="hero anim">'+
+    '<div class="hero-saludo"><div class="f">'+esc(fecha)+'</div><h2>'+saludo()+(APP.sesion&&APP.sesion.nombre?', '+esc(String(APP.sesion.nombre).split(' ')[0]):'')+'</h2><p>'+frase+'</p>'+
+      '<div class="fr"><i></i><i></i><i></i><i></i></div></div>'+
+    '<div class="hero-kpis">'+
+      '<div class="kmini"><span class="et">Este mes</span><span class="n" data-n="'+r.radicadasMes+'">'+r.radicadasMes+'</span><span class="pie">'+delta+'</span></div>'+
+      '<div class="kmini"><span class="et">Hoy</span><span class="n" data-n="'+r.radicadasHoy+'">'+r.radicadasHoy+'</span><span class="pie">radicadas</span></div>'+
+      '<div class="kmini"><span class="et">Oportunidad</span><span class="n">'+cumpl+'</span><span class="pie">'+r.cerradasMes+' cerradas este mes</span></div>'+
+    '</div>'+
+  '</div>'+
+
+  '<div class="acciones-hoy anim-lista">'+
+    accion(r.sinDireccionar,"Sin direccionar","Analizar y enviar al área","acc-t","enviar","etapa:sin_direccionar")+
+    accion(r.enGestion,"Esperando al área","Direccionadas, sin respuesta","acc-a","reloj","etapa:en_gestion")+
+    accion(r.porResponder,"Listas para responder","El área ya contestó","acc-v","responder","etapa:por_responder")+
+    accion(r.vencidas,"Vencidas","Fuera del término legal","acc-r","alerta","etapa:criticas")+
+    accion(r.porVencer,"Vencen pronto","Próximos 8 días","acc-a","calendario","etapa:criticas")+
+    (r.sinCorreo ? accion(r.porCorregir||0,"Datos por corregir","Registros incompletos","acc-a","alerta","etapa:todas")
+                 : accion(r.correosPendientes<0?0:r.correosPendientes,"Correos por revisar","EPS, entes, PQRS y citas","acc-t","correo","vista:correo"))+
+  '</div>'+
+  pintarSedesYPrioridad(r)+
+
+  '<div class="inicio-cols">'+
+    '<div class="card anim"><div class="card-tit"><h3>'+ic("alerta")+'Lo más urgente</h3><span class="d">Ordenado por fecha límite</span></div>'+
+      (r.urgentes && r.urgentes.length
+        ? '<div class="scroll-x"><table class="tb urg"><tr><th>Radicado</th><th>Estado</th><th>Tipo</th><th>Sede · servicio</th><th>Vence</th><th>Días</th></tr>'+
+          r.urgentes.map(function(v){
+            return '<tr data-cod="'+esc(v.codigo)+'"><td class="mono">'+esc(v.codigo)+'</td><td>'+chip(v.semaforo)+'</td>'+
+              '<td>'+tipoTag(v.tipo)+'</td><td class="dos-l">'+esc(v.sede||"—")+'<small>'+esc((v.servicio||"—")+" · "+v.responsable)+'</small></td>'+
+              '<td>'+esc(v.fechaMax||"")+'</td><td class="num">'+esc(dias(v.dias))+'</td></tr>';
+          }).join("")+'</table></div>'
+        : '<div class="aviso ok">'+ic("check","s")+'<div>No hay PQRS vencidas ni próximas a vencer.</div></div>')+
+    '</div>'+
+    '<div class="pila">'+
+      (r.sinCorreo ? '' : '<div class="card anim"><div class="card-tit"><h3>'+ic("correo")+'Correo</h3><span class="d">Sin las notificaciones de la plataforma</span></div>'+
+        '<div class="correo-res">'+
+          '<button class="cr alerta" type="button" data-cat="institucional"><b data-n="'+(c.institucional||0)+'">'+(c.institucional||0)+'</b><span>EPS y entes por clasificar</span></button>'+
+          '<button class="cr" type="button" data-cat="pqrs"><b data-n="'+c.pqrs+'">'+c.pqrs+'</b><span>Posibles PQRS</span></button>'+
+          '<button class="cr" type="button" data-cat="area"><b data-n="'+c.area+'">'+c.area+'</b><span>Respuestas de áreas</span></button>'+
+          '<button class="cr" type="button" data-cat="usuario"><b data-n="'+c.usuario+'">'+c.usuario+'</b><span>Usuarios con radicado</span></button>'+
+          '<button class="cr" type="button" data-cat="cita"><b data-n="'+(c.cita||0)+'">'+(c.cita||0)+'</b><span>Solicitudes de citas</span></button>'+
+          '<button class="cr" type="button" data-cat="curso"><b data-n="'+(c.curso||0)+'">'+(c.curso||0)+'</b><span>En conversación</span></button>'+
+          '<button class="cr'+(c.rebote?" alerta":"")+'" type="button" data-cat="rebote"><b data-n="'+c.rebote+'">'+c.rebote+'</b><span>No entregados</span></button>'+
+        '</div>'+
+        '<div class="nota-sis">'+ic("oculto","s")+(c.sistema||0)+' notificaciones enviadas por la plataforma se ocultaron.</div>'+
+        (r.formPendientes ? '<div class="aviso info" style="margin:10px 0 0">'+ic("qr","s")+'<div>'+r.formPendientes+' respuesta(s) del formulario QR sin importar. <a href="#" id="lnkForm">Revisar</a></div></div>' : '')+
+      '</div>')+
+      '<div class="card anim"><div class="card-tit"><h3>'+ic("pulso")+'Últimas radicadas</h3></div><div class="actividad">'+
+        ((r.recientes||[]).length ? r.recientes.map(function(x){
+          return '<button class="act" type="button" data-cod="'+esc(x.codigo)+'"><span class="bola" style="color:'+colorTipo(x.tipo)+'">'+ic(canalIcono(x.canal),"s")+'</span>'+
+            '<div><b>'+esc(x.codigo)+'</b><span>'+esc([x.tipo, x.sede].filter(Boolean).join(" · ")||"Sin clasificar")+'</span></div><em>'+esc(x.fecha)+'</em></button>';
+        }).join("") : vacio("bandeja","Aún no hay PQRS radicadas."))+
+      '</div></div>'+
+    '</div>'+
+  '</div>';
+
+  $("inicioCuerpo").innerHTML = html;
+  animarNumeros($("inicioCuerpo"));
+  $("inicioCuerpo").querySelectorAll(".accion").forEach(function(b){
+    b.addEventListener("click", function(){
+      var a = b.dataset.accion.split(":");
+      if(a[0]==="etapa") irAEtapa(a[1]); else ver(a[1]);
+    });
+  });
+  $("inicioCuerpo").querySelectorAll("[data-cod]").forEach(function(tr){
+    tr.addEventListener("click", function(){ abrirDetalle(tr.dataset.cod); });
+  });
+  $("inicioCuerpo").querySelectorAll(".cr").forEach(function(b){
+    b.addEventListener("click", function(){ APP.correoCat = b.dataset.cat; ver("correo"); if(APP.correosCargados) pintarCorreos(); });
+  });
+  if($("lnkForm")) $("lnkForm").addEventListener("click", function(e){ e.preventDefault(); ver("config"); });
+}
+/* Distribución por sede (solo las asignadas) y casos prioritarios de EPS y entes de control. */
+function pintarSedesYPrioridad(r){
+  var sedes = Object.keys(r.porSede||{}).sort(function(a,b){ return r.porSede[b].abiertas - r.porSede[a].abiertas || r.porSede[b].total - r.porSede[a].total; });
+  var max = Math.max.apply(null, sedes.map(function(k){ return r.porSede[k].abiertas; }).concat([1]));
+  var dist = sedes.length ? '<div class="sedes-dist">'+sedes.slice(0,12).map(function(k){
+    var x = r.porSede[k], enT = Math.max(0, x.abiertas - x.vencidas - x.porVencer);
+    return '<div class="sd"><span class="nom" title="'+esc(k)+'">'+esc(k)+'</span><span class="pista">'+
+      '<i style="width:'+(x.vencidas/max*100)+'%;background:#AB1130" title="Vencidas '+x.vencidas+'"></i>'+
+      '<i style="width:'+(x.porVencer/max*100)+'%;background:#C58A1E" title="Por vencer '+x.porVencer+'"></i>'+
+      '<i style="width:'+(enT/max*100)+'%;background:#0F7FA6" title="En término '+enT+'"></i></span>'+
+      '<em>'+x.abiertas+' abiertas · '+x.mes+' este mes</em></div>';
+  }).join("")+'</div><div class="leyenda" style="margin-top:10px"><span class="tipo"><i style="background:#AB1130"></i>Vencidas</span>'+
+    '<span class="tipo"><i style="background:#C58A1E"></i>Por vencer</span><span class="tipo"><i style="background:#0F7FA6"></i>En término</span></div>'
+    : vacio("sede","Sin PQRS en tus sedes.");
+  var pri = (r.prioritarias||[]).length ? '<div class="actividad">'+r.prioritarias.map(function(x){
+    return '<button class="act" type="button" data-cod="'+esc(x.codigo)+'"><span class="bola" style="background:'+(x.prioridad==="Crítica"?"#FBE1E6;color:#AB1130":"#FFF0DB;color:#9A4F00")+'">'+ic("alerta","s")+'</span>'+
+      '<div><b>'+esc(x.codigo)+'</b><span>'+esc([x.remitente, x.clasificacion || x.tipo].filter(Boolean).join(" · "))+'</span></div>'+
+      '<em>'+(x.conArea?"En gestión":"Sin área")+'<br>'+esc(x.fechaMax||"")+'</em></button>';
+  }).join("")+'</div>' : '<div class="aviso ok">'+ic("check","s")+'<div>No hay casos de prioridad crítica o alta abiertos.</div></div>';
+  return '<div class="inicio-cols">'+
+    '<div class="card anim"><div class="card-tit"><h3>'+ic("sede")+'PQRS abiertas por sede</h3><span class="d">'+
+      (APP.sesion && !APP.sesion.todas ? "Tus sedes asignadas" : "Todas las sedes")+'</span></div>'+dist+'</div>'+
+    '<div class="card anim"><div class="card-tit"><h3>'+ic("escudo")+'Prioritarias</h3><span class="d">EPS, entes de control, tutelas y derechos de petición</span></div>'+pri+'</div>'+
+  '</div>';
+}
+function canalIcono(c){ var n=norm(c); if(n.indexOf("qr")!==-1||n.indexOf("formul")!==-1) return "qr"; if(n.indexOf("correo")!==-1) return "correo"; return "radicar"; }
+
+/* ============================ PANEL POR MES Y AÑO ============================ */
+function cargarMeses(anio){
+  if(!APP.resumenAnual){
+    var sk=""; for(var i=0;i<12;i++) sk+='<div class="sk" style="height:132px"></div>';
+    $("meses").innerHTML = '<div class="meses">'+sk+'</div>';
+  }
+  srv("apiResumenMensual", anio||"").then(pintarMeses).catch(function(e){
+    $("meses").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>';
+  });
+}
+function lider(sedes){
+  var mejor=null;
+  Object.keys(sedes||{}).forEach(function(k){ if(!mejor || sedes[k].total > sedes[mejor].total) mejor=k; });
+  return mejor;
+}
+function pintarMeses(r){
+  APP.resumenAnual = r; APP.anio = r.anio;
+  $("anios").innerHTML = r.anios.map(function(a){
+    return '<button class="anio'+(a.anio===r.anio?" on":"")+'" type="button" data-a="'+a.anio+'">'+a.anio+' <small>'+a.total+'</small></button>';
+  }).join("") + '<button class="b sec mini" type="button" id="btnAnual">'+ic("tablero","s")+'Resumen '+r.anio+'</button>';
+  $("anios").querySelectorAll(".anio").forEach(function(b){
+    b.addEventListener("click", function(){ cargarMeses(parseInt(b.dataset.a,10)); });
+  });
+  $("btnAnual").addEventListener("click", function(){ abrirModalPeriodo(r.anual, "Año "+r.anio); });
+
+  var hoy = new Date(), anioHoy = hoy.getFullYear();
+  $("meses").innerHTML = '<div class="meses anim-lista">'+ r.meses.map(function(m, i){
+    var futuro = (r.anio===anioHoy && i>hoy.getMonth()) || r.anio>anioHoy;
+    var previo = i>0 ? r.meses[i-1].total : null;
+    var dif = (previo!==null && previo>0) ? Math.round((m.total-previo)/previo*100) : null;
+    var barra = m.total ? ordenarTipos(m.tipos).map(function(t){
+      return '<i style="width:'+(m.tipos[t]/m.total*100)+'%;background:'+colorTipo(t)+'" title="'+esc(t)+': '+m.tipos[t]+'"></i>'; }).join("") : "";
+    var ld = lider(m.sedes);
+    return '<button class="mes'+(futuro?" futuro":"")+(r.anio===anioHoy && i===hoy.getMonth()?" actual":"")+'" type="button" data-m="'+i+'"'+(futuro?" disabled":"")+'>'+
+      '<div class="cab"><span class="nm">'+MESES[i].slice(0,3)+'</span>'+
+        (dif!==null && m.total ? '<span class="delta '+(dif>0?"sube":(dif<0?"baja":"igual"))+'">'+ic(dif>0?"sube":"baja","s")+Math.abs(dif)+'%</span>' : '')+'</div>'+
+      '<span class="n" data-n="'+m.total+'">'+m.total+'</span>'+
+      '<div class="barra">'+barra+'</div>'+
+      '<div class="lider">'+ic("sede","s")+'<span>'+(ld ? esc(ld)+' · '+m.sedes[ld].total : (futuro?"—":"Sin registros"))+'</span></div>'+
+      '<div class="pie"><span>'+m.abiertas+' abiertas</span><span'+(m.vencidas?' style="color:var(--bad);font-weight:700"':'')+'>'+m.vencidas+' vencidas</span></div>'+
+    '</button>';
+  }).join("") + '</div>';
+  animarNumeros($("meses"));
+  $("meses").querySelectorAll(".mes:not(.futuro)").forEach(function(b){
+    b.addEventListener("click", function(){
+      var i = parseInt(b.dataset.m,10);
+      abrirModalPeriodo(r.meses[i], MESES[i]+" "+r.anio);
+    });
+  });
+}
+
+/* Ventana emergente: detalle por sede del periodo, destacando la de más manifestaciones. */
+function abrirModalPeriodo(ag, titulo){
+  var sedes = Object.keys(ag.sedes||{}).sort(function(a,b){ return ag.sedes[b].total - ag.sedes[a].total; });
+  var sel = sedes[0] || null;
+  var pintar = function(){
+    var s = sel ? ag.sedes[sel] : null;
+    var maxSede = sedes.length ? ag.sedes[sedes[0]].total : 1;
+    var barrasTipo = function(obj, total){
+      var claves = ordenarTipos(obj);
+      if(!claves.length) return vacio("tablero","Sin datos");
+      var mx = Math.max.apply(null, claves.map(function(k){ return obj[k]; }));
+      return '<div class="barras-h">'+claves.map(function(k){
+        return '<div class="bh"><span class="nom">'+tipoTag(k)+'</span><span class="pista"><i style="width:'+(obj[k]/mx*100)+'%;background:'+colorTipo(k)+'"></i></span><b>'+obj[k]+'</b></div>';
+      }).join("")+'</div>';
+    };
+    var barrasSimple = function(obj, color, n){
+      var claves = Object.keys(obj||{}).sort(function(a,b){ return obj[b]-obj[a]; }).slice(0,n||6);
+      if(!claves.length) return vacio("tablero","Sin datos");
+      var mx = obj[claves[0]];
+      return '<div class="barras-h">'+claves.map(function(k){
+        return '<div class="bh"><span class="nom" title="'+esc(k)+'">'+esc(k)+'</span><span class="pista"><i style="width:'+(obj[k]/mx*100)+'%;background:'+color+'"></i></span><b>'+obj[k]+'</b></div>';
+      }).join("")+'</div>';
+    };
+    var pct = (s && ag.total) ? Math.round(s.total/ag.total*100) : 0;
+    $("modal").innerHTML =
+      '<div class="velo" id="velo"><div class="modal" role="dialog" aria-modal="true" aria-label="'+esc(titulo)+'">'+
+        '<div class="modal-cab"><div><h3>'+esc(titulo)+'</h3><p>'+ag.total+' PQRS radicadas · '+sedes.length+' sede(s) con registros</p></div>'+
+          '<button class="cerrar" type="button" id="btnCerrarModal" aria-label="Cerrar">'+ic("x")+'</button></div>'+
+        '<div class="modal-cuerpo">'+
+          '<div class="m-kpis"><div><b>'+ag.total+'</b><span>Radicadas</span></div><div><b>'+ag.abiertas+'</b><span>Abiertas</span></div>'+
+            '<div><b style="color:var(--ok)">'+ag.cerradas+'</b><span>Cerradas</span></div><div><b style="color:var(--bad)">'+ag.vencidas+'</b><span>Vencidas</span></div></div>'+
+          (s ? '<div class="lider-card"><div class="et">'+(sel===sedes[0]?"Sede con más manifestaciones":"Sede seleccionada")+'</div>'+
+                '<h4>'+esc(sel)+'</h4><div class="res"><b>'+s.total+'</b> PQRS · '+pct+'% del periodo · '+s.abiertas+' abiertas · '+s.vencidas+' vencidas</div>'+
+                '<div class="dos"><div><p class="sub-tit">Por tipo</p>'+barrasTipo(s.tipos, s.total)+'</div>'+
+                '<div><p class="sub-tit">Servicios con más PQRS</p>'+barrasSimple(s.servicios, "#0F7FA6", 6)+'</div></div></div>'
+             : vacio("sede","No hay PQRS en este periodo."))+
+          '<div class="dos"><div><p class="sub-tit">Ranking de sedes · toca una para ver su detalle</p><div class="barras-h">'+
+            sedes.map(function(k){
+              return '<button class="bh'+(k===sel?" sel":"")+'" type="button" data-sede="'+esc(k)+'"><span class="nom" title="'+esc(k)+'">'+esc(k)+'</span>'+
+                '<span class="pista"><i style="width:'+(ag.sedes[k].total/maxSede*100)+'%;background:'+(k===sel?"var(--teal)":"#9DC3D2")+'"></i></span><b>'+ag.sedes[k].total+'</b></button>';
+            }).join("")+'</div></div>'+
+            '<div><p class="sub-tit">Tipos en todo el periodo</p>'+barrasTipo(ag.tipos, ag.total)+
+            '<p class="sub-tit" style="margin-top:16px">Canales</p>'+barrasSimple(ag.canales, "#8398A3", 6)+'</div></div>'+
+        '</div></div></div>';
+    $("modal").hidden = false;
+    $("btnCerrarModal").addEventListener("click", cerrarModal);
+    $("velo").addEventListener("click", function(e){ if(e.target.id==="velo") cerrarModal(); });
+    $("modal").querySelectorAll("[data-sede]").forEach(function(b){
+      b.addEventListener("click", function(){ sel = b.dataset.sede; pintar(); });
+    });
+  };
+  pintar();
+}
+function cerrarModal(){ $("modal").hidden = true; $("modal").innerHTML = ""; }
+document.addEventListener("keydown", function(e){ if(e.key==="Escape" && !$("modal").hidden) cerrarModal(); });
+
+/* ============================ BANDEJA ============================ */
+function cargarBandeja(){
+  $("listaBandeja").innerHTML = esqueleto(6);
+  srv("apiBandeja", { texto:$("fTexto").value, estado:$("fEstado").value, semaforo:$("fSemaforo").value,
+                      canal:$("fCanal").value, etapa:APP.etapa })
+    .then(pintarBandeja).catch(function(e){ $("listaBandeja").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+}
+["fTexto","fEstado","fSemaforo","fCanal"].forEach(function(id){
+  $(id).addEventListener(id==="fTexto"?"keyup":"change", function(e){
+    if(id==="fTexto" && e.key!=="Enter") return; cargarBandeja();
+  });
+});
+$("btnRefrescar").addEventListener("click", cargarBandeja);
+
+function pintarBandeja(items){
+  APP.bandeja = items || [];
+  if(!APP.bandeja.length){ $("listaBandeja").innerHTML = vacio("bandeja","No hay PQRS en esta etapa con ese filtro."); return; }
+  $("listaBandeja").innerHTML = '<div class="lista anim-lista">'+APP.bandeja.map(function(x){
+    var sinArea = !x.responsable && norm(x.estado).indexOf("cerrada")===-1;
+    return '<button class="fila prio-'+esc(x.prioridad||"")+'" type="button" data-cod="'+esc(x.codigo)+'" style="--tc:'+colorTipo(x.tipo)+'">'+
+      '<div class="cod">'+esc(x.codigo)+'<small>'+esc(x.canal||"")+' · '+esc(x.fechaRadicacion||"")+'</small></div>'+
+      '<div class="med"><b>'+(x.prioridad && x.prioridad!=="Normal" ? '<span class="prio '+esc(x.prioridad)+'">'+esc(x.prioridad)+'</span>' : '')+tipoTag(x.tipo)+
+        (x.sede?'<span style="font-weight:600;color:var(--ink-2)">'+esc(x.sede)+'</span>':'')+
+        (x.remitente?'<span class="ent">'+esc(x.remitente)+'</span>':'')+(x.clasificacion?'<span class="ent">'+esc(x.clasificacion)+'</span>':'')+
+        (x.etiquetas && x.etiquetas.sugerido?'<span class="sug">Sugerido: '+esc(x.etiquetas.sugerido)+'</span>':'')+
+        (x.etiquetas && x.etiquetas.reclasificada?'<span class="sug hecho">Reclasificada</span>':'')+
+        (x.etiquetas && x.etiquetas.datosFaltantes?'<span class="falta">Faltan datos</span>':'')+'</b>'+
+        '<span>'+esc(x.solicitante||"Sin nombre")+(x.servicio?" — "+esc(x.servicio):"")+'</span>'+
+        '<span>'+(x.responsable?"Área: "+esc(x.responsable):(sinArea?'<span class="pend">Pendiente de direccionar</span>':""))+'</span></div>'+
+      '<div class="der">'+chip(x.semaforo||x.estado)+'<em>'+esc(x.estado)+'</em>'+
+        '<em>'+(x.fechaMax?"Vence "+esc(x.fechaMax):"")+(x.dias!==""?" · "+esc(dias(x.dias))+" d":"")+'</em></div></button>';
+  }).join("")+'</div>';
+  $("listaBandeja").querySelectorAll(".fila").forEach(function(b){
+    b.addEventListener("click", function(){ abrirDetalle(b.dataset.cod); });
+  });
+}
+function irAEtapa(etapa){
+  APP.etapa = etapa;
+  document.querySelectorAll("#etapas button").forEach(function(b){ b.classList.toggle("on", b.dataset.e === etapa); });
+  ver("bandeja"); cargarBandeja();
+}
+document.querySelectorAll("#etapas button").forEach(function(b){
+  b.addEventListener("click", function(){ irAEtapa(b.dataset.e); });
+});
+
+/* ============================ CORREO (por conversaciones) ============================ */
+var CATS = [
+  { k:"institucional", t:"EPS y entes",      i:"escudo",     d:"Correos de EPS y entes de control que no se pudieron clasificar solos. Elige la categoría y radica: el término y la prioridad se calculan." },
+  { k:"pqrs",    t:"Posibles PQRS",          i:"correo",     d:"Correos de usuarios que parecen una PQRS nueva. Ábrelos para radicarlos, pedir datos o direccionarlos." },
+  { k:"cita",    t:"Solicitudes de citas",   i:"calendario", d:"No son PQRS: direcciónalas al área de citas. Si faltan datos, pídelos en la misma conversación." },
+  { k:"curso",   t:"En conversación",        i:"responder",  d:"Conversaciones que ya gestionaste: se pidieron datos, se remitieron a un área o se respondió al usuario." },
+  { k:"area",    t:"Respuestas de áreas",    i:"area",       d:"Un responsable contestó sobre un radicado: regístralo con un clic." },
+  { k:"usuario", t:"Usuarios con radicado",  i:"usuario",    d:"El usuario escribe sobre una PQRS que ya existe." },
+  { k:"rebote",  t:"No entregados",          i:"rebote",     d:"Notificaciones que el servidor de correo devolvió. Revisa la dirección." },
+  { k:"otro",    t:"Otros correos",          i:"oculto",     d:"Correos de personas sin palabras clave de PQRS ni de citas. Revísalos por si acaso." },
+];
+var DATOS_PEDIR = ["Tipo y número de documento de identidad","Nombre completo del paciente","Número de celular de contacto",
+  "EPS y régimen de afiliación","Sede donde fue atendido(a)","Fecha aproximada de la atención","Copia del documento de identidad",
+  "Orden médica o autorización vigente","Historia clínica o soportes de la atención","Fórmula médica"];
+APP.subidas = {};
+$("btnBuscarCorreos").addEventListener("click", buscarCorreos);
+
+function buscarCorreos(){
+  $("vistaHilo").hidden = true; $("vistaLista").hidden = false;
+  $("listaCorreos").innerHTML = esqueleto(4);
+  var fin = ocupado("btnBuscarCorreos","Revisando…");
+  srv("apiCorreos", false).then(function(r){
+    fin(); APP.correo = r; APP.correosCargados = true;
+    marcarCorreoNav(r.resumen.relevantes); APP.correoPrevio = r.resumen.relevantes;
+    if(!r.resumen[APP.correoCat]){
+      for(var i=0;i<CATS.length;i++) if(r.resumen[CATS[i].k]){ APP.correoCat = CATS[i].k; break; }
+    }
+    pintarCorreos();
+  }).catch(function(e){ fin(); $("listaCorreos").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+}
+
+function pintarCorreos(){
+  var r = APP.correo; if(!r) return;
+  var res = r.resumen;
+  $("segCorreo").innerHTML = CATS.map(function(c){
+    return '<button type="button" data-k="'+c.k+'" class="'+(APP.correoCat===c.k?"on":"")+(c.k==="rebote"&&res.rebote?" alerta":"")+'">'+
+      ic(c.i,"s")+c.t+' <b>'+(res[c.k]||0)+'</b></button>';
+  }).join("");
+  $("segCorreo").querySelectorAll("button").forEach(function(b){
+    b.addEventListener("click", function(){ APP.correoCat = b.dataset.k; pintarCorreos(); });
+  });
+  $("notaSistema").innerHTML = '<div class="nota-sis" style="margin:0 0 12px">'+ic("oculto","s")+
+    (res.sistema||0)+' mensajes enviados por esta plataforma (acuses, avisos, solicitudes internas) se ocultaron porque no requieren acción.</div>';
+  var cat = CATS.filter(function(c){ return c.k===APP.correoCat; })[0];
+  var items = r.items.filter(function(x){ return x.categoria===APP.correoCat; });
+  if(!items.length){ $("listaCorreos").innerHTML = vacio(cat.i, "Nada pendiente en «"+cat.t+"»."); return; }
+  $("listaCorreos").innerHTML = '<p class="sub" style="margin:0 0 12px">'+cat.d+'</p><div class="anim-lista">'+items.map(function(c){
+    var i = r.items.indexOf(c);
+    var estado = c.estado ? '<span class="clave est">'+esc(c.estado)+'</span>' : '';
+    var nuevo = c.nuevo ? '<span class="clave nuevo">'+(c.ultimoRol==="area"?"Respondió el área":"Respondió el usuario")+'</span>' : '';
+    if(c.entidad) nuevo = (c.prioridad?'<span class="prio '+esc(c.prioridad)+'">'+esc(c.prioridad)+'</span>':'')+'<span class="ent">'+esc(c.entidad)+'</span>'+
+      (c.categoriaCorreo?'<span class="ent">'+esc(c.categoriaCorreo)+'</span>':'<span class="sug">Sin categoría</span>')+nuevo;
+    return '<button class="mail hilo" type="button" data-i="'+i+'"><div class="mail-head"><div class="bola '+c.categoria+'">'+ic(cat.i,"s")+'</div>'+
+        '<div><b>'+esc(c.asunto||"(sin asunto)")+'</b><span>'+esc(c.nombre)+' · '+esc(c.correo)+(c.area?' · Área: '+esc(c.area):'')+'</span>'+
+        '<span class="extracto">'+esc((c.respuesta||c.cuerpo||"").replace(/\s+/g," ").slice(0,170))+'</span>'+
+        '<div class="claves">'+nuevo+estado+(c.codigo?'<span class="clave cod">'+esc(c.codigo)+'</span>':'')+
+          (c.mensajes>1?'<span class="clave gris">'+c.mensajes+' mensajes</span>':'')+
+          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
+        '<em>'+esc(c.fecha)+'</em></div></button>';
+  }).join("")+'</div>';
+  $("listaCorreos").querySelectorAll(".hilo").forEach(function(b){
+    b.addEventListener("click", function(){ abrirHilo(APP.correo.items[parseInt(b.dataset.i,10)]); });
+  });
+}
+function quitarDeLista(hiloId){
+  if(!APP.correo) return;
+  APP.correo.items = APP.correo.items.filter(function(x){
+    if(x.hiloId!==hiloId) return true;
+    APP.correo.resumen[x.categoria] = Math.max(0,(APP.correo.resumen[x.categoria]||1)-1);
+    if(x.categoria!=="otro") APP.correo.resumen.relevantes = Math.max(0,(APP.correo.resumen.relevantes||1)-1);
+    return false;
+  });
+  marcarCorreoNav(APP.correo.resumen.relevantes); APP.correoPrevio = APP.correo.resumen.relevantes;
+}
+function val(id){ var e=$(id); return e? e.value.trim() : ""; }
+
+/* ---------- vista de conversación ---------- */
+function abrirHilo(item){
+  APP.item = item; APP.hilo = null; APP.subidas = {};
+  $("vistaLista").hidden = true; $("vistaHilo").hidden = false;
+  $("vistaHilo").innerHTML = '<div class="card"><div class="sk" style="height:28px;width:320px;margin-bottom:16px"></div>'+esqueleto(4)+'</div>';
+  window.scrollTo({top:0});
+  srv("apiHilo", item.hiloId).then(function(h){
+    if(!h.ok){ $("vistaHilo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+esc(h.mensaje)+'</div></div>'; return; }
+    APP.hilo = h; pintarHilo();
+  }).catch(function(e){ $("vistaHilo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+}
+function volverALista(){ $("vistaHilo").hidden = true; $("vistaLista").hidden = false; pintarCorreos(); }
+function recargarHilo(){ if(APP.item) abrirHilo(APP.item); }
+
+function tamano(b){ return b>1048576 ? (b/1048576).toFixed(1)+" MB" : Math.max(1,Math.round(b/1024))+" KB"; }
+function iconoArchivo(t){ t=t||""; return t.indexOf("image/")===0 ? "imagen" : (t.indexOf("pdf")!==-1 ? "pdf" : "archivo"); }
+var ROLES = { usuario:"Usuario", area:"Área", siau:"SIAU", rebote:"Sistema de correo" };
+
+function todosAdjuntos(){
+  var out=[]; (APP.hilo ? APP.hilo.mensajes : []).forEach(function(m){ m.adjuntos.forEach(function(a){ out.push({msgId:m.id, idx:a.idx, nombre:a.nombre, tipo:a.tipo, tam:a.tam, rol:m.rol}); }); });
+  return out;
+}
+function selectorAdjuntos(clave, marcar){
+  var adj = todosAdjuntos();
+  return '<div class="adj-sel"><label>Documentos para enviar</label>'+
+    (adj.length ? '<div class="adj-lista">'+adj.map(function(a){
+      return '<label class="adj-chk"><input type="checkbox" data-sel="'+clave+'" data-msg="'+esc(a.msgId)+'" data-idx="'+a.idx+'"'+(marcar&&a.rol==="usuario"?" checked":"")+'>'+
+        ic(iconoArchivo(a.tipo),"s")+'<span>'+esc(a.nombre)+'</span><em>'+tamano(a.tam)+'</em></label>';
+    }).join("")+'</div>' : '<div class="hint">La conversación no tiene adjuntos.</div>')+
+    '<label class="subir">'+ic("clip","s")+'Adjuntar desde el equipo<input type="file" multiple data-up="'+clave+'"></label>'+
+    '<div class="subidos" id="sub_'+clave+'"></div></div>';
+}
+function leerSeleccion(clave){
+  var sel=[]; document.querySelectorAll('input[data-sel="'+clave+'"]:checked').forEach(function(c){ sel.push({ msgId:c.dataset.msg, idx:parseInt(c.dataset.idx,10) }); });
+  return { adjuntos: sel, archivos: (APP.subidas[clave]||[]).map(function(f){ return { nombre:f.nombre, tipo:f.tipo, base64:f.base64 }; }) };
+}
+function pintarSubidos(clave){
+  var el = $("sub_"+clave); if(!el) return;
+  el.innerHTML = (APP.subidas[clave]||[]).map(function(f,i){
+    return '<span class="subido">'+ic(iconoArchivo(f.tipo),"s")+esc(f.nombre)+' <em>'+tamano(f.tam)+'</em><button type="button" data-quitar-sub="'+clave+':'+i+'" aria-label="Quitar">'+ic("x","s")+'</button></span>';
+  }).join("");
+  el.querySelectorAll("[data-quitar-sub]").forEach(function(b){
+    b.addEventListener("click", function(){ var p=b.dataset.quitarSub.split(":"); APP.subidas[p[0]].splice(parseInt(p[1],10),1); pintarSubidos(p[0]); });
+  });
+}
+function activarSubidas(raiz){
+  raiz.querySelectorAll("input[data-up]").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      var clave = inp.dataset.up; APP.subidas[clave] = APP.subidas[clave] || [];
+      var total = APP.subidas[clave].reduce(function(s,f){ return s+f.tam; },0);
+      Array.prototype.forEach.call(inp.files, function(file){
+        if(file.size > 10*1024*1024){ aviso("hiloAviso","«"+esc(file.name)+"» pesa más de 10 MB.","err"); return; }
+        if(total + file.size > 18*1024*1024){ aviso("hiloAviso","Los archivos superan 18 MB en total.","err"); return; }
+        total += file.size;
+        var rd = new FileReader();
+        rd.onload = function(){ APP.subidas[clave].push({ nombre:file.name, tipo:file.type||"application/octet-stream", tam:file.size, base64:String(rd.result).split(",")[1]||"" }); pintarSubidos(clave); };
+        rd.readAsDataURL(file);
+      });
+      inp.value = "";
+    });
+  });
+}
+
+function pintarHilo(){
+  var h = APP.hilo, it = APP.item, L = APP.listas, d = h.datos || {};
+  var info = h.info || {};
+  var cat = CATS.filter(function(c){ return c.k===it.categoria; })[0] || CATS[0];
+  var esCita = it.categoria==="cita" || info.categoria==="cita";
+  var sel = function(id, ops, valor){
+    return '<select id="'+id+'"><option value="">— Seleccionar —</option>'+(ops||[]).map(function(o){
+      return '<option'+(igualLista(o, valor, ops)?" selected":"")+'>'+esc(o)+'</option>'; }).join("")+'</select>';
+  };
+  var det = function(k){ return d[k] ? ' <span class="detectado" title="Leído del correo">'+ic("check","s")+'del correo</span>' : ''; };
+  var txtUsuario = h.mensajes.filter(function(m){ return m.rol==="usuario"; }).map(function(m){ return m.texto; }).join("\n\n— — —\n\n");
+
+  var mensajes = h.mensajes.map(function(m){
+    var botones = "";
+    if(h.codigo && m.rol==="area" && !m.atendido) botones = '<button class="b sec mini" type="button" data-reg-area="'+esc(m.id)+'">'+ic("check","s")+'Registrar como respuesta del área en '+esc(h.codigo)+'</button>';
+    if(h.codigo && m.rol==="usuario" && !m.atendido && it.categoria==="usuario") botones = '<button class="b sec mini" type="button" data-anotar="'+esc(m.id)+'">'+ic("check","s")+'Anotar en la trazabilidad</button>';
+    return '<div class="msg '+m.rol+'"><div class="msg-cab"><span class="avatar">'+esc((m.nombre||"?").charAt(0).toUpperCase())+'</span>'+
+      '<div><b>'+esc(m.nombre)+'</b><span>'+esc(m.correo)+' · '+(m.rol==="area"&&m.area?esc(m.area):ROLES[m.rol]||"")+'</span></div><em>'+esc(m.fecha)+'</em></div>'+
+      '<div class="msg-texto">'+esc(m.texto||"(sin texto)")+'</div>'+
+      (m.adjuntos.length ? '<div class="adjuntos">'+m.adjuntos.map(function(a){
+        return '<div class="adj"><span class="adj-ic">'+ic(iconoArchivo(a.tipo),"s")+'</span><div><b title="'+esc(a.nombre)+'">'+esc(a.nombre)+'</b><em>'+tamano(a.tam)+'</em></div>'+
+          '<button type="button" class="b fant mini" data-ver="'+esc(m.id)+':'+a.idx+'">Ver</button>'+
+          '<button type="button" class="b fant mini" data-drive="'+esc(m.id)+':'+a.idx+'" title="Guardar en Drive">Drive</button></div>';
+      }).join("")+'</div>' : '')+
+      (botones ? '<div class="acciones" style="margin-top:10px">'+botones+'</div>' : '')+'</div>';
+  }).join("");
+
+  var faltan = { "Tipo y número de documento de identidad":!d.numDocSolicitante, "Nombre completo del paciente":!d.nombreSolicitante,
+                 "Número de celular de contacto":!d.telefono, "EPS y régimen de afiliación":!d.eps, "Sede donde fue atendido(a)":!d.sede && !esCita };
+  var formRadicar = h.codigo
+    ? '<div class="aviso ok">'+ic("check","s")+'<div>Esta conversación ya está radicada como <b>'+esc(h.codigo)+'</b>. <a href="#" id="lnkRad">Abrir el radicado</a></div></div>'
+    : '<div class="grid">'+
+        (h.entidad ? '<div class="full"><div class="banda-sug" style="margin:0">'+ic("escudo","s")+'<div>Remitente institucional: <b>'+esc(h.entidad.nombre)+'</b> ('+esc(h.entidad.tipo)+'). '+
+            'La categoría define el término y la prioridad.</div></div></div>'+
+          '<div class="full"><label class="req">Categoría</label><select id="x_cat"><option value="">— Sin categoría (término según la entidad) —</option>'+
+            (h.categorias||[]).map(function(c){ return '<option value="'+esc(c.nombre)+'" data-tipo="'+esc(c.tipo||"")+'"'+(c.nombre===h.categoriaCorreo?" selected":"")+'>'+esc(c.nombre)+' · prioridad '+esc(c.prioridad)+'</option>'; }).join("")+'</select></div>' : '')+
+        '<div><label class="req">Tipo de PQRS</label>'+sel("x_tipo", L["TIPO DE PQRS"], h.tipoSugerido)+'</div>'+
+        '<div><label>Entidad presentada</label>'+sel("x_ent", L["ENTIDAD PRESENTADA"], h.entidad ? h.entidad.presentada : entidadSede())+'</div>'+
+        '<div><label>Sede'+det("sede")+'</label>'+sel("x_sede", L["SEDE"], d.sede)+'</div>'+
+        '<div><label>Servicio'+det("servicio")+'</label>'+sel("x_serv", L["SERVICIO"], d.servicio)+'</div>'+
+        '<div><label>Tipo de documento'+det("tipoDocSolicitante")+'</label>'+sel("x_tdoc", L["TIPO DOCUMENTO"], d.tipoDocSolicitante)+'</div>'+
+        '<div><label>N° de documento'+det("numDocSolicitante")+'</label><input id="x_ndoc" value="'+esc(d.numDocSolicitante||"")+'"></div>'+
+        '<div><label>'+(h.entidad ? 'Solicitante (entidad remitente)' : 'Nombre del solicitante'+det("nombreSolicitante"))+'</label><input id="x_nom" value="'+esc(h.entidad ? h.entidad.nombre : (d.nombreSolicitante||""))+'"></div>'+
+        '<div><label>Celular'+det("telefono")+'</label><input id="x_tel" value="'+esc(d.telefono||"")+'"></div>'+
+        '<div><label>Correo</label><input id="x_cor" value="'+esc(d.correo||it.correo||"")+'"></div>'+
+        '<div><label>EPS'+det("eps")+'</label>'+sel("x_eps", L["EPS / PRESTADOR"], h.entidad ? h.entidad.eps : d.eps)+'</div>'+
+        '<div><label>Régimen'+det("regimen")+'</label>'+sel("x_reg", L["RÉGIMEN"], d.regimen)+'</div>'+
+        '<div><label>Fecha de recepción</label><input type="date" id="x_fec" value="'+esc(it.fechaISO||hoyISO())+'"></div>'+
+        '<div class="full"><label class="req">Descripción (se radica este texto)</label><textarea id="x_desc" style="min-height:120px">'+esc((h.asunto?h.asunto+"\n\n":"")+txtUsuario)+'</textarea></div>'+
+        '<div class="full"><label>Observaciones internas</label><input id="x_obs"></div>'+
+        '<label class="chk full"><input type="checkbox" id="x_adj" checked> Guardar los adjuntos del usuario en Drive y enlazarlos al radicado</label>'+
+      '</div>'+
+      '<div class="acciones"><button class="b pri" type="button" id="btnHRadicar">'+ic("check","s")+'Radicar PQRS</button>'+
+        '<span class="hint">¿Faltan datos? Usa «Pedir datos» y radica cuando el usuario responda.</span></div>';
+
+  var areas = APP.responsables.filter(function(r){ return r.activo; }).slice().sort(function(a,b){
+    var ca = /cita|agend|call|admision/i.test(a.area) ? 0 : 1, cb = /cita|agend|call|admision/i.test(b.area) ? 0 : 1;
+    return esCita ? ca-cb : 0;
+  });
+  var preArea = esCita ? (areas.filter(function(r){ return r.correo && /cita|agend|call/i.test(r.area); })[0]||{}).id : "";
+  var opcAreas = areas.map(function(r){ var falta=!r.correo;
+    return '<option value="'+esc(r.id)+'"'+(falta?" disabled":"")+(String(r.id)===String(preArea)?" selected":"")+'>'+esc(r.area)+(r.nombre?" · "+esc(r.nombre):"")+(falta?"  (sin correo)":"")+'</option>'; }).join("");
+
+  var tabs = [["radicar","Radicar PQRS","radicar"],["datos","Pedir datos","usuario"],["dir","Direccionar","enviar"],["resp","Responder","responder"]];
+  var tabIni = APP.tabHilo || (h.codigo ? "resp" : (esCita ? "dir" : "radicar")); APP.tabHilo = null;
+  setTimeout(function(){ if($("x_cat")) $("x_cat").addEventListener("change", function(){ var o=this.options[this.selectedIndex]; if(o && o.dataset.tipo){ var t=$("x_tipo"); for(var i=0;i<t.options.length;i++) if(norm(t.options[i].value)===norm(o.dataset.tipo)) t.selectedIndex=i; } }); }, 0);
+
+  $("vistaHilo").innerHTML =
+    '<button class="b fant" type="button" id="btnVolverCorreo" style="margin-bottom:10px">'+ic("atras","s")+'Volver al correo</button>'+
+    '<div class="card anim"><div class="hilo-cab"><div class="bola '+it.categoria+'">'+ic(cat.i)+'</div><div style="min-width:0">'+
+      '<h3>'+esc(h.asunto||"(sin asunto)")+'</h3><div class="claves" style="margin-top:6px"><span class="clave est">'+esc(cat.t)+'</span>'+
+      (info.estado?'<span class="clave est">'+esc(info.estado)+'</span>':'')+(h.codigo?'<span class="clave cod">'+esc(h.codigo)+'</span>':'')+
+      '<span class="clave gris">'+h.mensajes.length+' mensaje(s)</span>'+(todosAdjuntos().length?'<span class="clave gris">'+todosAdjuntos().length+' adjunto(s)</span>':'')+'</div></div>'+
+      '<div class="hilo-acc"><button class="b sec mini" type="button" id="btnHAtendida">'+ic("check","s")+'Marcar atendida</button>'+
+      (h.codigo?'':'<button class="b fant mini" type="button" id="btnHDescartar">No es PQRS ni cita</button>')+'</div></div>'+
+      '<div id="hiloAviso"></div>'+
+      '<div class="hilo-cols"><div><p class="sub-tit">Conversación</p><div class="mensajes">'+mensajes+'</div></div>'+
+      '<div><div class="tabs-acc">'+tabs.map(function(t){ return '<button type="button" data-tab="'+t[0]+'" class="'+(t[0]===tabIni?"on":"")+'">'+ic(t[2],"s")+t[1]+'</button>'; }).join("")+'</div>'+
+        '<div class="panel" data-panel="radicar"'+(tabIni==="radicar"?"":" hidden")+'><h4>'+ic("radicar","s")+'Radicar como PQRS</h4>'+
+          '<p class="d">Los datos marcados «del correo» se leyeron de los mensajes del usuario: revísalos antes de radicar.</p>'+formRadicar+'</div>'+
+        '<div class="panel" data-panel="datos"'+(tabIni==="datos"?"":" hidden")+'><h4>'+ic("usuario","s")+'Pedir datos o documentos al usuario</h4>'+
+          '<p class="d">Se responde en esta misma conversación. Cuando el usuario conteste, aparece en «En conversación».</p>'+
+          '<div class="lista-chk">'+DATOS_PEDIR.map(function(x,i){ return '<label class="chk"><input type="checkbox" data-pedir="'+i+'"'+(faltan[x]?" checked":"")+'> '+esc(x)+'</label>'; }).join("")+'</div>'+
+          '<label style="margin-top:10px">Otro dato o documento</label><input id="x_otro" placeholder="Ej.: foto de la orden de laboratorio">'+
+          '<label style="margin-top:10px">Mensaje (opcional)</label><textarea id="x_msgDatos" placeholder="Si lo dejas vacío se usa el saludo estándar."></textarea>'+
+          selectorAdjuntos("datos", false)+
+          '<div class="acciones"><button class="b pri" type="button" id="btnHDatos">'+ic("enviar","s")+'Enviar solicitud al usuario</button></div></div>'+
+        '<div class="panel" data-panel="dir"'+(tabIni==="dir"?"":" hidden")+'><h4>'+ic("enviar","s")+(esCita?'Direccionar la solicitud de cita':'Direccionar a un área')+'</h4>'+
+          '<label>Área</label><select id="x_area"><option value="">— Seleccionar —</option>'+opcAreas+'</select>'+
+          (esCita && !areas.some(function(r){ return /cita|agend|call/i.test(r.area); }) ? '<div class="hint">No hay un área de citas en Responsables: agrégala (p. ej. «ASIGNACIÓN DE CITAS») con su correo.</div>' : '')+
+          '<div class="modos">'+
+            '<label class="modo"><input type="radio" name="x_modo" value="reenviar" checked><div><b>Reenviar al área</b><span>Interno: el usuario no lo ve. La respuesta del área vuelve a esta conversación.</span></div></label>'+
+            '<label class="modo"><input type="radio" name="x_modo" value="copia"><div><b>Responder con el área en copia</b><span>Usuario, área y SIAU conversan en el mismo hilo.</span></div></label>'+
+          '</div>'+
+          '<label class="chk"><input type="checkbox" id="x_avisar" checked> Avisar al usuario que su solicitud fue remitida (solo al reenviar)</label>'+
+          '<label style="margin-top:10px">Indicaciones para el área</label><textarea id="x_nota" placeholder="'+(esCita?"Ej.: agendar consulta de ortopedia en la sede indicada":"Qué se necesita del área")+'"></textarea>'+
+          selectorAdjuntos("dir", false)+
+          '<div class="hint">Al reenviar, los adjuntos del último mensaje del usuario viajan siempre con el correo.</div>'+
+          '<div class="acciones"><button class="b pri" type="button" id="btnHDir">'+ic("enviar","s")+'Direccionar</button></div></div>'+
+        '<div class="panel" data-panel="resp"'+(tabIni==="resp"?"":" hidden")+'><h4>'+ic("responder","s")+'Responder al usuario</h4>'+
+          '<textarea id="x_resp" style="min-height:120px" placeholder="Mensaje para el usuario…"></textarea>'+
+          (info.correoArea?'<label class="chk"><input type="checkbox" id="x_ccArea"> Copiar a '+esc(info.area)+'</label>':'')+
+          '<label class="chk"><input type="checkbox" id="x_cerrar"> Dar la conversación por atendida al enviar</label>'+
+          selectorAdjuntos("resp", false)+
+          '<div class="acciones"><button class="b pri" type="button" id="btnHResp">'+ic("enviar","s")+'Enviar al usuario</button></div>'+
+          (info.correoArea ? '<div class="sep"></div><h4>'+ic("area","s")+'Escribir a '+esc(info.area)+'</h4><p class="d">Seguimiento interno en la misma conversación (el usuario no lo ve).</p>'+
+            '<textarea id="x_msgArea" placeholder="Ej.: ¿ya tienen fecha para la cita?"></textarea>'+selectorAdjuntos("area", false)+
+            '<div class="acciones"><button class="b sec" type="button" id="btnHArea">'+ic("enviar","s")+'Enviar al área</button></div>' : '')+
+        '</div>'+
+      '</div></div></div>';
+
+  var v = $("vistaHilo");
+  activarSubidas(v);
+  $("btnVolverCorreo").addEventListener("click", volverALista);
+  v.querySelectorAll("[data-tab]").forEach(function(b){
+    b.addEventListener("click", function(){
+      v.querySelectorAll("[data-tab]").forEach(function(x){ x.classList.toggle("on", x===b); });
+      v.querySelectorAll("[data-panel]").forEach(function(p){ p.hidden = p.dataset.panel!==b.dataset.tab; });
+    });
+  });
+  v.querySelectorAll("[data-ver]").forEach(function(b){ b.addEventListener("click", function(){ var p=b.dataset.ver.split(":"); verAdjunto(p[0], parseInt(p[1],10)); }); });
+  v.querySelectorAll("[data-drive]").forEach(function(b){ b.addEventListener("click", function(){ var p=b.dataset.drive.split(":"); guardarDrive(p[0], parseInt(p[1],10), b); }); });
+  v.querySelectorAll("[data-reg-area]").forEach(function(b){ b.addEventListener("click", function(){ registrarRespuestaHilo(b.dataset.regArea, b); }); });
+  v.querySelectorAll("[data-anotar]").forEach(function(b){ b.addEventListener("click", function(){ anotarHilo(b.dataset.anotar, b); }); });
+  if($("lnkRad")) $("lnkRad").addEventListener("click", function(e){ e.preventDefault(); abrirDetalle(h.codigo); });
+  if($("btnHRadicar")) $("btnHRadicar").addEventListener("click", radicarDesdeHilo);
+  $("btnHDatos").addEventListener("click", pedirDatos);
+  $("btnHDir").addEventListener("click", direccionarHilo);
+  $("btnHResp").addEventListener("click", responderHilo);
+  if($("btnHArea")) $("btnHArea").addEventListener("click", escribirArea);
+  $("btnHAtendida").addEventListener("click", function(){ cerrarHilo(this); });
+  if($("btnHDescartar")) $("btnHDescartar").addEventListener("click", function(){ descartarHilo(this); });
+}
+
+/* ---------- acciones ---------- */
+function trasAccion(fin, okTexto, sacar){
+  return function(r){
+    fin();
+    if(!r || r.ok===false){ aviso("hiloAviso", esc(r && r.mensaje || "No se pudo completar."), "err"); window.scrollTo({top:0,behavior:"smooth"}); return; }
+    toast({ tipo:"area", titulo:okTexto, texto:r.mensaje||"", dur:6000 });
+    if(sacar){ quitarDeLista(APP.item.hiloId); volverALista(); }
+    else { APP.item.categoria = APP.item.categoria==="cita" ? "cita" : "curso"; recargarHilo(); }
+  };
+}
+function falloHilo(fin){ return function(e){ fin(); aviso("hiloAviso", msgErr(e), "err"); }; }
+
+function radicarDesdeHilo(){
+  var it = APP.item, h = APP.hilo;
+  var ultimoUsr = h.mensajes.filter(function(m){ return m.rol==="usuario"; }).pop();
+  var d = { tipoPqrs:val("x_tipo"), entidad:val("x_ent"), sede:val("x_sede"), servicio:val("x_serv"), tipoDocSolicitante:val("x_tdoc"),
+    numDocSolicitante:val("x_ndoc"), nombreSolicitante:val("x_nom"), telefono:val("x_tel"), correo:val("x_cor"), eps:val("x_eps"),
+    regimen:val("x_reg"), fechaRecepcion:val("x_fec"), descripcion:val("x_desc"), observaciones:val("x_obs"),
+    tipoSolicitante:"Usuario", guardarAdjuntos:$("x_adj").checked,
+    clasificacion: $("x_cat") ? val("x_cat") : "" };
+  if(h.entidad){ d.observaciones = ("Remitente institucional: "+h.entidad.nombre+" ("+h.entidad.tipo+") "+(d.observaciones||"")).trim(); }
+  if(!d.tipoPqrs){ aviso("hiloAviso","Indica el tipo de PQRS.","err"); return; }
+  var fin = ocupado("btnHRadicar","Radicando…");
+  srv("apiRadicarCorreo", ultimoUsr ? ultimoUsr.id : it.id, d).then(function(r){
+    fin();
+    if(!r.ok){ aviso("hiloAviso", esc(r.mensaje), "err"); return; }
+    APP.propios[r.codigo] = true;
+    toast({ tipo:"area", titulo:"Radicada como "+r.codigo, texto:"Acuse: "+r.acuse+(r.adjuntos?" · adjuntos: "+r.adjuntos:""), accion:"Abrir radicado", alPulsar:function(){ abrirDetalle(r.codigo); }, dur:9000 });
+    quitarDeLista(it.hiloId); volverALista();
+  }).catch(falloHilo(fin));
+}
+function pedirDatos(){
+  var items = [];
+  document.querySelectorAll("input[data-pedir]:checked").forEach(function(c){ items.push(DATOS_PEDIR[parseInt(c.dataset.pedir,10)]); });
+  if(val("x_otro")) items.push(val("x_otro"));
+  if(!items.length && !val("x_msgDatos")){ aviso("hiloAviso","Marca al menos un dato o documento.","err"); return; }
+  var o = leerSeleccion("datos"); o.items = items; o.mensaje = val("x_msgDatos"); o.categoria = APP.item.categoria==="cita"?"cita":"pqrs";
+  var fin = ocupado("btnHDatos","Enviando…");
+  srv("apiSolicitarDatos", APP.item.hiloId, o).then(trasAccion(fin,"Datos solicitados al usuario")).catch(falloHilo(fin));
+}
+function direccionarHilo(){
+  var id = val("x_area"); if(!id){ aviso("hiloAviso","Elige el área.","err"); return; }
+  var modo = (document.querySelector('input[name="x_modo"]:checked')||{}).value || "reenviar";
+  var o = leerSeleccion("dir"); o.idResponsable = id; o.modo = modo; o.nota = val("x_nota"); o.avisarUsuario = $("x_avisar").checked;
+  o.categoria = APP.item.categoria==="cita" || (APP.hilo.info||{}).categoria==="cita" ? "cita" : "pqrs";
+  var fin = ocupado("btnHDir","Enviando…");
+  srv("apiDireccionarHilo", APP.item.hiloId, o).then(trasAccion(fin,"Conversación direccionada")).catch(falloHilo(fin));
+}
+function responderHilo(){
+  if(!val("x_resp")){ aviso("hiloAviso","Escribe el mensaje.","err"); return; }
+  var o = leerSeleccion("resp"); o.mensaje = val("x_resp"); o.copiaArea = $("x_ccArea") ? $("x_ccArea").checked : false; o.cerrar = $("x_cerrar").checked;
+  var fin = ocupado("btnHResp","Enviando…");
+  srv("apiResponderHilo", APP.item.hiloId, o).then(trasAccion(fin,"Mensaje enviado al usuario", o.cerrar)).catch(falloHilo(fin));
+}
+function escribirArea(){
+  if(!val("x_msgArea")){ aviso("hiloAviso","Escribe el mensaje para el área.","err"); return; }
+  var o = leerSeleccion("area"); o.mensaje = val("x_msgArea");
+  var fin = ocupado("btnHArea","Enviando…");
+  srv("apiEscribirArea", APP.item.hiloId, o).then(trasAccion(fin,"Mensaje enviado al área")).catch(falloHilo(fin));
+}
+function cerrarHilo(b){
+  var fin = ocupado(b,"Guardando…");
+  srv("apiCerrarHilo", APP.item.hiloId, "").then(trasAccion(fin,"Conversación atendida", true)).catch(falloHilo(fin));
+}
+function descartarHilo(b){
+  var fin = ocupado(b,"Marcando…");
+  srv("apiDescartarCorreo", APP.item.id, "").then(trasAccion(fin,"Marcado como «no es PQRS»", true)).catch(falloHilo(fin));
+}
+function registrarRespuestaHilo(msgId, b){
+  var fin = ocupado(b,"Registrando…");
+  srv("apiRegistrarRespuestaDesdeCorreo", msgId, APP.hilo.codigo, "").then(function(r){
+    fin();
+    if(!r.ok){ aviso("hiloAviso", esc(r.mensaje), "err"); return; }
+    toast({ tipo:"area", titulo:"Respuesta del área registrada", texto:r.codigo+" ya aparece en «Por responder».", accion:"Abrir radicado", alPulsar:function(){ abrirDetalle(r.codigo); } });
+    recargarHilo();
+  }).catch(falloHilo(fin));
+}
+function anotarHilo(msgId, b){
+  var fin = ocupado(b,"Anotando…");
+  srv("apiMarcarCorreoAtendido", msgId, APP.hilo.codigo||"", "").then(function(r){
+    fin(); if(!r.ok){ aviso("hiloAviso", esc(r.mensaje), "err"); return; }
+    toast({ tipo:"area", titulo:"Anotado en la trazabilidad", texto:APP.hilo.codigo }); recargarHilo();
+  }).catch(falloHilo(fin));
+}
+
+/* ---------- visor de documentos ---------- */
+var URL_VISTA = null;
+function verAdjunto(msgId, idx){
+  $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal visor"><div class="modal-cab"><div><h3>Abriendo documento…</h3></div>'+
+    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div class="sk" style="height:420px"></div></div></div></div>';
+  $("modal").hidden = false;
+  $("btnCerrarModal").addEventListener("click", cerrarModal);
+  srv("apiAdjunto", msgId, idx).then(function(a){
+    if(!a.ok){ $("modal").querySelector(".modal-cuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+esc(a.mensaje)+'</div></div>'+
+      '<div class="acciones"><button class="b pri" type="button" id="btnVDrive">Guardar en Drive</button></div>';
+      $("btnVDrive").addEventListener("click", function(){ guardarDrive(msgId, idx, this); }); return; }
+    var bytes = atob(a.base64), arr = new Uint8Array(bytes.length);
+    for(var i=0;i<bytes.length;i++) arr[i] = bytes.charCodeAt(i);
+    if(URL_VISTA) URL.revokeObjectURL(URL_VISTA);
+    URL_VISTA = URL.createObjectURL(new Blob([arr], { type:a.tipo }));
+    var cuerpo;
+    if(a.tipo.indexOf("image/")===0) cuerpo = '<img class="vista-img" src="'+URL_VISTA+'" alt="'+esc(a.nombre)+'">';
+    else if(a.tipo.indexOf("pdf")!==-1) cuerpo = '<iframe class="vista-pdf" src="'+URL_VISTA+'" title="'+esc(a.nombre)+'"></iframe>';
+    else if(/^text\//.test(a.tipo)) cuerpo = '<pre class="vista-txt">'+esc(new TextDecoder().decode(arr))+'</pre>';
+    else cuerpo = vacio("archivo","Este tipo de archivo no se puede mostrar aquí. Descárgalo o guárdalo en Drive.");
+    $("modal").querySelector(".modal").innerHTML = '<div class="modal-cab"><div><h3>'+esc(a.nombre)+'</h3><p>'+esc(a.tipo)+' · '+tamano(a.tam)+'</p></div>'+
+      '<div class="hilo-acc"><a class="b sec mini" href="'+URL_VISTA+'" download="'+esc(a.nombre)+'">'+ic("baja","s")+'Descargar</a>'+
+      '<button class="b sec mini" type="button" id="btnVDrive">Guardar en Drive</button>'+
+      '<button class="cerrar" type="button" id="btnCerrarModal2">'+ic("x")+'</button></div></div><div class="modal-cuerpo">'+cuerpo+'</div>';
+    $("btnCerrarModal2").addEventListener("click", cerrarModal);
+    $("btnVDrive").addEventListener("click", function(){ guardarDrive(msgId, idx, this); });
+  }).catch(function(e){ $("modal").querySelector(".modal-cuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+  $("velo").addEventListener("click", function(e){ if(e.target.id==="velo") cerrarModal(); });
+}
+function guardarDrive(msgId, idx, b){
+  var fin = ocupado(b,"Guardando…");
+  srv("apiGuardarAdjuntoDrive", msgId, idx, APP.hilo ? APP.hilo.codigo||"" : "").then(function(r){
+    fin();
+    if(!r.ok){ toast({ tipo:"err", titulo:"No se pudo guardar", texto:r.mensaje }); return; }
+    toast({ tipo:"area", titulo:"Guardado en Drive", texto:r.nombre, accion:"Abrir en Drive", alPulsar:function(){ window.open(r.url, "_blank"); } });
+  }).catch(function(e){ fin(); toast({ tipo:"err", titulo:"No se pudo guardar", texto:msgErr(e) }); });
+}
+</script>

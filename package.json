@@ -1,0 +1,22 @@
+{
+  "name": "pqrs-mired-siau",
+  "version": "7.3.0",
+  "private": true,
+  "description": "Sistema de Gestión de PQRS · MiRed Barranquilla IPS (Google Sheets + Apps Script, aplicación web)",
+  "scripts": {
+    "ensamblar": "node tools/ensamblar.mjs",
+    "lint": "node tools/lint.mjs",
+    "test": "node tools/pruebas.mjs",
+    "preview": "node tools/ensamblar.mjs && node tools/construir_preview.mjs",
+    "e2e": "npm run preview && node tests/e2e_plataforma.js",
+    "correos": "node tests/pruebas_backend.js && node tests/render_correos.js",
+    "verificar": "npm run ensamblar && npm run lint && npm test && npm run e2e",
+    "push": "npm run ensamblar && npm run lint && npm test && clasp push"
+  },
+  "devDependencies": {
+    "@google/clasp": "^3.4.1",
+    "chart.js": "4.4.1",
+    "eslint": "^10.11.0",
+    "playwright": "^1.63.0"
+  }
+}

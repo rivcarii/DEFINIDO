@@ -1,0 +1,375 @@
+<script>
+/* ============================ ACCESO ============================ */
+function guardarToken(t, recordar){
+  TOKEN = t;
+  try { sessionStorage.setItem("pqrs_token", t); if(recordar) localStorage.setItem("pqrs_token", t); else localStorage.removeItem("pqrs_token"); } catch(e) {}
+}
+function borrarToken(){ TOKEN = null; try { sessionStorage.removeItem("pqrs_token"); localStorage.removeItem("pqrs_token"); } catch(e) {} }
+function campoClave(id, etiqueta, auto){
+  return '<label for="'+id+'">'+etiqueta+'</label><div class="campo-clave"><input type="password" id="'+id+'" autocomplete="'+(auto||"current-password")+'">'+
+    '<button type="button" data-ver-clave="'+id+'" aria-label="Mostrar">'+ic("ojo","s")+'</button></div>';
+}
+function activarVerClave(raiz){
+  raiz.querySelectorAll("[data-ver-clave]").forEach(function(b){
+    b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
+  });
+}
+function mostrarAcceso(estado, mensaje){
+  $("app").hidden = true; $("acceso").hidden = false;
+  if(estado && estado.logo) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
+  aviso("accAviso", mensaje ? esc(mensaje) : "", "err");
+  if(estado && estado.hayUsuarios === false){
+    $("accTitulo").textContent = "Crear el administrador";
+    $("accSub").textContent = "Aún no hay usuarios. La primera cuenta será la del administrador de la plataforma, que luego crea los usuarios de cada técnico.";
+    $("accCampos").innerHTML = '<label for="a_nombre">Nombre completo</label><input id="a_nombre" autocomplete="name">'+
+      '<label for="a_usuario">Usuario</label><input id="a_usuario" autocomplete="username" placeholder="p. ej. siau.lider">'+
+      '<label for="a_correo">Correo (para avisos)</label><input id="a_correo" type="email" autocomplete="email">'+
+      campoClave("a_clave","Contraseña","new-password")+'<div class="hint">Mínimo 8 caracteres, con letras y números.</div>'+campoClave("a_clave2","Repite la contraseña","new-password");
+    $("btnAcceso").textContent = "Crear administrador e ingresar";
+    $("btnAcceso").onclick = function(){
+      if(val("a_clave") !== val("a_clave2")){ aviso("accAviso","Las contraseñas no coinciden.","err"); return; }
+      var fin = ocupado("btnAcceso","Creando…");
+      pub("crearPrimerAdministrador", { nombre:val("a_nombre"), usuario:val("a_usuario"), correo:val("a_correo"), clave:$("a_clave").value })
+        .then(function(r){ fin(); if(!r.ok){ aviso("accAviso", esc(r.mensaje), "err"); return; } guardarToken(r.token, true); cargarApp(); })
+        .catch(function(e){ fin(); aviso("accAviso", msgErr(e), "err"); });
+    };
+  } else {
+    $("accTitulo").textContent = "Ingresar";
+    $("accSub").textContent = "Usa el usuario y la contraseña que te asignó el administrador.";
+    $("accCampos").innerHTML = '<label for="a_usuario">Usuario</label><input id="a_usuario" autocomplete="username">'+campoClave("a_clave","Contraseña")+
+      '<label class="chk"><input type="checkbox" id="a_recordar" checked> Mantener la sesión en este equipo</label>';
+    $("btnAcceso").textContent = "Ingresar";
+    $("btnAcceso").onclick = function(){
+      if(!val("a_usuario") || !$("a_clave").value){ aviso("accAviso","Escribe tu usuario y tu contraseña.","err"); return; }
+      var fin = ocupado("btnAcceso","Ingresando…");
+      pub("iniciarSesion", val("a_usuario"), $("a_clave").value).then(function(r){
+        fin();
+        if(!r.ok){ aviso("accAviso", esc(r.mensaje), "err"); return; }
+        guardarToken(r.token, $("a_recordar").checked); cargarApp();
+      }).catch(function(e){ fin(); aviso("accAviso", msgErr(e), "err"); });
+    };
+  }
+  activarVerClave($("accCampos"));
+  $("accCampos").querySelectorAll("input").forEach(function(i){ i.addEventListener("keydown", function(e){ if(e.key==="Enter") $("btnAcceso").click(); }); });
+  setTimeout(function(){ var p = $("accCampos").querySelector("input"); if(p) p.focus(); }, 50);
+}
+function sesionTerminada(msg){
+  borrarToken();
+  pub("estadoAcceso").then(function(e){ mostrarAcceso(e, msg || "Tu sesión terminó. Vuelve a ingresar."); });
+}
+function iniciales(n){ return String(n||"?").trim().split(/\s+/).slice(0,2).map(function(x){ return x.charAt(0).toUpperCase(); }).join("") || "?"; }
+function aplicarSesion(){
+  var s = APP.sesion, p = s.puede || {};
+  document.querySelectorAll("[data-perm]").forEach(function(el){ el.hidden = !p[el.dataset.perm]; });
+  ["avatar","avatar2","latAvatar"].forEach(function(id){ $(id).textContent = iniciales(s.nombre); });
+  $("latRol").textContent = s.rol + (s.todas ? " · todas las sedes" : " · " + s.sedes.length + " sede(s)");
+  $("perfilNombre").textContent = s.nombre; $("perfilRol").textContent = s.rol + " · " + s.usuario;
+  var sedesTxt = s.todas ? "Todas las sedes" : s.sedes.join(", ");
+  $("sedesChip").textContent = s.todas ? "Todas las sedes" : (s.sedes.length === 1 ? s.sedes[0] : s.sedes.length + " sedes asignadas");
+  $("sedesChip").title = sedesTxt;
+  if(s.debeCambiar) setTimeout(function(){ cambiarClave(true); }, 600);
+}
+function cambiarClave(obligatorio){
+  $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(440px,100%)"><div class="modal-cab"><div><h3>'+(obligatorio?"Crea tu contraseña":"Cambiar mi contraseña")+'</h3>'+
+    '<p>'+(obligatorio?"Estás usando una contraseña temporal asignada por el administrador.":"Mínimo 8 caracteres, con letras y números.")+'</p></div>'+
+    (obligatorio?'':'<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button>')+'</div>'+
+    '<div class="modal-cuerpo"><div id="claveAviso"></div>'+campoClave("c_actual", obligatorio?"Contraseña temporal":"Contraseña actual")+
+    campoClave("c_nueva","Nueva contraseña","new-password")+campoClave("c_nueva2","Repite la nueva contraseña","new-password")+
+    '<div class="acciones"><button class="b pri" type="button" id="btnGuardarClave">Guardar contraseña</button></div></div></div></div>';
+  $("modal").hidden = false; activarVerClave($("modal"));
+  if($("btnCerrarModal")) $("btnCerrarModal").addEventListener("click", cerrarModal);
+  $("btnGuardarClave").addEventListener("click", function(){
+    if($("c_nueva").value !== $("c_nueva2").value){ aviso("claveAviso","Las contraseñas no coinciden.","err"); return; }
+    var fin = ocupado("btnGuardarClave","Guardando…");
+    srv("apiCambiarMiClave", $("c_actual").value, $("c_nueva").value).then(function(r){
+      fin(); if(!r.ok){ aviso("claveAviso", esc(r.mensaje), "err"); return; }
+      APP.sesion.debeCambiar = false; cerrarModal(); toast({ tipo:"area", titulo:"Contraseña actualizada", texto:"Úsala en tu próximo ingreso." });
+    }).catch(function(e){ fin(); aviso("claveAviso", msgErr(e), "err"); });
+  });
+}
+
+/* ============================ BARRA SUPERIOR ============================ */
+function cerrarLateral(){ $("lateral").classList.remove("abierto"); $("veloLat").classList.remove("on"); }
+$("btnMenu").addEventListener("click", function(){ $("lateral").classList.add("abierto"); $("veloLat").classList.add("on"); });
+$("tabMas").addEventListener("click", function(){ $("lateral").classList.add("abierto"); $("veloLat").classList.add("on"); });
+$("veloLat").addEventListener("click", cerrarLateral);
+$("btnPerfil").addEventListener("click", function(e){ e.stopPropagation(); $("centro").hidden = true; $("menuPerfil").hidden = !$("menuPerfil").hidden; });
+document.addEventListener("click", function(e){ if(!$("menuPerfil").hidden && !$("menuPerfil").contains(e.target)) $("menuPerfil").hidden = true; });
+$("btnMiClave").addEventListener("click", function(){ $("menuPerfil").hidden = true; cambiarClave(false); });
+var ARRANQUE_HTML = $("arranque").innerHTML;
+/* v7.1: cerrar sesión sin recargar (recargar el marco de Apps Script dejaba la página en blanco). */
+function limpiarApp(){
+  if(CICLO){ clearInterval(CICLO); CICLO = null; }
+  APP = JSON.parse(APP_INICIAL);
+  $("menuPerfil").hidden = true; $("centro").hidden = true; cerrarModal(); cerrarLateral();
+  $("toasts").innerHTML = ""; $("centroLista").innerHTML = ""; $("campanaN").hidden = true;
+  ["detalleCuerpo","listaBandeja","inicioCuerpo","listaCorreos","vistaHilo","usrLista","tableroCuerpo","respLista","radResumen","segCorreo","tablaEntidades","tablaCategorias","meses","anios"].forEach(function(id){ if($(id)) $(id).innerHTML = ""; });
+  ["avatar","avatar2","latAvatar"].forEach(function(id){ $(id).textContent = "?"; });
+  $("quien").textContent = ""; $("latRol").textContent = ""; $("perfilNombre").textContent = ""; $("perfilRol").textContent = "";
+  $("arranque").innerHTML = ARRANQUE_HTML; $("arranque").hidden = false;
+  document.querySelectorAll("main > section[id^='v-']").forEach(function(s){ s.hidden = true; });
+}
+function salir(){
+  var t = TOKEN; borrarToken(); limpiarApp();
+  mostrarAcceso({ hayUsuarios:true }, "");   // ya había usuarios: se muestra el ingreso de inmediato
+  aviso("accAviso", "Cerraste sesión. Para volver a entrar escribe tu usuario y tu contraseña.", "ok");
+  pub("cerrarSesion", t).catch(function(){});
+}
+$("btnSalir").addEventListener("click", salir);
+$("buscarRad").addEventListener("keydown", function(e){
+  if(e.key !== "Enter") return;
+  var q = this.value.trim(); if(!q) return;
+  if(/^[A-Z]{2,6}-\d{4}-\d{2}-\d{3,}$/i.test(q)) { abrirDetalle(q.toUpperCase()); return; }
+  $("fTexto").value = q; irAEtapa("todas");
+});
+
+/* ============================ SONIDO Y AVISOS DEL ESCRITORIO ============================ */
+var SONIDO = true;
+try { SONIDO = localStorage.getItem("pqrs_sonido") !== "0"; } catch(e) {}
+function pintarSonido(){ $("btnSonido").classList.toggle("apagado", !SONIDO); $("btnSonido").innerHTML = ic(SONIDO ? "sonido" : "silencio"); $("btnSonido").title = SONIDO ? "Sonido activado" : "Sonido desactivado"; }
+$("btnSonido").addEventListener("click", function(){
+  SONIDO = !SONIDO; try { localStorage.setItem("pqrs_sonido", SONIDO ? "1" : "0"); } catch(e) {}
+  pintarSonido(); if(SONIDO) sonar("Normal");
+});
+function contextoAudio(){
+  var AC = window.AudioContext || window.webkitAudioContext; if(!AC) return null;
+  if(!APP.ac) APP.ac = new AC();
+  if(APP.ac.state === "suspended") APP.ac.resume();
+  return APP.ac;
+}
+document.addEventListener("click", function(){ if(SONIDO) contextoAudio(); }, { once:true });
+/* Tono distinto según la prioridad: crítica = cuatro pulsos, alta = dos, normal = campanita. */
+function sonar(prioridad){
+  if(!SONIDO) return;
+  try {
+    var ac = contextoAudio(); if(!ac) return;
+    var notas = prioridad === "Crítica" ? [988,740,988,740] : (prioridad === "Alta" ? [880,1175] : [784,1047]);
+    notas.forEach(function(f,i){
+      var o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime + i*0.2;
+      o.type = prioridad === "Crítica" ? "square" : "sine"; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(prioridad === "Crítica" ? 0.08 : 0.18, t+0.02); g.gain.exponentialRampToValueAtTime(0.0001, t+0.18);
+      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+0.19);
+    });
+  } catch(e) {}
+}
+/* Aviso del sistema operativo: puede verse en la pantalla bloqueada, así que no lleva datos del caso (solo el radicado). */
+function escritorio(titulo){
+  try { if(window.Notification && Notification.permission === "granted") new Notification(titulo, { body: "Abre la plataforma de PQRS para ver el detalle.", tag: titulo }); } catch(e) {}
+}
+$("btnEscritorio").addEventListener("click", function(){
+  $("menuPerfil").hidden = true;
+  if(!window.Notification){ toast({ tipo:"err", titulo:"Avisos del escritorio no disponibles", texto:"Tu navegador no los admite. Usa Google Chat (Configuración ▸ Automatización)." }); return; }
+  try {
+    Notification.requestPermission().then(function(p){
+      if(p === "granted"){ escritorio("Avisos activados", "Verás aquí las PQRS nuevas y las alertas."); toast({ tipo:"area", titulo:"Avisos del escritorio activados", texto:"Llegarán aunque estés en otra pestaña." }); }
+      else toast({ tipo:"err", titulo:"El navegador no dio permiso", texto:"Google Apps Script puede bloquearlos. Para avisos fuera de la plataforma usa Google Chat o el correo." });
+    }).catch(function(){ toast({ tipo:"err", titulo:"No se pudieron activar", texto:"Usa los avisos de Google Chat o del correo." }); });
+  } catch(e) { toast({ tipo:"err", titulo:"No se pudieron activar", texto:"Usa los avisos de Google Chat o del correo." }); }
+});
+
+/* ============================ USUARIOS ============================ */
+function cargarUsuarios(){
+  $("usrLista").innerHTML = esqueleto(3);
+  srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); })
+    .catch(function(e){ aviso("usrAviso", msgErr(e), "err"); });
+}
+/* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña). */
+function pintarEnlace(e){
+  e = e || {};
+  if(!e.url){ $("usrEnlace").innerHTML = ""; return; }
+  var ok = !e.prueba;
+  $("usrEnlace").innerHTML = '<div class="enlace-card'+(ok?'':' mal')+'"><div class="enlace-ic">'+ic(ok?"enviar":"alerta")+'</div><div class="enlace-txt">'+
+    '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : 'Estás usando el enlace de prueba (/dev)')+'</b>'+
+    '<span>'+(ok ? 'Compártelo con cada técnico junto con su usuario. No necesitan cuenta de Google ni permisos sobre la hoja: todo se ejecuta con la cuenta '+esc(e.cuenta||"de la implementación")+'.'
+      : 'Ese enlace solo lo abren los editores del proyecto; por eso a los técnicos les pide acceso. Usa el enlace que termina en <b>/exec</b>: Implementar ▸ Administrar implementaciones ▸ copiar «URL de la aplicación web».')+'</span>'+
+    '<code>'+esc(e.url)+'</code></div>'+
+    (ok ? '<div class="enlace-acc"><button class="b pri mini" type="button" id="btnCopiarEnlace">'+ic("check","s")+'Copiar enlace</button>'+
+      '<a class="b sec mini" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent("Plataforma de PQRS · MiRed IPS\n"+e.url+"\nIngresa con el usuario y la contraseña temporal que te entregó el administrador.")+'">WhatsApp</a></div>' : '')+'</div>';
+  if($("btnCopiarEnlace")) $("btnCopiarEnlace").addEventListener("click", function(){ copiarTexto(e.url, "Enlace copiado"); });
+}
+function copiarTexto(t, msg){
+  var hecho = function(){ toast({ tipo:"area", titulo: msg || "Copiado", texto: "" , dur:3000 }); };
+  try { navigator.clipboard.writeText(t).then(hecho).catch(function(){ copiaManual(t); hecho(); }); } catch(e){ copiaManual(t); hecho(); }
+}
+function copiaManual(t){ var a=document.createElement("textarea"); a.value=t; document.body.appendChild(a); a.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(a); }
+function invitacion(u){
+  var url = (APP.usr && APP.usr.enlace && APP.usr.enlace.url) || "";
+  return "Hola " + String(u.nombre||u.usuario).split(" ")[0] + ", ya tienes acceso a la Plataforma de PQRS de MiRed IPS.\n\n" +
+    "Enlace: " + url + "\nUsuario: " + u.usuario + "\nContraseña: la temporal que te entregué (la cambiarás al ingresar).\n\n" +
+    "No necesitas cuenta de Google. Verás las PQRS de: " + (u.rol === "Administrador" || u.sedes.some(function(x){ return /^todas$/i.test(x); }) ? "todas las sedes" : u.sedes.join(", ")) + ".";
+}
+function pintarUsuarios(){
+  var r = APP.usr, q = norm($("usrBuscar").value);
+  pintarEnlace(r.enlace);
+  var lista = r.usuarios.filter(function(u){ return !q || norm([u.nombre,u.usuario,u.correo,u.sedes.join(" ")].join(" ")).indexOf(q) !== -1; });
+  $("usrCont").textContent = r.usuarios.filter(function(u){ return u.activo; }).length + " activos de " + r.usuarios.length;
+  $("usrLista").innerHTML = lista.length ? lista.map(function(u){
+    var todas = u.sedes.some(function(x){ return /^todas$/i.test(x); }) || u.rol === "Administrador";
+    return '<div class="usr'+(u.activo?"":" inactivo")+'"><div class="usr-cab"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span>'+
+      '<div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span></div><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
+      '<div class="sedes-lista">'+(todas ? '<span>Todas las sedes</span>' : u.sedes.map(function(x){ return '<span>'+esc(x)+'</span>'; }).join(""))+'</div>'+
+      '<div class="sedes-lista">'+(u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.debeCambiar?'<span>Contraseña temporal</span>':'')+'</div>'+
+      '<div class="usr-pie"><em>'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</em>'+
+        '<label class="interruptor" title="Activo"><input type="checkbox" data-activo="'+esc(u.usuario)+'"'+(u.activo?" checked":"")+'><i></i></label>'+
+        '<button class="b sec mini" type="button" data-editar="'+esc(u.usuario)+'">Editar</button>'+
+        '<button class="b fant mini" type="button" data-clave="'+esc(u.usuario)+'">'+ic("candado","s")+'Clave</button>'+
+        (r.enlace && r.enlace.url && !r.enlace.prueba ? '<button class="b fant mini" type="button" data-invitar="'+esc(u.usuario)+'">'+ic("enviar","s")+'Invitar</button>' : '')+'</div></div>';
+  }).join("") : vacio("personas","No hay usuarios con ese filtro.");
+  $("usrLista").querySelectorAll("[data-editar]").forEach(function(b){ b.addEventListener("click", function(){ formUsuario(b.dataset.editar); }); });
+  $("usrLista").querySelectorAll("[data-invitar]").forEach(function(b){ b.addEventListener("click", function(){
+    var u = APP.usr.usuarios.filter(function(x){ return x.usuario === b.dataset.invitar; })[0];
+    copiarTexto(invitacion(u), "Invitación copiada: pégala en WhatsApp o en un correo"); }); });
+  $("usrLista").querySelectorAll("[data-clave]").forEach(function(b){ b.addEventListener("click", function(){ restablecer(b.dataset.clave); }); });
+  $("usrLista").querySelectorAll("[data-activo]").forEach(function(c){
+    c.addEventListener("change", function(){
+      var u = APP.usr.usuarios.filter(function(x){ return x.usuario === c.dataset.activo; })[0];
+      guardarUsuario({ usuario:u.usuario, editar:true, nombre:u.nombre, correo:u.correo, rol:u.rol, sedes:u.sedes, gestionaCorreo:u.gestionaCorreo, avisos:u.avisos, activo:c.checked },
+        c.checked ? "Usuario activado." : "Usuario inactivado: ya no puede ingresar.");
+    });
+  });
+}
+$("usrBuscar").addEventListener("input", function(){ if(APP.usr) pintarUsuarios(); });
+$("btnNuevoUsr").addEventListener("click", function(){ formUsuario(null); });
+function guardarUsuario(d, mensajeOk){
+  return srv("apiGuardarUsuario", d).then(function(r){
+    if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); if(APP.usr) pintarUsuarios(); return false; }
+    APP.usr = r; pintarUsuarios(); aviso("usrAviso", mensajeOk || "Usuario guardado.", "ok"); return true;
+  }).catch(function(e){ aviso("usrAviso", msgErr(e), "err"); return false; });
+}
+function formUsuario(usuario){
+  var u = usuario ? APP.usr.usuarios.filter(function(x){ return x.usuario === usuario; })[0] : { usuario:"", nombre:"", correo:"", rol:"Técnico", sedes:[], gestionaCorreo:false, avisos:true, activo:true };
+  var todas = u.sedes.some(function(x){ return /^todas$/i.test(x); });
+  $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(640px,100%)"><div class="modal-cab"><div><h3>'+(usuario?"Editar usuario":"Crear usuario")+'</h3>'+
+    '<p>'+(usuario?"Los cambios aplican desde su próxima acción.":"El usuario deberá cambiar la contraseña temporal al ingresar.")+'</p></div>'+
+    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="uAviso"></div><div class="grid">'+
+    '<div><label>Nombre completo</label><input id="u_nombre" value="'+esc(u.nombre||"")+'"></div>'+
+    '<div><label>Usuario</label><input id="u_usuario" value="'+esc(u.usuario)+'"'+(usuario?" disabled":"")+' placeholder="p. ej. mgomez"></div>'+
+    '<div><label>Correo (avisos)</label><input id="u_correo" type="email" value="'+esc(u.correo||"")+'"></div>'+
+    '<div><label>Rol</label><select id="u_rol">'+APP.usr.roles.map(function(x){ return '<option'+(x===u.rol?" selected":"")+'>'+x+'</option>'; }).join("")+'</select>'+
+      '<div class="hint">Administrador: direcciona a las áreas, responde al usuario, gestiona el correo y los accesos. Técnico (SIAU de sede): radica y consulta las PQRS de sus sedes. Consulta: solo ve.</div></div>'+
+    (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal","new-password")+'</div>')+
+    '<div class="full"><label>Sedes asignadas</label><label class="chk" style="margin:0 0 8px"><input type="checkbox" id="u_todas"'+(todas?" checked":"")+'> Todas las sedes</label>'+
+      '<div class="chk-sedes" id="u_sedes">'+APP.usr.sedes.map(function(x){ return '<label><input type="checkbox" value="'+esc(x)+'"'+(u.sedes.indexOf(x)!==-1?" checked":"")+'>'+esc(x)+'</label>'; }).join("")+'</div></div>'+
+    '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">'+
+      '<input type="checkbox" id="u_correoOk" hidden'+(u.gestionaCorreo?" checked":"")+'>'+
+      '<label class="interruptor"><input type="checkbox" id="u_avisos"'+(u.avisos?" checked":"")+'><i></i>Recibe avisos por correo</label>'+
+      '<label class="interruptor"><input type="checkbox" id="u_activo"'+(u.activo?" checked":"")+'><i></i>Activo</label></div>'+
+    '</div><div class="acciones"><button class="b pri" type="button" id="btnGuardarUsr">'+ic("check","s")+'Guardar</button></div></div></div></div>';
+  $("modal").hidden = false; activarVerClave($("modal"));
+  var sync = function(){ $("u_sedes").style.opacity = $("u_todas").checked ? .45 : 1; $("u_sedes").querySelectorAll("input").forEach(function(i){ i.disabled = $("u_todas").checked; }); };
+  $("u_todas").addEventListener("change", sync); sync();
+  $("btnCerrarModal").addEventListener("click", cerrarModal);
+  $("btnGuardarUsr").addEventListener("click", function(){
+    var sedes = $("u_todas").checked ? ["TODAS"] : Array.prototype.map.call($("u_sedes").querySelectorAll("input:checked"), function(i){ return i.value; });
+    var d = { usuario: usuario || val("u_usuario"), editar: !!usuario, nombre: val("u_nombre"), correo: val("u_correo"), rol: val("u_rol"), sedes: sedes,
+              gestionaCorreo: $("u_correoOk").checked, avisos: $("u_avisos").checked, activo: $("u_activo").checked, clave: $("u_clave") ? $("u_clave").value : "" };
+    var fin = ocupado("btnGuardarUsr","Guardando…");
+    srv("apiGuardarUsuario", d).then(function(r){
+      fin(); if(!r.ok){ aviso("uAviso", esc(r.mensaje), "err"); return; }
+      APP.usr = r; cerrarModal(); pintarUsuarios(); aviso("usrAviso", usuario ? "Usuario actualizado." : "Usuario creado. Entrégale su usuario y la contraseña temporal.", "ok");
+    }).catch(function(e){ fin(); aviso("uAviso", msgErr(e), "err"); });
+  });
+}
+function restablecer(usuario){
+  $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(420px,100%)"><div class="modal-cab"><div><h3>Contraseña temporal</h3><p>Para '+esc(usuario)+'. Deberá cambiarla al ingresar.</p></div>'+
+    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="rAviso"></div>'+campoClave("r_clave","Nueva contraseña temporal","new-password")+
+    '<div class="acciones"><button class="b pri" type="button" id="btnRest">Asignar</button></div></div></div></div>';
+  $("modal").hidden = false; activarVerClave($("modal"));
+  $("btnCerrarModal").addEventListener("click", cerrarModal);
+  $("btnRest").addEventListener("click", function(){
+    var fin = ocupado("btnRest","Guardando…");
+    srv("apiRestablecerClave", usuario, $("r_clave").value).then(function(r){
+      fin(); if(!r.ok){ aviso("rAviso", esc(r.mensaje), "err"); return; }
+      cerrarModal(); aviso("usrAviso", esc(r.mensaje), "ok"); cargarUsuarios();
+    }).catch(function(e){ fin(); aviso("rAviso", msgErr(e), "err"); });
+  });
+}
+
+/* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
+var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede"];
+function cargarAjustes(){
+  $("tablaEntidades").innerHTML = esqueleto(3);
+  srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
+}
+function pintarAjustes(r){
+  if(!r.ok){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
+  APP.aj = r;
+  AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
+  $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
+  var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
+  $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
+    (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");
+  $("ajCuenta").innerHTML = cta.correo ? (siau || (cta.alias||[]).some(function(a){ return /^siau@/i.test(a) && norm(a)===norm(r.ajustes.alias); })
+      ? '<span class="chip v">Los correos salen de la cuenta institucional</span>'
+      : '<span class="chip a">Los correos salen de <b>'+esc(cta.correo)+'</b>. Para que salgan de siau@miredips.org, implementa la plataforma con esa cuenta o agrégala como alias.</span>') : '';
+  var t = r.disparadores || [];
+  $("ajDisparadores").innerHTML = t.indexOf("procesarCorreoEntrante") !== -1 ? '<span class="chip v">Revisión automática activa</span>'
+    : '<span class="chip a">Falta instalar los disparadores (hoja ▸ PQRS ▸ Instalar disparadores)</span>';
+  var opt = function(ops, v){
+    var hay = ops.some(function(o){ return igualLista(o, v, ops); });
+    return (v && !hay ? '<option selected>'+esc(v)+'</option>' : '')+ops.map(function(o){ return '<option'+(igualLista(o, v, ops)?" selected":"")+'>'+esc(o)+'</option>'; }).join(""); };
+  $("tablaEntidades").innerHTML = '<div class="cfg-fila cab"><span>Tipo</span><span>Entidad</span><span>Dominios o correos</span><span>Término según</span><span>Prioridad</span><span></span></div>'+
+    r.entidades.concat(APP.nuevaEnt ? [{ fila:"", tipo:"EPS", entidad:"", patrones:[], presentada:"EPS", prioridad:"Alta", avisar:[], activa:true }] : []).map(function(e, i){
+      return '<div class="cfg-fila" data-ent="'+i+'"><select data-k="tipo">'+opt(["EPS","EPS (BPO)","Ente de control"], e.tipo)+'</select>'+
+        '<input data-k="entidad" value="'+esc(e.entidad)+'" placeholder="Nombre">'+
+        '<input data-k="patrones" value="'+esc(e.patrones.join("; "))+'" placeholder="@dominio.com; correo@exacto.org">'+
+        '<select data-k="presentada">'+opt(r.presentadas, e.presentada)+'</select>'+
+        '<select data-k="prioridad">'+opt(r.prioridades, e.prioridad)+'</select>'+
+        '<button class="b sec mini" type="button" data-guardar-ent="'+i+'" data-fila="'+esc(e.fila)+'">Guardar</button></div>';
+    }).join("");
+  $("tablaCategorias").innerHTML = '<div class="cfg-fila cfg-cat cab"><span>Categoría</span><span>Palabras clave</span><span>Prioridad</span><span>Días</span><span>Tipo de día</span><span>Meta (h)</span><span>Tipo PQRS</span><span></span></div>'+
+    r.categorias.concat(APP.nuevaCat ? [{ fila:"", nombre:"", claves:[], prioridad:"Media", dias:"", tipoDia:"Calendario", meta:"", tipo:"" }] : []).map(function(c, i){
+      return '<div class="cfg-fila cfg-cat" data-cat="'+i+'"><input data-k="nombre" value="'+esc(c.nombre)+'">'+
+        '<input data-k="claves" value="'+esc((c.claves||[]).join("; "))+'">'+
+        '<select data-k="prioridad">'+opt(r.prioridades, c.prioridad)+'</select>'+
+        '<input data-k="dias" type="number" min="0" value="'+esc(c.dias)+'">'+
+        '<select data-k="tipoDia">'+opt(["Calendario","Hábiles"], c.tipoDia)+'</select>'+
+        '<input data-k="meta" type="number" min="0" value="'+esc(c.meta||"")+'">'+
+        '<select data-k="tipo"><option value="">Según el texto</option>'+opt(r.tipos, c.tipo)+'</select>'+
+        '<button class="b sec mini" type="button" data-guardar-cat="'+i+'" data-fila="'+esc(c.fila)+'">Guardar</button></div>';
+    }).join("");
+  APP.nuevaEnt = APP.nuevaCat = false;
+  var leer = function(fila){ var d = {}; fila.querySelectorAll("[data-k]").forEach(function(el){ d[el.dataset.k] = el.value.trim(); }); return d; };
+  document.querySelectorAll("[data-guardar-ent]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var d = leer(b.parentNode); d.fila = b.dataset.fila ? parseInt(b.dataset.fila,10) : null;
+      var fin = ocupado(b,"…");
+      srv("apiGuardarEntidad", d).then(function(x){ fin(); if(x.ok===false){ aviso("autoAviso", esc(x.mensaje), "err"); return; } pintarAjustes(x); aviso("autoAviso","Entidad guardada.","ok"); }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+    });
+  });
+  document.querySelectorAll("[data-guardar-cat]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var d = leer(b.parentNode); d.fila = b.dataset.fila ? parseInt(b.dataset.fila,10) : null;
+      var fin = ocupado(b,"…");
+      srv("apiGuardarCategoria", d).then(function(x){ fin(); if(x.ok===false){ aviso("autoAviso", esc(x.mensaje), "err"); return; } pintarAjustes(x); aviso("autoAviso","Categoría guardada. Los términos se recalculan en el consolidado.","ok"); }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+    });
+  });
+}
+$("btnNuevaEntidad").addEventListener("click", function(){ APP.nuevaEnt = true; pintarAjustes(APP.aj); });
+$("btnNuevaCategoria").addEventListener("click", function(){ APP.nuevaCat = true; pintarAjustes(APP.aj); });
+$("btnGuardarAjustes").addEventListener("click", function(){
+  var a = {}; AJ_BOOL.forEach(function(k){ a[k] = $("aj_"+k).checked; });
+  a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
+  var fin = ocupado("btnGuardarAjustes","Guardando…");
+  srv("apiGuardarAjustes", a).then(function(r){ fin(); if(r.ok===false){ aviso("autoAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("autoAviso","Automatización guardada.","ok"); })
+    .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnProbarAviso").addEventListener("click", function(){
+  var fin = ocupado("btnProbarAviso","Enviando…");
+  srv("apiProbarAvisoExterno").then(function(r){ fin(); aviso("autoAviso", esc(r.mensaje), "ok"); sonar("Alta"); }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnProcesarAhora").addEventListener("click", function(){
+  var fin = ocupado("btnProcesarAhora","Procesando…");
+  srv("apiProcesarCorreoAhora").then(function(r){ fin(); aviso("autoAviso", esc(r.mensaje || "Listo"), r.ok===false ? "err" : "ok"); APP.correosCargados = false; })
+    .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+
+/* ============================ INICIO DE LA APLICACIÓN ============================ */
+pintarSonido();
+if(TOKEN) cargarApp();
+else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || ""); }).catch(function(e){
+  $("acceso").hidden = false; aviso("accAviso", "No pude conectar con la plataforma: " + msgErr(e), "err");
+});
+</script>
+</body>
+</html>

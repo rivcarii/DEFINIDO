@@ -1,0 +1,654 @@
+<script>
+/* Textos largos (descripción y respuestas): se muestran recortados con «Ver completo». */
+function plegarBloques(raiz){
+  (raiz||document).querySelectorAll(".bloque.plegable").forEach(function(b){
+    if(b.dataset.plegado) return; b.dataset.plegado = "1";
+    if(b.scrollHeight <= 230) return;
+    b.classList.add("cerrado");
+    var btn = document.createElement("button"); btn.type = "button"; btn.className = "ver-mas"; btn.textContent = "Ver completo";
+    btn.addEventListener("click", function(){ var c = b.classList.toggle("cerrado"); btn.textContent = c ? "Ver completo" : "Ver menos"; });
+    b.parentNode.insertBefore(btn, b.nextSibling);
+  });
+}
+/* ============================ DETALLE ============================ */
+function abrirDetalle(codigo){
+  cerrarModal();
+  ver("detalle");
+  $("detalleCuerpo").innerHTML = '<div class="card"><div class="sk" style="height:34px;width:260px;margin-bottom:14px"></div>'+esqueleto(5)+'</div>';
+  srv("apiDetalle", codigo).then(pintarDetalle).catch(function(e){
+    $("detalleCuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>';
+  });
+}
+$("btnVolver").addEventListener("click", function(){ ver("bandeja"); cargarBandeja(); });
+
+function opcionesAreas(sel){
+  return APP.responsables.filter(function(r){ return r.activo; }).map(function(r){
+    var falta = !r.correo;
+    return '<option value="'+esc(r.id)+'"'+(String(sel)===String(r.id)?" selected":"")+(falta?" disabled":"")+'>'+
+      esc(r.area)+(r.nombre?" · "+esc(r.nombre):"")+(falta?"  (sin correo)":"")+'</option>';
+  }).join("");
+}
+
+function pintarDetalle(d){
+  if(!d.ok){ $("detalleCuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+esc(d.mensaje)+'</div></div>'; return; }
+  APP.detalle = d;
+  var cerrada = norm(d.estado).indexOf("cerrada")!==-1;
+  var conArea = !!d.correoResponsable;
+  var terminoOk = typeof d.termino === "number" || d.termino === "N/A";
+
+  var ficha = function(pares){
+    return '<div class="ficha">'+pares.filter(function(p){ return p[1]!==""&&p[1]!==null&&p[1]!==undefined; }).map(function(p){
+      return '<div><span>'+esc(p[0])+'</span><span'+(p[2]?' class="alerta"':'')+'>'+esc(p[1])+'</span></div>'; }).join("")+'</div>';
+  };
+
+  var acciones = "";
+  var puede = (APP.sesion && APP.sesion.puede) || {gestion:true, correo:true, radicar:true};
+  if(!puede.gestion){
+    var paso = function(ok, t, d){ return '<div class="paso'+(ok?" ok":"")+'"><i>'+(ok?ic("check","s"):"")+'</i><div><b>'+t+'</b><span>'+esc(d||"Pendiente")+'</span></div></div>'; };
+    acciones += '<div class="panel"><h4>'+ic("pulso","s")+'Seguimiento de la gestión</h4>'+
+      '<p class="d">'+(puede.radicar ? 'Tú radicas y consultas. El direccionamiento a las áreas y la respuesta al usuario las hace el administrador del SIAU.'
+        : 'Tu rol permite ver el caso y su trazabilidad.')+'</p>'+
+      '<div class="pasos">'+paso(true, "Radicada", d.fechaRadicacion)+
+        paso(!!d.responsable, "Direccionada al área", d.responsable ? d.responsable : "El administrador la enviará al área responsable")+
+        paso(!!d.respuestaArea, "Gestión del área", d.fechaRespuestaArea ? "Respondió el "+d.fechaRespuestaArea : "")+
+        paso(cerrada, "Respuesta al usuario", cerrada ? "Enviada el "+(d.fechaRespuestaUsuario||"") : (d.fechaMax ? "Vence el "+d.fechaMax : ""))+'</div></div>';
+  } else if(!cerrada){
+    acciones += '<div class="panel"><h4>'+ic("enviar","s")+(conArea?"Redireccionar a otra área":"Direccionar al área responsable")+'</h4>'+
+      '<p class="d">'+(conArea
+        ? "Si se envió al área equivocada, elige la correcta: se le notifica y el área anterior queda informada."
+        : "El área recibe la solicitud interna y el usuario, en un correo aparte, el aviso de que su caso está en trámite.")+'</p>'+
+      '<div class="grid"><div class="full"><label for="selArea">Área responsable</label>'+
+        '<select id="selArea"><option value="">— Seleccionar —</option>'+opcionesAreas(null)+'</select></div>'+
+      '<div class="full"><label for="notaArea">'+(conArea?"Motivo del redireccionamiento":"Indicaciones para el área (opcional)")+'</label>'+
+        '<input id="notaArea" placeholder="'+(conArea?"Ej.: corresponde a facturación, no a urgencias":"Indicación para quien gestiona")+'"></div></div>'+
+      '<div class="acciones"><button class="b pri" id="btnEnviarArea" type="button">'+ic("enviar","s")+
+        (conArea?"Redireccionar":"Enviar al área y avisar al usuario")+'</button>'+
+        (conArea?'<button class="b sec" id="btnReenviarArea" type="button">Reenviar al área actual</button>':"")+
+      '</div></div>';
+
+    acciones += '<div class="panel"><h4>'+ic("area","s")+'Respuesta del área</h4>'+
+      '<p class="d">Si el área respondió por correo, también puedes registrarla desde el módulo Correo con un clic.</p>'+
+      '<div class="grid"><div class="full"><textarea id="txtRtaArea" placeholder="Gestión realizada por el área…">'+esc(d.respuestaArea||"")+'</textarea></div>'+
+      '<div><label for="fRtaArea">Fecha de la respuesta</label><input type="date" id="fRtaArea"></div></div>'+
+      '<div class="acciones"><button class="b sec" id="btnGuardarRtaArea" type="button">'+ic("check","s")+'Guardar respuesta del área</button></div></div>';
+
+    acciones += '<div class="panel"><h4>'+ic("responder","s")+'Responder al usuario y cerrar</h4>'+
+      '<p class="d">Parte de una plantilla o escribe la respuesta. Al enviarla, la PQRS queda cerrada.</p>'+
+      '<label for="selPlantilla">Plantilla de respuesta</label>'+
+      '<select id="selPlantilla"><option value="">— Escribir desde cero —</option>'+
+        APP.plantillas.map(function(pl,i){
+          return '<option value="'+i+'">'+esc(pl.codigo ? pl.codigo+" · "+pl.tipologia : pl.tipologia)+'</option>';
+        }).join("")+'</select>'+
+      '<div class="hint" style="margin-bottom:10px">Al elegirla se inserta el texto y puedes ajustarlo antes de enviar.</div>'+
+      '<textarea id="txtRtaUsuario" placeholder="Respuesta final para el usuario…">'+esc(d.respuestaUsuario||"")+'</textarea>'+
+      '<div class="acciones"><button class="b pri" id="btnResponder" type="button">'+ic("enviar","s")+'Enviar respuesta y cerrar</button>'+
+      '<button class="b sec mini" id="btnUsarGestion" type="button">Traer la gestión del área</button>'+
+      '<button class="b fant mini" id="btnNuevaPlantilla" type="button">Guardar como plantilla</button>'+
+      (d.correo?'':'<span class="chip a">El usuario no dejó correo: se guardará para entrega física</span>')+'</div></div>';
+  } else {
+    acciones += '<div class="panel"><h4>'+ic("check","s")+'PQRS cerrada</h4><p class="d">Respondida el '+esc(d.fechaRespuestaUsuario||"—")+
+      '. '+(d.oportunidad?("Cumplimiento: <b>"+esc(d.oportunidad)+"</b>."):"")+'</p>'+
+      '<div class="acciones"><button class="b sec" id="btnReenviarUsuario" type="button">Reenviar la respuesta al usuario</button></div></div>';
+  }
+
+  var notif = d.notificaciones || {};
+  $("detalleCuerpo").innerHTML =
+    '<div class="card anim"><div class="det-head"><div style="flex:1;min-width:230px">'+
+      '<div class="cod">'+esc(d.codigo)+'</div>'+
+      '<div class="chips">'+chip(d.semaforo)+'<span class="chip c sin">'+esc(d.estado)+'</span>'+tipoTag(d.tipoPqrs)+
+        '<span class="chip c sin">'+esc(d.canal||"")+'</span>'+
+        (d.redirecciones?'<span class="chip a">Redireccionada '+esc(d.redirecciones)+' vez/veces</span>':'')+
+        (d.prioridad && d.prioridad!=="Normal"?'<span class="prio '+esc(d.prioridad)+'">Prioridad '+esc(d.prioridad)+'</span>':'')+
+        (d.clasificacionInterna?'<span class="ent">'+esc(d.clasificacionInterna)+'</span>':'')+'</div>'+
+    '</div>'+
+    '<div class="hilo-acc">'+(d.hiloId && puede.correo ? '<button class="b sec mini" type="button" id="btnVerHilo">'+ic("correo","s")+'Ver conversación del correo</button>' : '')+'</div>'+
+    '</div>'+
+    (d.etiquetas && d.etiquetas.sugerido && puede.radicar ? '<div class="banda-sug">'+ic("alerta","s")+'<div style="flex:1">Por lo que dice el texto, esta PQRS parece una <b>'+esc(d.etiquetas.sugerido)+'</b> y está registrada como <b>'+esc(d.tipoPqrs||"sin tipo")+'</b>.</div>'+
+      '<button class="b pri mini" type="button" id="btnReclasificar" data-tipo="'+esc(d.etiquetas.sugerido)+'">Cambiar a '+esc(d.etiquetas.sugerido)+'</button>'+
+      '<button class="b fant mini" type="button" id="btnMantener">Mantener</button></div>' : '')+
+    (d.etiquetas && d.etiquetas.reclasificada ? '<div class="banda-sug" style="background:var(--star-wash);border-color:#D9CCF0">'+ic("check","s")+'<div>Reclasificada automáticamente por su contenido: <b>'+esc(d.etiquetas.reclasificada)+'</b>. Puedes cambiarla editando el tipo si no corresponde.</div></div>' : '')+
+    (d.etiquetas && d.etiquetas.datosFaltantes ? '<div class="banda-sug" style="background:var(--bad-wash);border-color:#F1C4CD">'+ic("usuario","s")+'<div style="flex:1">Radicada sin: <b>'+esc(d.etiquetas.datosFaltantes)+'</b>.</div>'+
+      (d.hiloId && puede.correo ? '<button class="b pri mini" type="button" id="btnPedirDatos">Pedir los datos al usuario</button>' : '')+'</div>' : '')+
+    '<div id="detAviso"></div>'+
+    '<div class="det-cols"><div>'+
+      ficha([
+        ["Solicitante", d.nombreSolicitante], ["Documento", ((d.tipoDocSolicitante||"")+" "+(d.numDocSolicitante||"")).trim()],
+        ["Teléfono", d.telefono], ["Correo", d.correo], ["Dirección", d.direccion],
+        ["Paciente / afiliado", d.nombreAfiliado], ["EPS", d.eps], ["Régimen", d.regimen],
+        ["Sede", d.sede], ["Servicio", d.servicio], ["Servicio específico", d.servicioEspecifico],
+        ["Fecha de los hechos", d.fechaPqrs], ["Fecha de recepción", d.fechaRecepcion + (d.recepcionHora && d.canal && /correo/i.test(d.canal) ? " (" + d.recepcionHora.split(" ")[1] + ")" : "")], ["Fecha de radicación", d.fechaRadicacion],
+        ["Entidad presentada", d.entidad],
+        ["Término", d.terminoTexto || (terminoOk ? d.termino : "Revisar la entidad presentada"), !terminoOk],
+        ["Vence", d.fechaMax], ["Días transcurridos", dias(d.dias)!=="" ? dias(d.dias)+(dias(d.dias)===1?" día":" días") : ""],
+        ["Área responsable", d.responsable], ["Correo del área", d.correoResponsable],
+        ["Radicada por", d.registradoPor],
+        ["Notificaciones", [notif.recepcion?"recepción "+notif.recepcion:"", notif.area?"área "+notif.area:"",
+                            notif.gestion?"trámite "+notif.gestion:"", notif.cierre?"cierre "+notif.cierre:""].filter(String).join(" · ")],
+      ])+
+      '<div style="margin-top:14px"><label>Descripción</label><div class="bloque plegable">'+esc(d.descripcion||"—")+'</div></div>'+
+      (d.respuestaArea?'<div style="margin-top:12px"><label>Respuesta del área ('+esc(d.fechaRespuestaArea||"")+')</label><div class="bloque area plegable">'+esc(d.respuestaArea)+'</div></div>':'')+
+      (d.respuestaUsuario?'<div style="margin-top:12px"><label>Respuesta enviada al usuario ('+esc(d.fechaRespuestaUsuario||"")+')</label><div class="bloque rta plegable">'+esc(d.respuestaUsuario)+'</div></div>':'')+
+    '</div><div class="det-lado">'+ acciones +
+      '<div class="panel"><h4>'+ic("pulso","s")+'Trazabilidad</h4><div class="traza">'+
+        (d.traza && d.traza.length ? d.traza.map(function(t){
+          return '<div><b>'+esc(t.accion)+'</b><em>'+esc(t.fecha)+' · '+esc(t.usuario)+'</em><p>'+esc(t.detalle||"")+'</p></div>';
+        }).join("") : '<div><em>Sin movimientos registrados.</em></div>')+
+      '</div></div>'+
+    '</div></div></div>';
+
+  plegarBloques($("detalleCuerpo"));
+  var cols = document.querySelector("#detalleCuerpo .det-cols");
+  if(cols && cols.children[1] && window.innerWidth > 900){
+    var izq = cols.children[0].offsetHeight, der = cols.children[1].offsetHeight;
+    if(izq > der + 120 && der < window.innerHeight - 110) cols.children[1].classList.add("fijo");
+  }
+  if($("fRtaArea")) $("fRtaArea").value = hoyISO();
+  var abrirHiloDe = function(tab){ ver("correo"); abrirHilo({ hiloId:d.hiloId, id:"", categoria:"curso", fechaISO:"", correo:d.correo||"" }); APP.tabHilo = tab; };
+  if($("btnVerHilo")) $("btnVerHilo").addEventListener("click", function(){ abrirHiloDe("resp"); });
+  if($("btnPedirDatos")) $("btnPedirDatos").addEventListener("click", function(){ abrirHiloDe("datos"); });
+  if($("btnReclasificar")) $("btnReclasificar").addEventListener("click", function(){
+    var fin = ocupado(this, "Cambiando…");
+    srv("apiReclasificar", d.codigo, this.dataset.tipo).then(trasGestion(fin, "Tipo de PQRS actualizado.")).catch(fallo(fin));
+  });
+  if($("btnMantener")) $("btnMantener").addEventListener("click", function(){
+    var fin = ocupado(this, "…");
+    srv("apiReclasificar", d.codigo, d.tipoPqrs).then(trasGestion(fin, "Se mantiene el tipo registrado.")).catch(fallo(fin));
+  });
+  if($("btnEnviarArea")) $("btnEnviarArea").addEventListener("click", enviarAlArea);
+  if($("btnGuardarRtaArea")) $("btnGuardarRtaArea").addEventListener("click", guardarRtaArea);
+  if($("btnResponder")) $("btnResponder").addEventListener("click", responderUsuario);
+  if($("selPlantilla")) $("selPlantilla").addEventListener("change", function(){
+    var i = $("selPlantilla").value; if(i === "") return;
+    var pl = APP.plantillas[parseInt(i,10)]; if(!pl) return;
+    var t = pl.texto.replace(/\{radicado\}/g, d.codigo || "").replace(/\{nombre\}/g, d.nombreSolicitante || "")
+      .replace(/\{tipo\}/g, d.tipoPqrs || "").replace(/\{sede\}/g, d.sede || "").replace(/\{servicio\}/g, d.servicio || "");
+    var actual = $("txtRtaUsuario").value.trim();
+    $("txtRtaUsuario").value = actual ? actual + "\n\n" + t : t;
+    $("txtRtaUsuario").focus();
+  });
+  if($("btnUsarGestion")) $("btnUsarGestion").addEventListener("click", function(){
+    var g = (APP.detalle.respuestaArea || "").trim();
+    if(!g){ aviso("detAviso","El área todavía no ha registrado su gestión.","err"); return; }
+    var actual = $("txtRtaUsuario").value.trim();
+    $("txtRtaUsuario").value = actual ? actual + "\n\n" + g : g;
+  });
+  if($("btnNuevaPlantilla")) $("btnNuevaPlantilla").addEventListener("click", function(){
+    var texto = $("txtRtaUsuario").value.trim();
+    if(!texto){ aviso("detAviso","Escribe primero la respuesta que quieres guardar.","err"); return; }
+    var nombre = (APP.detalle.tipologia || APP.detalle.tipoPqrs || "Respuesta") + " · " + (APP.detalle.servicio || "general");
+    srv("apiGuardarPlantilla", nombre, texto).then(function(r){
+      if(r.ok){ APP.plantillas = r.plantillas; aviso("detAviso","Guardada como plantilla: "+esc(nombre),"ok"); }
+      else aviso("detAviso", esc(r.mensaje), "err");
+    });
+  });
+  if($("btnReenviarArea")) $("btnReenviarArea").addEventListener("click", function(){ reenviar("area", this); });
+  if($("btnReenviarUsuario")) $("btnReenviarUsuario").addEventListener("click", function(){ reenviar("usuario", this); });
+}
+
+function trasGestion(fin, mensajeOk){
+  return function(r){
+    fin();
+    if(r && r.ok===false){ aviso("detAviso", esc(r.mensaje), "err"); return; }
+    pintarDetalle(r);
+    var extra = "";
+    if(r.aviso) extra = " " + Object.keys(r.aviso).map(function(k){ return k+": "+r.aviso[k]; }).join(" · ");
+    aviso("detAviso", mensajeOk+esc(extra), "ok");
+    toast({ tipo:"area", titulo:mensajeOk, texto:r.codigo, dur:5000 });
+  };
+}
+function fallo(fin){ return function(e){ fin(); aviso("detAviso", msgErr(e), "err"); }; }
+function enviarAlArea(){
+  var id=$("selArea").value, nota=$("notaArea").value;
+  if(!id){ aviso("detAviso","Selecciona el área responsable.","err"); return; }
+  var fin=ocupado("btnEnviarArea","Enviando…");
+  var esRedir = !!APP.detalle.correoResponsable;
+  srv(esRedir ? "apiRedireccionar" : "apiEnviarAlArea", APP.detalle.codigo, id, nota)
+    .then(trasGestion(fin, esRedir ? "PQRS redireccionada." : "PQRS enviada al área y usuario notificado."))
+    .catch(fallo(fin));
+}
+function guardarRtaArea(){
+  var t=$("txtRtaArea").value;
+  if(!t){ aviso("detAviso","Pega la respuesta que envió el área.","err"); return; }
+  var fin=ocupado("btnGuardarRtaArea","Guardando…");
+  srv("apiRegistrarRespuestaArea", APP.detalle.codigo, t, $("fRtaArea").value)
+    .then(trasGestion(fin,"Respuesta del área registrada.")).catch(fallo(fin));
+}
+function responderUsuario(){
+  var t=$("txtRtaUsuario").value;
+  if(!t){ aviso("detAviso","Escribe la respuesta para el usuario.","err"); return; }
+  var fin=ocupado("btnResponder","Enviando…");
+  srv("apiResponderUsuario", APP.detalle.codigo, t, true)
+    .then(trasGestion(fin,"Respuesta enviada y PQRS cerrada.")).catch(fallo(fin));
+}
+function reenviar(tipo, boton){
+  var fin = ocupado(boton, "Reenviando…");
+  srv("apiReenviar", APP.detalle.codigo, tipo).then(function(r){
+    fin(); aviso("detAviso", esc(r.mensaje), r.ok?"ok":"err");
+  }).catch(fallo(fin));
+}
+
+/* ============================ RADICAR ============================ */
+$("btnRadicar").addEventListener("click", function(){
+  aviso("radAviso","");
+  var d = {};
+  ["canal","fechaPqrs","fechaRecepcion","fechaRadicacion","tipoSolicitante","tipoDocSolicitante",
+   "numDocSolicitante","nombreSolicitante","telefono","correo","direccion","tipoDocAfiliado",
+   "numDocAfiliado","nombreAfiliado","edad","sexo","poblacion","eps","regimen","sede","servicio",
+   "servicioEspecifico","modalidad","tipoPqrs","entidad","tipologia","descripcion","observaciones"]
+   .forEach(function(k){ d[k]=val("r_"+k); });
+  var faltan=[];
+  if(!d.fechaRecepcion) faltan.push("Fecha de recepción");
+  if(!d.fechaRadicacion) faltan.push("Fecha de radicación");
+  if(!d.tipoPqrs) faltan.push("Tipo de PQRS");
+  if(!d.descripcion) faltan.push("Descripción");
+  if(faltan.length){ aviso("radAviso","Completa: <b>"+faltan.join(", ")+"</b>","err"); window.scrollTo({top:0,behavior:"smooth"}); return; }
+  var fin=ocupado("btnRadicar","Radicando…");
+  srv("apiRadicar", d).then(function(r){
+    fin();
+    if(!r.ok){ aviso("radAviso", esc(r.mensaje), "err"); return; }
+    APP.ultimoCodigo = r.codigo; APP.propios[r.codigo] = true;
+    $("radExito").querySelector(".cod").textContent = r.codigo;
+    if(r.sugerido) toast({ tipo:"correo", titulo:"Revisa el tipo de PQRS", texto:"El texto parece una "+r.sugerido+". Puedes cambiarlo al abrir el caso.", dur:9000 });
+    $("radResumen").innerHTML =
+      '<div><span>Fecha límite de respuesta</span><span>'+esc(r.fechaMax)+'</span></div>'+
+      '<div><span>Acuse al usuario</span><span>'+esc(r.acuse)+'</span></div>'+
+      '<div><span>Siguiente paso</span><span>Direccionarla al área</span></div>';
+    $("radForm").hidden = true; $("radExito").hidden = false;
+    $("radExito").classList.remove("anim"); void $("radExito").offsetWidth; $("radExito").classList.add("anim");
+    toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+" · acuse: "+r.acuse, dur:6000 });
+    window.scrollTo({top:0,behavior:"smooth"});
+  }).catch(function(e){ fin(); aviso("radAviso", msgErr(e), "err"); });
+});
+function limpiarRadicar(){
+  ["numDocSolicitante","nombreSolicitante","telefono","correo","direccion","numDocAfiliado",
+   "nombreAfiliado","edad","servicioEspecifico","descripcion","observaciones","fechaPqrs",
+   "tipoSolicitante","tipoDocSolicitante","tipoDocAfiliado","sexo","poblacion","eps","regimen",
+   "sede","servicio","modalidad","tipoPqrs","tipologia"].forEach(function(k){ $("r_"+k).value=""; });
+  valoresPorDefecto();
+  aviso("radAviso","");
+}
+$("btnLimpiar").addEventListener("click", limpiarRadicar);
+$("btnOtra").addEventListener("click", function(){ limpiarRadicar(); $("radExito").hidden=true; $("radForm").hidden=false; });
+$("btnIrDetalle").addEventListener("click", function(){
+  limpiarRadicar(); $("radExito").hidden=true; $("radForm").hidden=false; abrirDetalle(APP.ultimoCodigo);
+});
+
+/* ============================ TABLERO ============================ */
+var GRAF = {};
+var PAL = { teal:"#006081", teal2:"#0F7FA6", teal3:"#6FB6CE", teal4:"#A8D3E2", ok:"#1C6B44", gris:"#C7D6DC",
+            tinta:"#465C68", tinta3:"#7F939E", linea:"#E7EEF1", superficie:"#FFFFFF", star:"#5B3E97" };
+var FUENTE = "Barlow";
+if(window.Chart){
+  FUENTE = getComputedStyle(document.body).fontFamily || "Barlow";
+  Chart.defaults.font.family = FUENTE; Chart.defaults.color = PAL.tinta3;
+}
+/* Etiquetas directas al final de cada barra (segunda codificación además del color). */
+var etiquetasBarras = {
+  id:"etiquetasBarras",
+  afterDatasetsDraw:function(ch){
+    if(ch.config.type!=="bar" || (ch.options.plugins && ch.options.plugins.sinEtiquetas)) return;
+    var ctx = ch.ctx, horizontal = ch.options.indexAxis==="y";
+    ctx.save(); ctx.font = "600 11px "+FUENTE; ctx.fillStyle = PAL.tinta;
+    ch.data.datasets.forEach(function(ds, di){
+      var meta = ch.getDatasetMeta(di); if(meta.hidden) return;
+      meta.data.forEach(function(el, i){
+        var v = ds.data[i]; if(!v) return;
+        if(horizontal){ ctx.textAlign="left"; ctx.textBaseline="middle"; ctx.fillText(v, el.x+6, el.y); }
+        else { ctx.textAlign="center"; ctx.textBaseline="bottom"; ctx.fillText(v, el.x, el.y-4); }
+      });
+    });
+    ctx.restore();
+  }
+};
+if(window.Chart) Chart.register(etiquetasBarras);
+
+function cargarTablero(){
+  $("tableroCuerpo").innerHTML = '<div class="sk-tarjetas"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>'+
+    '<div class="bi-grid"><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div></div>';
+  var anio = $("dAnio").value;
+  if(anio===undefined || ($("dAnio").options.length===0)) anio = String(new Date().getFullYear());
+  srv("apiDashboard", { anio:anio, mes:$("dMes").value, sede:$("dSede").value, servicio:$("dServicio").value })
+    .then(pintarTablero).catch(function(e){
+      $("tableroCuerpo").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>';
+    });
+}
+["dAnio","dMes","dSede","dServicio"].forEach(function(id){ $(id).addEventListener("change", cargarTablero); });
+$("btnRefrescarTablero").addEventListener("click", cargarTablero);
+
+function llenarSlicer(id, valores, todos){
+  var sel = $(id), actual = sel.value;
+  sel.innerHTML = '<option value="">'+todos+'</option>';
+  (valores||[]).forEach(function(v){ sel.appendChild(new Option(v, v)); });
+  if(actual) sel.value = actual;
+}
+function llenarAnios(anios, elegido){
+  var sel = $("dAnio");
+  sel.innerHTML = "";
+  (anios||[]).forEach(function(a){ sel.appendChild(new Option(String(a), String(a))); });
+  sel.appendChild(new Option("Histórico completo", ""));
+  sel.value = elegido===null||elegido===undefined ? "" : String(elegido);
+}
+function topN(obj, n){
+  return Object.keys(obj||{}).map(function(k){ return [k, obj[k]]; }).sort(function(a,b){ return b[1]-a[1]; }).slice(0, n||7);
+}
+function baseOpciones(extra){
+  var o = {
+    responsive:true, maintainAspectRatio:false, animation:{duration:650, easing:"easeOutQuart"},
+    layout:{ padding:{ top:16, right:22 } },
+    plugins:{ legend:{display:false},
+      tooltip:{ backgroundColor:"#10222C", padding:10, cornerRadius:9, displayColors:true, boxPadding:4,
+        titleFont:{family:FUENTE,size:12,weight:"700"}, bodyFont:{family:FUENTE,size:12} } },
+    scales:{
+      x:{grid:{display:false},border:{display:false},ticks:{color:PAL.tinta3,font:{family:FUENTE,size:11}}},
+      y:{grid:{color:PAL.linea,drawTicks:false},border:{display:false},beginAtZero:true,ticks:{color:PAL.tinta3,font:{family:FUENTE,size:11},precision:0,padding:6}},
+    },
+  };
+  if(extra) Object.keys(extra).forEach(function(k){ o[k] = extra[k]; });
+  return o;
+}
+function horizontal(){
+  return baseOpciones({ indexAxis:"y", scales:{
+    x:{grid:{color:PAL.linea,drawTicks:false},border:{display:false},beginAtZero:true,ticks:{color:PAL.tinta3,font:{family:FUENTE,size:11},precision:0}},
+    y:{grid:{display:false},border:{display:false},ticks:{color:PAL.tinta,font:{family:FUENTE,size:11.5}}} } });
+}
+function leyenda(){ return { display:true, position:"top", align:"end", labels:{ boxWidth:9, boxHeight:9, usePointStyle:true, pointStyle:"rectRounded",
+  color:PAL.tinta, font:{family:FUENTE,size:11.5}, padding:12 } }; }
+function dibujar(id, config){
+  var el = $(id); if(!el || !window.Chart) return;
+  if(GRAF[id]) GRAF[id].destroy();
+  GRAF[id] = new Chart(el.getContext("2d"), config);
+}
+function tarjetaGrafico(id, titulo, detalle, ancha){
+  return '<div class="bi-card'+(ancha?" ancha":"")+'"><h3>'+titulo+'</h3><p class="d">'+detalle+'</p>'+
+    '<div class="bi-lienzo"><canvas id="'+id+'"></canvas></div></div>';
+}
+
+function pintarTablero(d){
+  llenarAnios(d.anios, d.anio);
+  llenarSlicer("dSede", d.sedes, "Todas"); llenarSlicer("dServicio", d.servicios, "Todos");
+  var periodo = d.anio ? (d.mes ? MESES[d.mes-1]+" "+d.anio : "Año "+d.anio) : "Histórico completo";
+
+  var kpi = function(n, etiqueta, pie, clase){
+    return '<div class="bi-kpi '+(clase||"")+'"><span class="et">'+etiqueta+'</span>'+
+      '<span class="n"'+(typeof n==="number"?' data-n="'+n+'"':'')+'>'+n+'</span><span class="pie">'+(pie||"")+'</span></div>';
+  };
+  var cumpl = (d.cumplimiento===null||d.cumplimiento===undefined) ? "—" : d.cumplimiento+"%";
+
+  var html =
+    '<div class="bi-kpis anim-lista">'+
+      kpi(d.total,"PQRS radicadas", periodo+" · "+d.abiertas+" abiertas","teal")+
+      kpi(cumpl,"Respuesta oportuna", d.aTiempo+" a tiempo de "+(d.aTiempo+d.fueraTermino), (d.cumplimiento!==null && d.cumplimiento<85)?"warn":"ok")+
+      kpi(d.promedioDias||0,"Días promedio de respuesta","Radicación a respuesta","teal")+
+      kpi(d.promedioArea||0,"Días promedio del área","Envío a respuesta interna","teal")+
+      kpi(d.vencidas,"Vencidas","Fuera del término legal", d.vencidas?"bad":"ok")+
+      kpi(d.porVencer,"Por vencer","Dentro del umbral de alerta", d.porVencer?"warn":"ok")+
+      kpi(d.sinArea,"Sin área asignada","Pendientes de direccionar", d.sinArea?"warn":"ok")+
+      kpi(d.tasaCierre+"%","Tasa de cierre","Del periodo","teal")+
+    '</div>'+
+    '<div class="bi-grid">'+
+      tarjetaGrafico("gMesTipo","PQRS por mes y tipo · "+d.anioTendencia,"Colores de la paleta MiRed por tipo de PQRS", true)+
+      tarjetaGrafico("gTipo","Tipo de PQRS",periodo)+
+      tarjetaGrafico("gTendencia","Radicadas frente a cerradas · "+d.anioTendencia,"Evolución mensual")+
+      tarjetaGrafico("gEstado","Estado de la gestión",periodo)+
+      tarjetaGrafico("gCanal","Canal de recepción",periodo)+
+      tarjetaGrafico("gSede","Sedes con más PQRS","Top 7 · "+periodo)+
+      tarjetaGrafico("gServicio","Servicios con más PQRS","Top 7 · "+periodo, true)+
+    '</div>'+
+    '<div class="card"><div class="card-tit"><h3>'+ic("alerta")+'Requieren atención</h3><span class="d">Vencidas, por vencer y registros con datos incompletos</span></div>'+
+      (d.criticas.length
+        ? '<div class="scroll-x"><table class="tb"><tr><th>Radicado</th><th>Estado</th><th>Tipo</th><th>Sede / Servicio</th><th>Responsable</th><th>Vence</th><th>Días</th></tr>'+
+          d.criticas.map(function(v){
+            return '<tr data-cod="'+esc(v.codigo)+'"><td class="mono">'+esc(v.codigo)+'</td>'+
+              '<td><span class="chip '+(v.nivel==="alto"?"r":"a")+'">'+esc(v.semaforo)+'</span></td>'+
+              '<td>'+tipoTag(v.tipo)+'</td><td>'+esc((v.sede||"—")+" / "+(v.servicio||"—"))+'</td>'+
+              '<td>'+esc(v.responsable)+'</td><td>'+esc(v.fechaMax||"")+'</td><td class="num">'+esc(dias(v.dias))+'</td></tr>';
+          }).join("")+'</table></div>'
+        : '<div class="aviso ok">'+ic("check","s")+'<div>No hay PQRS vencidas ni por vencer en este periodo.</div></div>')+
+    '</div>';
+
+  $("tableroCuerpo").innerHTML = html;
+  animarNumeros($("tableroCuerpo"));
+  $("tableroCuerpo").querySelectorAll("tr[data-cod]").forEach(function(tr){
+    tr.addEventListener("click", function(){ abrirDetalle(tr.dataset.cod); });
+  });
+  if(!window.Chart){
+    document.querySelectorAll(".bi-lienzo").forEach(function(c){ c.innerHTML = '<div class="bi-vacio">No se pudo cargar la librería de gráficas.</div>'; });
+    return;
+  }
+
+  // --- 12 meses del año apilados por tipo (paleta del logo)
+  var etiquetasMes = MESES.map(function(m){ return m.slice(0,3); });
+  var clavesMes = MESES.map(function(m,i){ return d.anioTendencia+"-"+("0"+(i+1)).slice(-2); });
+  var tiposAnio = {};
+  clavesMes.forEach(function(k){ Object.keys(d.porMesTipo[k]||{}).forEach(function(t){ tiposAnio[t]=true; }); });
+  var tiposOrd = ordenarTipos(tiposAnio);
+  dibujar("gMesTipo", {
+    type:"bar",
+    data:{ labels:etiquetasMes, datasets: tiposOrd.map(function(t){
+      return { label:t, data:clavesMes.map(function(k){ return (d.porMesTipo[k]||{})[t]||0; }),
+        backgroundColor:colorTipo(t), borderColor:PAL.superficie, borderWidth:{top:1}, borderRadius:3, maxBarThickness:34, stack:"s" };
+    })},
+    options:(function(){ var o=baseOpciones({ interaction:{mode:"index",intersect:false} });
+      o.plugins.legend = leyenda(); o.plugins.sinEtiquetas = true;
+      o.scales.x.stacked = true; o.scales.y.stacked = true;
+      o.plugins.tooltip.callbacks = { footer:function(items){ var s=0; items.forEach(function(x){ s+=x.raw; }); return "Total: "+s; } };
+      return o; })()
+  });
+
+  if(!d.total){
+    ["gTipo","gEstado","gCanal","gSede","gServicio"].forEach(function(id){
+      var c=$(id); if(c) c.parentNode.innerHTML = '<div class="bi-vacio">Sin datos en este periodo</div>';
+    });
+  } else {
+    var tipos = ordenarTipos(d.porTipo);
+    dibujar("gTipo", { type:"bar",
+      data:{ labels:tipos, datasets:[{ data:tipos.map(function(t){ return d.porTipo[t]; }),
+        backgroundColor:tipos.map(colorTipo), borderRadius:5, barThickness:16 }]},
+      options:horizontal() });
+
+    var est = topN(d.porEstado, 6);
+    dibujar("gEstado", { type:"doughnut",
+      data:{ labels:est.map(function(x){ return x[0]; }), datasets:[{ data:est.map(function(x){ return x[1]; }),
+        backgroundColor:[PAL.teal,PAL.teal2,PAL.teal3,PAL.teal4,PAL.gris,PAL.star], borderColor:PAL.superficie, borderWidth:3, hoverOffset:6 }]},
+      options:{ responsive:true, maintainAspectRatio:false, cutout:"64%", animation:{animateRotate:true,duration:700},
+        plugins:{ legend:{ position:"right", labels:{ boxWidth:9, boxHeight:9, usePointStyle:true, pointStyle:"circle",
+          color:PAL.tinta, font:{family:FUENTE,size:11.5},
+          generateLabels:function(ch){ var ds=ch.data.datasets[0]; return ch.data.labels.map(function(l,i){
+            return { text:l+"  "+ds.data[i], fillStyle:ds.backgroundColor[i], strokeStyle:ds.backgroundColor[i], pointStyle:"circle", index:i }; }); } } },
+          tooltip:baseOpciones().plugins.tooltip } } });
+
+    var can = topN(d.porCanal, 7);
+    dibujar("gCanal", { type:"bar",
+      data:{ labels:can.map(function(x){ return x[0]; }), datasets:[{ data:can.map(function(x){ return x[1]; }),
+        backgroundColor:PAL.teal2, borderRadius:5, maxBarThickness:38 }]},
+      options:baseOpciones() });
+
+    [["gSede", d.porSede, PAL.teal], ["gServicio", d.porServicio, PAL.teal2]].forEach(function(cfg){
+      var top = topN(cfg[1], 7);
+      dibujar(cfg[0], { type:"bar",
+        data:{ labels:top.map(function(x){ return x[0].length>26 ? x[0].slice(0,25)+"…" : x[0]; }),
+          datasets:[{ data:top.map(function(x){ return x[1]; }), backgroundColor:cfg[2], borderRadius:5, barThickness:14 }]},
+        options:horizontal() });
+    });
+  }
+
+  var ahora = new Date(), futuro = function(i){ return d.anioTendencia > ahora.getFullYear() || (d.anioTendencia === ahora.getFullYear() && i > ahora.getMonth()); };
+  var serieRad = clavesMes.map(function(k,i){ return futuro(i) ? null : (d.porMes[k]||0); });
+  var serieCer = clavesMes.map(function(k,i){ return futuro(i) ? null : (d.porMesCerradas[k]||0); });
+  dibujar("gTendencia", { type:"line",
+    data:{ labels:etiquetasMes, datasets:[
+      { label:"Radicadas", data:serieRad, borderColor:PAL.teal, backgroundColor:"rgba(0,96,129,.10)", fill:true, tension:.3, cubicInterpolationMode:"monotone", borderWidth:2.2,
+        pointRadius:3, pointBackgroundColor:PAL.teal, pointBorderColor:PAL.superficie, pointBorderWidth:1.5 },
+      { label:"Cerradas", data:serieCer, borderColor:PAL.ok, backgroundColor:"transparent", borderDash:[5,4], tension:.3, cubicInterpolationMode:"monotone", borderWidth:2,
+        pointRadius:3, pointBackgroundColor:PAL.ok, pointBorderColor:PAL.superficie, pointBorderWidth:1.5 }]},
+    options:(function(){ var o=baseOpciones({ interaction:{ mode:"index", intersect:false } }); o.plugins.legend = leyenda(); return o; })() });
+}
+
+/* ============================ RESPONSABLES ============================ */
+function pintarResponsables(){
+  var filtro = norm($("respBuscar").value);
+  var visibles = 0, sinCorreo = 0;
+  var html = '<div class="resp-fila cab"><span></span><span>Área / servicio</span><span>Responsable</span><span>Cargo</span>'+
+    '<span>Correo de notificación</span><span>Teléfono</span><span></span></div>';
+  html += APP.responsables.map(function(r,i){
+    if(!r.correo) sinCorreo++;
+    var blob = norm([r.area,r.nombre,r.cargo,r.correo].join(" "));
+    var oculto = filtro && blob.indexOf(filtro)===-1 && r.fila;
+    if(!oculto) visibles++;
+    var campo = function(k, t, ph, ancho, extra){
+      return '<label class="'+(ancho?"ancho":"")+'"><span>'+t+'</span><input value="'+esc(r[k]||"")+'" data-k="'+k+'"'+
+        (ph?' placeholder="'+ph+'"':'')+(extra||"")+'></label>';
+    };
+    return '<div class="resp-fila'+(r.fila?"":" nuevo")+'" data-i="'+i+'"'+(oculto?" hidden":"")+'>'+
+      '<i class="estado-c'+(r.correo?"":" no")+'" title="'+(r.correo?"Con correo":"Sin correo: no recibirá notificaciones")+'"></i>'+
+      campo("area","Área / servicio","Nombre del área",true)+
+      campo("nombre","Responsable","Nombre y apellido")+
+      campo("cargo","Cargo","Cargo")+
+      campo("correo","Correo de notificación","correo@miredips.org",true,' type="email" class="'+(r.correo?"":"falta")+'"')+
+      campo("telefono","Teléfono","")+
+      (r.fila ? '<button class="icono" type="button" data-del="'+esc(r.fila)+'" title="Desactivar" aria-label="Desactivar">'+ic("papelera","s")+'</button>'
+              : '<button class="icono" type="button" data-quitar="'+i+'" title="Descartar fila" aria-label="Descartar fila">'+ic("x","s")+'</button>')+
+    '</div>';
+  }).join("");
+  $("respLista").innerHTML = html;
+  $("respCont").textContent = visibles+" de "+APP.responsables.length+" · "+sinCorreo+" sin correo";
+  $("respLista").querySelectorAll("[data-del]").forEach(function(b){
+    b.addEventListener("click", function(){
+      var fin = ocupado(b, "");
+      srv("apiEliminarResponsable", parseInt(b.dataset.del,10)).then(function(r){
+        fin(); APP.responsables = r.responsables; pintarResponsables();
+        aviso("respAviso","Responsable desactivado: ya no aparece para direccionar.","ok");
+      }).catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+    });
+  });
+  $("respLista").querySelectorAll("[data-quitar]").forEach(function(b){
+    b.addEventListener("click", function(){ APP.responsables.splice(parseInt(b.dataset.quitar,10),1); pintarResponsables(); });
+  });
+  $("respLista").querySelectorAll('input[data-k="correo"]').forEach(function(inp){
+    inp.addEventListener("input", function(){ inp.classList.toggle("falta", !inp.value.trim()); });
+  });
+}
+$("respBuscar").addEventListener("input", pintarResponsables);
+$("btnNuevoResp").addEventListener("click", function(){
+  $("respBuscar").value = "";
+  APP.responsables.push({ id:"", area:"", nombre:"", cargo:"", correo:"", telefono:"", activo:true, fila:null });
+  pintarResponsables();
+  var ult = $("respLista").querySelector(".resp-fila.nuevo:last-child input"); if(ult) ult.focus();
+});
+$("btnGuardarResp").addEventListener("click", function(){
+  var filas = Array.prototype.slice.call(document.querySelectorAll(".resp-fila[data-i]"));
+  var cambios = [];
+  filas.forEach(function(f){
+    var i = parseInt(f.dataset.i,10), r = APP.responsables[i], datos = { fila:r.fila };
+    var distinto = !r.fila;
+    f.querySelectorAll("input").forEach(function(inp){
+      datos[inp.dataset.k] = inp.value.trim();
+      if((r[inp.dataset.k]||"") !== datos[inp.dataset.k]) distinto = true;
+    });
+    if(datos.area && distinto) cambios.push(datos);
+  });
+  if(!cambios.length){ aviso("respAviso","No hay cambios por guardar.","info"); return; }
+  var fin = ocupado("btnGuardarResp","Guardando "+cambios.length+"…");
+  var errores = [];
+  var siguiente = function(k){
+    if(k>=cambios.length){
+      fin(); pintarResponsables();
+      aviso("respAviso", errores.length ? errores.join("<br>") : cambios.length+" responsable(s) guardado(s).", errores.length ? "err" : "ok");
+      return;
+    }
+    srv("apiGuardarResponsable", cambios[k]).then(function(res){
+      if(!res.ok) errores.push(esc(cambios[k].area)+": "+esc(res.mensaje)); else APP.responsables = res.responsables;
+      siguiente(k+1);
+    }).catch(function(e){ errores.push(msgErr(e)); siguiente(k+1); });
+  };
+  siguiente(0);
+});
+
+/* ============================ CONFIGURACIÓN ============================ */
+$("btnLeerForm").addEventListener("click", function(){
+  aviso("cfgAviso","Leyendo el formulario…","info");
+  var fin = ocupado("btnLeerForm","Leyendo…");
+  srv("apiLeerFormulario", $("cfgUrl").value).then(function(r){
+    fin();
+    if(!r.ok){ aviso("cfgAviso", esc(r.mensaje), "err"); return; }
+    APP.mapeo = r;
+    aviso("cfgAviso","Encontré "+r.preguntas.length+" preguntas (origen: "+esc(r.origen)+").","ok");
+    $("cfgPares").innerHTML = r.preguntas.map(function(p){
+      var actual = r.mapeo[p] || r.sugerido[p] || "";
+      return '<div class="mapeo"><div class="q" title="'+esc(p)+'">'+esc(p)+'</div><div class="fl">'+ic("flecha","s")+'</div>'+
+        '<select data-q="'+esc(p)+'">'+ r.campos.map(function(c){
+          return '<option value="'+esc(c)+'"'+(c===actual?" selected":"")+'>'+esc(c)+'</option>';
+        }).join("") + '<option value=""'+(actual?"":" selected")+'>(no importar)</option></select></div>';
+    }).join("");
+    $("cfgMapeo").hidden = false;
+  }).catch(function(e){ fin(); aviso("cfgAviso", msgErr(e), "err"); });
+});
+function importarForm(idBoton, contenedor){
+  var fin = ocupado(idBoton, "Importando…");
+  srv("apiImportarRespuestasForm", { notificar: $("cfgAcuse") ? $("cfgAcuse").checked : true }).then(function(r){
+    fin();
+    if(!r.ok){ aviso(contenedor, esc(r.mensaje), "err"); return; }
+    var html = esc(r.mensaje);
+    if(r.noReconocidos && r.noReconocidos.length){
+      html += '<br><br><b>Valores que no están en las listas</b> (se guardaron tal cual; agrégalos en la hoja Config o corrígelos en la bandeja):<ul style="margin:6px 0 0;padding-left:18px">'+
+        r.noReconocidos.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul>';
+    }
+    aviso(contenedor, html, r.importadas ? "ok" : "info");
+  }).catch(function(e){ fin(); aviso(contenedor, msgErr(e), "err"); });
+}
+$("btnImportarEstado").addEventListener("click", function(){ importarForm("btnImportarEstado", "cfgAviso"); });
+$("btnVerificarForm").addEventListener("click", function(){
+  $("cfgEstado").innerHTML = esqueleto(3);
+  srv("apiEstadoFormulario").then(function(e){
+    var fila = function(k,v,alerta){ return '<div><span>'+k+'</span><span'+(alerta?' style="color:var(--bad)"':'')+'>'+esc(v)+'</span></div>'; };
+    var html = '<div class="ficha">'+
+      fila("Formulario vinculado", e.vinculado ? "Sí — hoja «"+e.hoja+"»" : "No", !e.vinculado)+
+      fila("Respuestas en el formulario", e.respuestas)+
+      fila("Preguntas con equivalencia", e.mapeadas, !e.mapeadas)+
+      fila("Ya radicadas en el consolidado", e.importadas)+
+      fila("Pendientes por importar", e.pendientes, e.pendientes>0)+
+      fila("Disparador automático", e.disparador ? "Activo" : "No instalado", !e.disparador)+
+    '</div>';
+    if(e.problemas && e.problemas.length){
+      html += '<div class="aviso err" style="margin-top:12px">'+ic("alerta","s")+'<div><b>Falta resolver:</b><ul style="margin:8px 0 0;padding-left:18px">'+
+        e.problemas.map(function(x){ return '<li>'+esc(x)+'</li>'; }).join("")+'</ul></div></div>';
+    } else if(e.pendientes > 0){
+      html += '<div class="aviso info" style="margin-top:12px">'+ic("pulso","s")+'<div>Todo está conectado. Hay '+e.pendientes+' respuesta(s) sin radicar: pulsa «Importar respuestas ahora».</div></div>';
+    } else {
+      html += '<div class="aviso ok" style="margin-top:12px">'+ic("check","s")+'<div>El canal funciona y no hay respuestas pendientes.</div></div>';
+    }
+    $("cfgEstado").innerHTML = html;
+  }).catch(function(err){ $("cfgEstado").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(err)+'</div></div>'; });
+});
+$("btnGuardarMapeo").addEventListener("click", function(){
+  var mapa = {};
+  document.querySelectorAll("#cfgPares select").forEach(function(s){ mapa[s.dataset.q] = s.value; });
+  var fin = ocupado("btnGuardarMapeo","Guardando…");
+  srv("apiGuardarMapeo", mapa, APP.mapeo.idForm, APP.mapeo.hojaRespuestas).then(function(){
+    fin(); aviso("cfgAviso","Equivalencias guardadas. Ya puedes importar las respuestas.","ok");
+  }).catch(function(e){ fin(); aviso("cfgAviso", msgErr(e), "err"); });
+});
+$("btnImportar").addEventListener("click", function(){ importarForm("btnImportar", "cfgAviso"); });
+</script>
+
+<script>
+/* Sugerencia del tipo de PQRS mientras se tabula (no cambia nada por sí sola). */
+(function(){
+  var t = null;
+  function revisar(){
+    var txt = $("r_descripcion").value.trim(); if(txt.length < 25) { $("sugTipo").innerHTML = ""; return; }
+    srvSilencioso("apiSugerirTipo", txt, $("r_tipoPqrs").value).then(function(r){
+      if(!r || !r.tipo || r.confianza === "baja" || norm(r.tipo) === norm($("r_tipoPqrs").value)) { $("sugTipo").innerHTML = ""; return; }
+      $("sugTipo").innerHTML = '<div class="banda-sug" style="margin:8px 0 0">'+ic("alerta","s")+'<div style="flex:1">El texto parece una <b>'+esc(r.tipo)+'</b>'+
+        (r.razones && r.razones.length ? ' (señales: '+esc(r.razones.slice(0,3).join(", "))+')' : '')+'.</div>'+
+        '<button class="b pri mini" type="button" id="usarSug">Usar '+esc(r.tipo)+'</button></div>';
+      $("usarSug").addEventListener("click", function(){
+        var s = $("r_tipoPqrs"); for(var i=0;i<s.options.length;i++) if(norm(s.options[i].value)===norm(r.tipo)) s.selectedIndex = i;
+        $("sugTipo").innerHTML = "";
+      });
+    }).catch(function(){});
+  }
+  $("r_descripcion").addEventListener("input", function(){ clearTimeout(t); t = setTimeout(revisar, 900); });
+  $("r_tipoPqrs").addEventListener("change", revisar);
+})();
+</script>

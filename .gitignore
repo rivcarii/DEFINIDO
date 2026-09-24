@@ -1,0 +1,8 @@
+node_modules/
+tests/salida/
+.clasp.json
+.clasprc.json
+*.log
+# Nunca subir el consolidado real ni exportaciones con datos de usuarios (Ley 1581 de 2012)
+*.xlsx
+!plantilla_libro/*.xlsx
