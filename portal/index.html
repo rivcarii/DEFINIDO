@@ -3410,6 +3410,7 @@ var IMG_MASCOTA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOUAAAGkCAMAAAD
       <div><label for="dSede">Sede</label><select id="dSede"><option value="">Todas</option></select></div>
       <div><label for="dServicio">Servicio</label><select id="dServicio"><option value="">Todos</option></select></div>
       <div><button class="b sec" id="btnRefrescarTablero" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
+      <div id="bloqueExcel" hidden><button class="b pri" id="btnExportarExcel" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Exportar a Excel</button></div>
     </div>
     <div id="tableroCuerpo"></div>
   </section>
@@ -3482,6 +3483,18 @@ var IMG_MASCOTA = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAOUAAAGkCAMAAAD
           <button class="b pri" id="btnGuardarDireccion" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar direccionamiento</button>
           <button class="b sec" id="btnFelicitacionesAhora" type="button"><svg class="ic s"><use href="#i-estrella"/></svg>Entregar felicitaciones pendientes ahora</button>
         </div>
+      </fieldset>
+      <fieldset style="margin:16px 0 0"><legend>Exportar y respaldar en Excel</legend>
+        <p class="sub" style="margin:0 0 12px">Cada día a las 7:00 a.m. se guarda un Excel con todo el consolidado en la carpeta «PQRS · Respaldos (Excel)» del Drive de la cuenta SIAU (se conservan 14 días). Para tener una copia en otro Drive, escribe ese correo: la carpeta se comparte en solo lectura. El Excel incluye datos personales y de salud (Ley 1581 de 2012): compártelo solo con cuentas autorizadas, de preferencia institucionales. Para exportar un mes, sede o servicio usa el botón «Exportar a Excel» del Tablero.</p>
+        <div class="grid">
+          <label class="interruptor"><input type="checkbox" id="aj_respaldoDiario"><i></i>Respaldo diario en Drive (Excel)</label>
+          <div><label for="aj_respaldoCorreo">Compartir la carpeta con (opcional)</label><input id="aj_respaldoCorreo" type="email" placeholder="correo@dominio.com"></div>
+        </div>
+        <div class="acciones">
+          <button class="b pri" id="btnGuardarRespaldo" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar respaldo</button>
+          <button class="b sec" id="btnRespaldarAhora" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Respaldar ahora</button>
+        </div>
+        <div id="respAviso"></div>
       </fieldset>
     </div>
     <div class="card" style="margin-bottom:16px">
@@ -3759,6 +3772,7 @@ function arrancar(d){
   $("leyendaTipos").innerHTML = TIPOS_ORDEN.map(tipoTag).join("");
   $("arranque").hidden = true;
   ver("inicio");
+  if($("bloqueExcel")) $("bloqueExcel").hidden = !(d.sesion && d.sesion.puede && d.sesion.puede.admin);
   if(d.migracion && d.migracion.hecho) toast({ tipo:"area", titulo:"Consolidado actualizado", texto:d.migracion.mensaje, dur:12000 });
   else if(d.migracion && d.migracion.mensaje) toast({ tipo:"err", titulo:"Revisión pendiente", texto:d.migracion.mensaje, dur:12000 });
   srvSilencioso("apiPlantillas").then(function(pl){ APP.plantillas = pl || []; });
@@ -4843,6 +4857,7 @@ $("btnRadicar").addEventListener("click", function(){
   if(!d.descripcion) faltan.push("Descripción");
   if(faltan.length){ aviso("radAviso","Completa: <b>"+faltan.join(", ")+"</b>","err"); window.scrollTo({top:0,behavior:"smooth"}); return; }
   var fin=ocupado("btnRadicar","Radicando…");
+  d.diferir = true;   // v8.2: el radicado se muestra al instante; acuse y avisos salen en un segundo paso
   srv("apiRadicar", d).then(function(r){
     fin();
     if(!r.ok){ aviso("radAviso", esc(r.mensaje), "err"); return; }
@@ -4853,14 +4868,21 @@ $("btnRadicar").addEventListener("click", function(){
     $("radResumen").innerHTML =
       (rg.nivel ? '<div><span>Nivel de riesgo</span><span class="alerta">'+esc(rg.nivel)+(rg.horas?" · "+rg.horas+" horas":"")+'</span></div>' : '')+
       '<div><span>Fecha límite de respuesta</span><span>'+esc(r.fechaMax)+'</span></div>'+
-      '<div><span>Acuse al usuario</span><span>'+esc(r.acuse)+'</span></div>'+
+      '<div><span>Acuse al usuario</span><span id="radAcuse">'+esc(r.acuse)+'</span></div>'+
       (r.direccionada ? '<div><span>Direccionada sola a</span><span>'+esc(r.direccionada)+'</span></div>' :
-        '<div><span>Siguiente paso</span><span>'+(r.areas && r.areas.length ? "Direccionarla a "+esc(r.areas[0].area)+" (sugerida)" : "Direccionarla al área")+'</span></div>');
+        '<div><span id="radSigK">Siguiente paso</span><span id="radSig">'+(r.areas && r.areas.length ? "Direccionarla a "+esc(r.areas[0].area)+" (sugerida)" : "Direccionarla al área")+'</span></div>');
     if(rg.nivel && /vital|priorizado/i.test(rg.nivel)){ sonar(/vital/i.test(rg.nivel) ? "Vital" : "Crítica"); }
     if(/felicit/i.test(d.tipoPqrs)) celebrar();
     $("radForm").hidden = true; $("radExito").hidden = false;
     $("radExito").classList.remove("anim"); void $("radExito").offsetWidth; $("radExito").classList.add("anim");
-    toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+" · acuse: "+r.acuse, dur:6000 });
+    toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+(r.pendienteAvisos ? " · enviando el acuse…" : " · acuse: "+r.acuse), dur:6000 });
+    if(r.pendienteAvisos){
+      srvSilencioso("apiNotificarRadicacion", r.codigo).then(function(n){
+        if($("radAcuse")) $("radAcuse").textContent = n.acuse || "";
+        if(n.direccionada && $("radSig")){ $("radSigK").textContent = "Direccionada sola a"; $("radSig").textContent = n.direccionada; }
+        if(n.acuse && /^error/.test(n.acuse)) toast({ tipo:"err", titulo:"No se pudo enviar el acuse", texto:n.acuse, dur:9000 });
+      }).catch(function(){ if($("radAcuse")) $("radAcuse").textContent = "se enviará en unos minutos"; });
+    }
     window.scrollTo({top:0,behavior:"smooth"});
   }).catch(function(e){ fin(); aviso("radAviso", msgErr(e), "err"); });
 });
@@ -4921,6 +4943,23 @@ function cargarTablero(){
 }
 ["dAnio","dMes","dSede","dServicio"].forEach(function(id){ $(id).addEventListener("change", cargarTablero); });
 $("btnRefrescarTablero").addEventListener("click", cargarTablero);
+/* v8.2 · Exportar a Excel lo que muestran los filtros del tablero (solo administrador). El archivo también queda en Drive. */
+function descargarXlsx(nombre, b64){
+  var bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  var tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", href;
+  try { href = URL.createObjectURL(new Blob([u8], { type:tipo })); } catch(e){ href = "data:"+tipo+";base64,"+b64; }
+  var a = document.createElement("a"); a.href = href; a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+$("btnExportarExcel").addEventListener("click", function(){
+  var fin = ocupado("btnExportarExcel","Generando Excel…");
+  srv("apiExportarExcel", { anio:$("dAnio").value, mes:$("dMes").value, sede:$("dSede").value, servicio:$("dServicio").value }).then(function(r){
+    fin();
+    if(r.ok===false){ toast({ tipo:"err", titulo:"No se pudo exportar", texto:r.mensaje||"", dur:9000 }); return; }
+    if(r.base64) descargarXlsx(r.nombre, r.base64);
+    toast({ tipo:"area", titulo:"Excel listo · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive.", dur:9000 });
+  }).catch(function(e){ fin(); toast({ tipo:"err", titulo:"No se pudo exportar", texto:String(e && e.message || e), dur:9000 }); });
+});
 
 function llenarSlicer(id, valores, todos){
   var sel = $(id), actual = sel.value;
@@ -5511,6 +5550,21 @@ $("btnFelicitacionesAhora").addEventListener("click", function(){
     .catch(function(e){ fin(); aviso("qrAviso", msgErr(e), "err"); });
 });
 
+/* ---------------- respaldo en Excel (v8.2) ---------------- */
+$("btnGuardarRespaldo").addEventListener("click", function(){
+  var fin = ocupado("btnGuardarRespaldo","Guardando…");
+  srv("apiGuardarAjustes", { respaldoDiario:$("aj_respaldoDiario").checked, respaldoCorreo:$("aj_respaldoCorreo").value })
+    .then(function(r){ fin(); if(r.ok===false){ aviso("respAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("respAviso","Respaldo guardado. Se aplica desde la próxima rutina de las 7:00 a.m.","ok"); })
+    .catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+$("btnRespaldarAhora").addEventListener("click", function(){
+  var fin = ocupado("btnRespaldarAhora","Respaldando… (puede tardar un minuto)");
+  srv("apiRespaldarAhora").then(function(r){
+    fin();
+    aviso("respAviso", esc(r.mensaje||"")+(r.url ? ' <a href="'+esc(r.url)+'" target="_blank" rel="noopener">Abrir en Drive</a>' : ""), r.ok===false ? "err" : "ok");
+  }).catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+
 /* ---------------- diagnóstico ---------------- */
 $("btnDiagnostico").addEventListener("click", function(){
   $("diagCuerpo").innerHTML = '<div class="card" style="margin-bottom:16px">'+esqueleto(4)+'</div>';
@@ -5859,7 +5913,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea"];
+var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
@@ -5870,6 +5924,7 @@ function pintarAjustes(r){
   AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
   $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
+  $("aj_respaldoCorreo").value = r.ajustes.respaldoCorreo || "";
   var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
   $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
     (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");
