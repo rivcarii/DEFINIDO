@@ -82,7 +82,7 @@ function crear(hojas, gmail) {
     Session: { getScriptTimeZone: () => process.env.SCRIPT_TZ || "America/New_York", getActiveUser: () => ({ getEmail: () => "siau@miredips.org" }),
                getEffectiveUser: () => ({ getEmail: () => "siau@miredips.org" }) },
     Utilities, Logger: { log() {} },
-    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = String(v); } }) },
+    PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = String(v); }, deleteProperty: k => { delete props[k]; } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock() {}, releaseLock() {} }) },
     ScriptApp: { getProjectTriggers: () => [], getService: () => ({ getUrl: () => "" }), getOAuthToken: () => "token" },
     GmailApp: gmail || {},

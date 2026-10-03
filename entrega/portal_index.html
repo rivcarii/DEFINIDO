@@ -6445,7 +6445,7 @@ function pintarEnlace(e){
     '<span>'+(ok ? 'Compártelo con cada técnico junto con su usuario. No necesitan cuenta de Google ni permisos sobre la hoja: todo se ejecuta con la cuenta '+esc(e.cuenta||"de la implementación")+'.'
       : 'Los técnicos no pueden entrar con ese enlace. Pega abajo la «URL de la aplicación web» (termina en <b>/exec</b>): Implementar ▸ Administrar implementaciones ▸ Copiar.')+'</span>'+
     (e.url ? '<code id="enlaceActual">'+esc(e.url)+'</code>' : '')+
-    '<form class="enlace-edit" id="enlaceEdit"'+(abierto?'':' hidden')+'><input id="enlaceUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" aria-label="Enlace de la plataforma" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc(e.url||"")+'">'+
+    '<form class="enlace-edit" id="enlaceEdit"'+(abierto?'':' hidden')+'><input id="enlaceUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" aria-label="Enlace de la plataforma" placeholder="https://rivcarii.github.io/pqrs/portal/" value="'+esc(e.url||"")+'">'+
       '<button class="b pri mini" type="submit" id="btnGuardarEnlace">'+ic("check","s")+'Guardar enlace</button>'+
       (ok ? '<button class="b sec mini" type="button" id="btnCancelarEnlace">Cancelar</button>' : '')+
       (e.personalizado ? '<button class="b sec mini" type="button" id="btnEnlaceDefecto">Usar el predeterminado</button>' : '')+'</form>'+

@@ -3882,7 +3882,7 @@ function _filaVisible_(f) { return _sedeVisible_(f[C.SEDE - 1]); }
 function _correoBienvenida_(usuario, nombre, correo, clave, rol, sedes, reinicio) {
   correo = String(correo || "").trim();
   if (!_correoOk(correo)) return "El usuario no tiene correo: entrégale en persona su usuario y la contraseña temporal.";
-  var url = _urlBase_();
+  var url = _urlPortal_() || _urlBase_();
   var html = _correoDiseno_({
     variante: "interno", etiqueta: "Acceso personal", banda: "ACCESO PERSONAL E INTRANSFERIBLE · NO LO COMPARTAS", sinCierre: true,
     titulo: reinicio ? "Tu contraseña temporal" : "Te damos la bienvenida al Sistema de PQRS",
@@ -3903,19 +3903,27 @@ function apiUsuarios_() {
 /** Enlace que se comparte con los técnicos. «/dev» es el de prueba: solo lo abren los editores del proyecto. */
 function _enlaceAcceso_() {
   var url = "", cuenta = "", propio = "";
-  url = _urlBase_();
+  url = _urlPortal_() || _urlBase_();
   try { cuenta = Session.getEffectiveUser().getEmail() || ""; } catch (e) {}
-  try { propio = String(PropertiesService.getScriptProperties().getProperty("URL_PLATAFORMA") || "").trim(); } catch (e) {}
-  return { url: url, prueba: /\/dev(\?|$)/.test(url), cuenta: cuenta, personalizado: !!propio && propio === url };
+  try { propio = String(PropertiesService.getScriptProperties().getProperty("URL_PORTAL") || "").trim(); } catch (e) {}
+  return { url: url, prueba: /\/dev(\?|$)/.test(url), cuenta: cuenta, personalizado: !!propio && propio === url, appsScript: _urlBase_() };
 }
 /** v9.2 · El administrador cambia el enlace de la plataforma desde Usuarios y sedes (propiedad URL_PLATAFORMA).
  *  Solo acepta la «URL de la aplicación web» (/exec); vacío = vuelve al enlace predeterminado. */
 function apiGuardarEnlace_(url) {
   url = String(url || "").trim().replace(/[?#].*$/, "");
-  if (url && !/^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+|macros)\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(url))
-    return { ok: false, mensaje: /\/dev$/.test(url) ? "Ese es el enlace de prueba (/dev): solo lo abren los editores del proyecto. Copia el que termina en /exec."
-      : "Pega la «URL de la aplicación web»: empieza por https://script.google.com/…/macros/s/ y termina en /exec." };
-  PropertiesService.getScriptProperties().setProperty("URL_PLATAFORMA", url);
+  var props = PropertiesService.getScriptProperties();
+  if (!url) { props.deleteProperty("URL_PORTAL"); props.deleteProperty("URL_PLATAFORMA"); return { ok: true, enlace: _enlaceAcceso_() }; }
+  if (/^https:\/\/script\.google\.com\//.test(url)) {   // el /exec de Apps Script (solo lo usa el portal y los avisos si no hay portal)
+    if (!/^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+|macros)\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(url))
+      return { ok: false, mensaje: /\/dev$/.test(url) ? "Ese es el enlace de prueba (/dev): solo lo abren los editores del proyecto. Copia el que termina en /exec."
+        : "Pega la «URL de la aplicación web»: empieza por https://script.google.com/…/macros/s/ y termina en /exec." };
+    props.setProperty("URL_PLATAFORMA", url);
+  } else if (/^https:\/\/[A-Za-z0-9.-]+\.[a-z]{2,}(\/[^\s]*)?$/i.test(url)) {   // el portal (GitHub Pages o dominio propio)
+    props.setProperty("URL_PORTAL", url);
+  } else {
+    return { ok: false, mensaje: "Pega el enlace del portal (https://…github.io/…) o la URL de la aplicación web de Apps Script (termina en /exec)." };
+  }
   return { ok: true, enlace: _enlaceAcceso_() };
 }
 function apiGuardarUsuario_(d) {
@@ -4660,7 +4668,7 @@ function _parrafosHtml_(h, estilo) {
 
 /** Dirección de la plataforma (con el radicado para abrirlo directo). Vacío si no hay implementación. */
 function _urlPlataforma_(codigo) {
-  var u = _urlBase_();
+  var u = _urlPortal_() || _urlBase_();
   return u ? u + (codigo ? "?pqrs=" + encodeURIComponent(codigo) : "") : "";
 }
 /**
@@ -4671,6 +4679,18 @@ function _urlPlataforma_(codigo) {
  * 2) URL_PLATAFORMA_DEFECTO (la implementación activa al publicar esta versión), 3) getService().getUrl().
  */
 var URL_PLATAFORMA_DEFECTO = "https://script.google.com/macros/s/AKfycbygfb4GL4ht0B9RSJIUFO5CxREvHNdKoNVCj7qgbCfSqqXdSmJUggxBf0TGrQo3tqlp/exec";
+/**
+ * v8.5 · Enlace de ingreso que se entrega a las personas: el portal publicado en GitHub Pages
+ * (todos los correos, avisos y botones «Ingresar» lo usan). Propiedad opcional URL_PORTAL para cambiarlo
+ * (por ejemplo un dominio propio). El portal habla con Apps Script por el /exec de URL_PLATAFORMA_DEFECTO.
+ */
+var URL_PORTAL_DEFECTO = "https://rivcarii.github.io/pqrs/portal/";
+function _urlPortal_() {
+  var p = "";
+  try { p = String(PropertiesService.getScriptProperties().getProperty("URL_PORTAL") || "").trim(); } catch (e) {}
+  if (/^https:\/\/[^\s]+$/.test(p) && !/script\.google\.com/.test(p)) return p;
+  return URL_PORTAL_DEFECTO;
+}
 function _urlBase_() {
   var p = "";
   try { p = String(PropertiesService.getScriptProperties().getProperty("URL_PLATAFORMA") || "").trim(); } catch (e) {}
