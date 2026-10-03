@@ -108,7 +108,9 @@ var PUERTA_PORTAL = { estadoAcceso: true, iniciarSesion: true, cerrarSesion: tru
 function doPost(e) {
   var r;
   try {
-    var cuerpo = JSON.parse((e && e.postData && e.postData.contents) || "{}");
+    var bruto = (e && e.postData && e.postData.contents) || "{}";
+    if (bruto.length > 30000000) return ContentService.createTextOutput(JSON.stringify({ __error: "La solicitud es demasiado grande." })).setMimeType(ContentService.MimeType.JSON);
+    var cuerpo = JSON.parse(bruto);
     var fn = String(cuerpo.fn || ""), args = Array.isArray(cuerpo.args) ? cuerpo.args : [];
     if (!PUERTA_PORTAL[fn]) r = { __error: "Acción no disponible." };
     else {
@@ -232,6 +234,15 @@ function _finDatos_() {
   return fin;
 }
 function _lleno_(x) { return x !== "" && x !== null && x !== undefined; }
+/**
+ * v8.4 · Protección contra inyección de fórmulas: todo texto que viene de fuera (formulario QR, correo, ventanilla) y empiece por
+ * = + - @ se guarda como texto (apóstrofo inicial, que Sheets no muestra). Así una descripción como «=IMPORTXML(…)» no se ejecuta ni
+ * puede sacar datos de la hoja, ni se vuelve fórmula al exportar a Excel.
+ */
+function _seguroCelda_(v) {
+  if (typeof v !== "string" || !v) return v;
+  return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
+}
 Object.defineProperty(CFG, "FILA_FIN", { get: function () { return _finDatos_(); }, enumerable: true, configurable: true });
 
 /** Todas las filas de datos del consolidado (lectura fresca: los valores cambian con cada gestión). */
@@ -298,7 +309,7 @@ function _escribir(fila, vals) {
   if (!cols.length) return;
   var formula = {}; [C.TERMINO, C.TIPO_DIA, C.FECHA_MAX, C.SEMAFORO, C.DIAS, C.OPORTUNIDAD].forEach(function (c) { formula[c] = true; });
   var actual = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
-  cols.forEach(function (c) { if (!formula[c]) actual[c - 1] = vals[c]; });
+  cols.forEach(function (c) { if (!formula[c]) actual[c - 1] = _seguroCelda_(vals[c]); });
   // tramos contiguos sin fórmulas que contienen alguna columna modificada
   var tramos = [[1, C.TERMINO - 1], [C.DIAS + 1, C.OPORTUNIDAD - 1], [C.OPORTUNIDAD + 1, CFG.NCOL]];
   tramos.forEach(function (t) {
@@ -318,7 +329,7 @@ function _filaDe(codigo) {
 
 function _traza(codigo, accion, detalle) {
   var h = _h(CFG.HOJA_TRAZA);
-  h.appendRow([new Date(), codigo, accion, (detalle || "").toString().substring(0, 900), _usuario()]);
+  h.appendRow([new Date(), codigo, accion, _seguroCelda_((detalle || "").toString().substring(0, 900)), _usuario()]);
 }
 
 // ---------------------------------------------------------------------------
@@ -1125,7 +1136,7 @@ function apiRegistrarRespuestaArea_(codigo, texto, fecha) {
   if (fila < 0) return { ok: false, mensaje: "Radicado no encontrado." };
   if (!texto) return { ok: false, mensaje: "Pega la respuesta que envió el área." };
   var h = _h(CFG.HOJA_DATOS);
-  h.getRange(fila, C.RTA_AREA).setValue(texto);
+  h.getRange(fila, C.RTA_AREA).setValue(_seguroCelda_(texto));
   h.getRange(fila, C.FECHA_RTA_AREA).setValue(_soloFecha_(fecha) || _soloFecha_(new Date()));
   SpreadsheetApp.flush();
   _traza(codigo, "Respuesta del área registrada", texto.substring(0, 300));
@@ -1142,7 +1153,7 @@ function apiResponderUsuario_(codigo, textoFinal, cerrar) {
   var f = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
   var correoUsr = f[C.CORREO - 1];
   if (!_correoOk(correoUsr)) {
-    h.getRange(fila, C.RTA_USUARIO).setValue(textoFinal);
+    h.getRange(fila, C.RTA_USUARIO).setValue(_seguroCelda_(textoFinal));
     h.getRange(fila, C.FECHA_RTA_USUARIO).setValue(_soloFecha_(new Date()));
     if (cerrar !== false) h.getRange(fila, C.ESTADO).setValue("Respondida - Cerrada");
     SpreadsheetApp.flush();
@@ -1166,7 +1177,7 @@ function apiResponderUsuario_(codigo, textoFinal, cerrar) {
   var r = _enviar(correoUsr, (_esFeli(f[C.TIPO_PQRS - 1]) ? "Gracias por su felicitación – " : "Respuesta a su PQRS ") + codigo, textoFinal, html);
   if (!r.ok) return { ok: false, mensaje: "No se pudo enviar: " + r.error };
 
-  h.getRange(fila, C.RTA_USUARIO).setValue(textoFinal);
+  h.getRange(fila, C.RTA_USUARIO).setValue(_seguroCelda_(textoFinal));
   h.getRange(fila, C.FECHA_RTA_USUARIO).setValue(_soloFecha_(new Date()));
   h.getRange(fila, C.NOTIF_CIERRE).setValue(new Date());
   if (cerrar !== false) h.getRange(fila, C.ESTADO).setValue("Respondida - Cerrada");
@@ -1407,7 +1418,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     var nc = CFG.NCOL, n = filas.length;
     h.getRange(1, 1, 1, nc).setValues([encabezados]).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF");
     for (var i = 0; i < n; i += 2000) {
-      var bloque = filas.slice(i, i + 2000);
+      var bloque = filas.slice(i, i + 2000).map(function (fila) { return fila.map(_seguroCelda_); });
       h.getRange(2 + i, 1, bloque.length, nc).setValues(bloque);
     }
     h.setFrozenRows(1);
@@ -1457,6 +1468,7 @@ function apiExportarExcel_(filtros) {
   var blob = _construirXlsx_(nombre, filas, _descripcionFiltro_(filtros));
   var carpeta = _carpetaRespaldos_(), archivo = carpeta.createFile(blob), bytes = blob.getBytes();
   _traza("—", "Exportación a Excel", filas.length + " PQRS · " + _descripcionFiltro_(filtros) + " · guardado en Drive");
+  _auditar_("Exportación a Excel", SESION ? SESION.usuario : "sistema", filas.length + " PQRS · " + _descripcionFiltro_(filtros));
   var out = { ok: true, nombre: nombre + ".xlsx", filas: filas.length, tam: bytes.length, url: archivo.getUrl(), carpeta: carpeta.getUrl() };
   if (bytes.length <= MAX_ENTREGA_XLSX) out.base64 = Utilities.base64Encode(bytes);
   else out.mensaje = "El archivo pesa " + Math.round(bytes.length / 1048576) + " MB: descárgalo desde Drive o exporta por año o por mes.";
@@ -2956,7 +2968,7 @@ function _guardarHilo_(id, d) {
   var h = _hojaHilos_(), actual = _hilos_()[id] || {};
   var fila = actual.fila || (h.getLastRow() + 1);
   var v = function (k) { return d[k] !== undefined ? d[k] : (actual[k] || ""); };
-  h.getRange(fila, 1, 1, HILO_COLS.length).setValues([[id, v("categoria"), v("estado"), v("correoUsuario"), v("asunto"),
+  h.getRange(fila, 1, 1, HILO_COLS.length).setValues([[id, v("categoria"), v("estado"), _seguroCelda_(String(v("correoUsuario"))), _seguroCelda_(String(v("asunto"))),
     v("area"), v("correoArea"), v("codigo"), d.accion || actual.accion || "", new Date(), _usuario()]]);
 }
 
@@ -3475,7 +3487,7 @@ function _guardarAdjuntosHilo_(hiloId, codigo, fila) {
   });
   if (!n) return "sin adjuntos";
   var h = _h(CFG.HOJA_DATOS), obs = h.getRange(fila, C.OBSERVACIONES).getValue();
-  h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " · " : "") + "Adjuntos: " + carpeta.getUrl());
+  h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_((obs ? obs + " · " : "") + "Adjuntos: " + carpeta.getUrl()));
   _traza(codigo, "Adjuntos guardados", n + " archivo(s) · " + carpeta.getUrl());
   return n + " archivo(s) guardado(s) en Drive";
 }
@@ -3495,7 +3507,9 @@ var USR_COLS = ["USUARIO", "NOMBRE", "CORREO", "ROL", "SEDES ASIGNADAS", "GESTIO
                 "ACTIVO", "CLAVE (HASH)", "SAL", "CREADO", "ÚLTIMO INGRESO", "DEBE CAMBIAR CLAVE"];
 var ROLES = ["Administrador", "Técnico", "Consulta"];
 var SESION = null;           // usuario de la llamada en curso (null = disparadores / sistema)
-var DURACION_SESION = 21600; // 6 horas (máximo de CacheService)
+var DURACION_SESION = 21600; // 6 horas sin actividad (máximo de CacheService)
+var SESION_MAX_MS = 43200000; // 12 horas desde el ingreso: pasado ese tiempo hay que volver a entrar aunque haya actividad
+var MAX_INTENTOS = 5;
 
 function _hojaUsuarios_() {
   var ss = _ss_();
@@ -3526,11 +3540,59 @@ function _hash_(clave, sal) {
   }
   return v;
 }
-function _claveValida_(c) { return typeof c === "string" && c.length >= 8 && /[A-Za-z]/.test(c) && /\d/.test(c); }
+/*
+ * v8.4 · POLÍTICA DE CONTRASEÑAS (docs/SEGURIDAD.md): mínimo 10 caracteres con mayúscula, minúscula y número; sin el nombre de usuario
+ * ni palabras comunes. Las contraseñas se guardan solo como resumen con sal (SHA-256 repetido); nunca en texto legible.
+ */
+var CLAVES_COMUNES = ["password", "contrasena", "contraseña", "123456", "qwerty", "miredips", "siau", "admin", "abc123", "demo2026"];
+function _msgClave_() { return "Mínimo 10 caracteres, con mayúscula, minúscula y número, sin tu usuario ni palabras comunes (por ejemplo «contraseña» o «siau»)."; }
+function _claveValida_(c, usuario) {
+  if (typeof c !== "string" || c.length < 10 || c.length > 128) return false;
+  if (!/[a-záéíóúñ]/.test(c) || !/[A-ZÁÉÍÓÚÑ]/.test(c) || !/\d/.test(c)) return false;
+  var n = _norm(c), u = _norm(usuario || "");
+  if (u.length >= 3 && n.indexOf(u) !== -1) return false;
+  for (var i = 0; i < CLAVES_COMUNES.length; i++) if (n.indexOf(_norm(CLAVES_COMUNES[i])) !== -1) return false;
+  return true;
+}
 function _publico_(u) {
   return { usuario: u.usuario, nombre: u.nombre, correo: u.correo, rol: u.rol, sedes: u.sedes, gestionaCorreo: u.correoOk,
            avisos: u.avisos, activo: u.activo, ultimo: u.ultimo instanceof Date ? Utilities.formatDate(u.ultimo, _tz_(), "dd/MM/yyyy HH:mm") : "",
            debeCambiar: u.cambiar, fila: u.fila };
+}
+
+// ---------------------------------------------------------------------------
+// v8.4 · AUDITORÍA DE ACCESOS Y CAMBIOS (hoja oculta «Auditoria»; la ve el administrador en Usuarios y sedes)
+// ---------------------------------------------------------------------------
+var AUD_COLS = ["FECHA Y HORA", "USUARIO", "EVENTO", "DETALLE"];
+function _hojaAuditoria_() {
+  var ss = _ss_(), h = ss.getSheetByName("Auditoria");
+  if (h) return h;
+  h = ss.insertSheet("Auditoria");
+  h.getRange(1, 1, 1, AUD_COLS.length).setValues([AUD_COLS]);
+  try { h.getRange(1, 1, 1, AUD_COLS.length).setFontWeight("bold").setBackground("#00475F").setFontColor("#FFFFFF"); h.setFrozenRows(1); h.hideSheet(); } catch (e) {}
+  return h;
+}
+/** Registra un evento de seguridad. Nunca interrumpe la operación que lo origina. Sin contraseñas ni datos del caso. */
+function _auditar_(evento, usuario, detalle) {
+  try {
+    _hojaAuditoria_().appendRow([new Date(), _seguroCelda_(String(usuario || (SESION ? SESION.usuario : "sistema"))).substring(0, 60), evento,
+      _seguroCelda_(String(detalle || "")).substring(0, 300)]);
+  } catch (e) { Logger.log("Auditoría: " + e); }
+}
+function apiAuditoria_(filtros) {
+  filtros = filtros || {};
+  var h = _hojaAuditoria_(), u = h.getLastRow(), tz = _tz_(), out = [];
+  var q = _norm(filtros.texto), limite = Math.min(500, parseInt(filtros.limite, 10) || 150);
+  if (u >= 2) {
+    var desde = Math.max(2, u - 1500), datos = h.getRange(desde, 1, u - desde + 1, AUD_COLS.length).getValues();
+    for (var i = datos.length - 1; i >= 0 && out.length < limite; i--) {
+      var r = datos[i];
+      if (q && _norm(r.join(" ")).indexOf(q) === -1) continue;
+      out.push({ fecha: r[0] instanceof Date ? Utilities.formatDate(r[0], tz, "dd/MM/yyyy HH:mm:ss") : String(r[0]), usuario: r[1], evento: r[2], detalle: r[3],
+                 alerta: /fallido|bloque|denegad/i.test(String(r[2])) });
+    }
+  }
+  return { ok: true, items: out };
 }
 
 // ---------------------------------------------------------------------------
@@ -3589,7 +3651,7 @@ function crearPrimerAdministrador(d) {
     d = d || {};
     var usuario = String(d.usuario || "").trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,30}$/.test(usuario)) return { ok: false, mensaje: "El usuario debe tener de 3 a 30 letras o números, sin espacios." };
-    if (!_claveValida_(d.clave)) return { ok: false, mensaje: "La contraseña debe tener mínimo 8 caracteres, con letras y números." };
+    if (!_claveValida_(d.clave, usuario)) return { ok: false, mensaje: _msgClave_() };
     var sal = Utilities.getUuid();
     _hojaUsuarios_().appendRow([usuario, d.nombre || usuario, d.correo || "", "Administrador", "TODAS", "SI", "SI", "SI",
       _hash_(d.clave, sal), sal, new Date(), "", "NO"]);
@@ -3604,24 +3666,40 @@ function iniciarSesion(usuario, clave) {
 }
 function _iniciarSesion_(usuario, clave) {
   usuario = String(usuario || "").trim().toLowerCase();
-  var cache = CacheService.getScriptCache();
-  var intentos = parseInt(cache.get("int_" + usuario) || "0", 10);
-  if (intentos >= 5) return { ok: false, mensaje: "Demasiados intentos. Espera 15 minutos o pide a un administrador que restablezca tu contraseña." };
-  var u = _usuarios_().filter(function (x) { return x.usuario === usuario; })[0];
-  if (!u || !u.hash || _hash_(String(clave || ""), u.sal) !== u.hash) {
-    cache.put("int_" + usuario, String(intentos + 1), 900);
+  clave = String(clave || "");
+  var lista = _usuarios_();   // si Google niega el acceso al consolidado, iniciarSesion explica con qué cuenta se ejecuta
+  if (!/^[a-z0-9._-]{3,30}$/.test(usuario) || clave.length > 128) {   // formato imposible: respuesta genérica y sin tocar la caché
+    _hash_(clave.substring(0, 128), "sal-de-relleno");
     return { ok: false, mensaje: "Usuario o contraseña incorrectos." };
   }
-  if (!u.activo) return { ok: false, mensaje: "Tu usuario está inactivo. Habla con un administrador de la plataforma." };
+  var cache = CacheService.getScriptCache();
+  var intentos = parseInt(cache.get("int_" + usuario) || "0", 10);
+  if (intentos >= MAX_INTENTOS) {
+    _auditar_("Ingreso bloqueado", usuario, "Más de " + MAX_INTENTOS + " intentos fallidos: bloqueo de 15 minutos");
+    return { ok: false, mensaje: "Demasiados intentos. Espera 15 minutos o pide a un administrador que restablezca tu contraseña." };
+  }
+  var u = lista.filter(function (x) { return x.usuario === usuario; })[0];
+  // se calcula el resumen aunque el usuario no exista: el tiempo de respuesta no revela qué usuarios existen
+  var coincide = _hash_(clave, u && u.sal ? u.sal : "sal-de-relleno") === (u ? u.hash : "-");
+  if (!u || !u.hash || !coincide) {
+    cache.put("int_" + usuario, String(intentos + 1), 900);
+    _auditar_("Ingreso fallido", usuario, u ? "Contraseña incorrecta (intento " + (intentos + 1) + " de " + MAX_INTENTOS + ")" : "Usuario inexistente");
+    return { ok: false, mensaje: "Usuario o contraseña incorrectos." };
+  }
+  if (!u.activo) { _auditar_("Ingreso denegado", usuario, "Usuario inactivo"); return { ok: false, mensaje: "Tu usuario está inactivo. Habla con un administrador de la plataforma." }; }
   cache.remove("int_" + usuario);
   var token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, "");
   cache.put("ses_" + token, JSON.stringify({ usuario: u.usuario, t: Date.now() }), DURACION_SESION);
   _hojaUsuarios_().getRange(u.fila, 12).setValue(new Date());
+  _auditar_("Ingreso correcto", usuario, u.cambiar ? "Con contraseña temporal: debe cambiarla" : "");
   return { ok: true, token: token, usuario: _publico_(u) };
 }
-
 function cerrarSesion(token) {
-  try { CacheService.getScriptCache().remove("ses_" + token); } catch (e) {}
+  try {
+    var cache = CacheService.getScriptCache(), raw = cache.get("ses_" + token);
+    if (raw) _auditar_("Cierre de sesión", JSON.parse(raw).usuario, "");
+    cache.remove("ses_" + token);
+  } catch (e) {}
   return { ok: true };
 }
 
@@ -3631,6 +3709,7 @@ function _sesion_(token) {
   var raw = cache.get("ses_" + token);
   if (!raw) return null;
   var s = JSON.parse(raw);
+  if (!s.t || Date.now() - s.t > SESION_MAX_MS) { cache.remove("ses_" + token); return null; }
   var u = _usuarios_().filter(function (x) { return x.usuario === s.usuario; })[0];
   if (!u || !u.activo) { cache.remove("ses_" + token); return null; }
   cache.put("ses_" + token, raw, DURACION_SESION);   // renueva
@@ -3668,7 +3747,7 @@ var RUTAS = {
   apiUsuarios: [apiUsuarios_, P_ADMIN], apiGuardarUsuario: [apiGuardarUsuario_, P_ADMIN], apiRestablecerClave: [apiRestablecerClave_, P_ADMIN],
   apiGuardarEnlace: [apiGuardarEnlace_, P_ADMIN],
   // v8.2
-  apiExportarExcel: [apiExportarExcel_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
+  apiExportarExcel: [apiExportarExcel_, P_ADMIN], apiAuditoria: [apiAuditoria_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
   apiAjustes: [apiAjustes_, P_ADMIN], apiGuardarAjustes: [apiGuardarAjustes_, P_ADMIN],
   apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
 
@@ -3697,7 +3776,13 @@ function api(token, nombre, args) {
   if (!s) return { __sesion: false, mensaje: "Tu sesión terminó. Vuelve a ingresar." };
   var ruta = RUTAS[nombre];
   if (!ruta) throw new Error("Acción no disponible: " + nombre);
-  if (!_permitido_(s, ruta[1])) return { ok: false, __permiso: false, mensaje: "Tu rol (" + s.rol + ") no permite esta acción." };
+  if (!_permitido_(s, ruta[1])) {
+    _auditar_("Acción denegada", s.usuario, nombre + " · rol " + s.rol);
+    return { ok: false, __permiso: false, mensaje: "Tu rol (" + s.rol + ") no permite esta acción." };
+  }
+  // con una contraseña temporal solo se puede cambiarla (el servidor lo exige, no solo la pantalla)
+  if (s.debeCambiar && nombre !== "apiCambiarMiClave" && nombre !== "appBootstrap")
+    return { ok: false, __cambiarClave: true, mensaje: "Debes cambiar tu contraseña temporal antes de continuar." };
   SESION = s;
   args = args || [];
   if (ruta[2] === "codigo") {
@@ -3767,12 +3852,14 @@ function apiGuardarUsuario_(d) {
       h.getRange(existente.fila, 2, 1, 7).setValues([[d.nombre || "", d.correo || "", d.rol, sedes, d.gestionaCorreo ? "SI" : "NO",
         d.avisos ? "SI" : "NO", d.activo === false ? "NO" : "SI"]]);
       _traza("—", "Usuario actualizado", usuario + " · " + d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : ""));
+      _auditar_("Usuario actualizado", usuario, d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : "") + " · por " + (SESION ? SESION.usuario : "sistema"));
     } else {
-      if (!_claveValida_(d.clave)) return { ok: false, mensaje: "Contraseña temporal: mínimo 8 caracteres con letras y números." };
+      if (!_claveValida_(d.clave, usuario)) return { ok: false, mensaje: "Contraseña temporal. " + _msgClave_() };
       var sal = Utilities.getUuid();
       h.appendRow([usuario, d.nombre || "", d.correo || "", d.rol, sedes, d.gestionaCorreo ? "SI" : "NO", d.avisos ? "SI" : "NO",
         d.activo === false ? "NO" : "SI", _hash_(d.clave, sal), sal, new Date(), "", "SI"]);
       _traza("—", "Usuario creado", usuario + " · " + d.rol + " · " + sedes);
+      _auditar_("Usuario creado", usuario, d.rol + " · " + sedes + " · por " + (SESION ? SESION.usuario : "sistema"));
     }
     return apiUsuarios_();
   } finally { lock.releaseLock(); }
@@ -3780,21 +3867,24 @@ function apiGuardarUsuario_(d) {
 function apiRestablecerClave_(usuario, clave) {
   var u = _usuarios_().filter(function (x) { return x.usuario === String(usuario || "").toLowerCase(); })[0];
   if (!u) return { ok: false, mensaje: "No existe ese usuario." };
-  if (!_claveValida_(clave)) return { ok: false, mensaje: "Mínimo 8 caracteres con letras y números." };
+  if (!_claveValida_(clave, u.usuario)) return { ok: false, mensaje: _msgClave_() };
   var sal = Utilities.getUuid();
   _hojaUsuarios_().getRange(u.fila, 9, 1, 2).setValues([[_hash_(clave, sal), sal]]);
   _hojaUsuarios_().getRange(u.fila, 13).setValue("SI");
   CacheService.getScriptCache().remove("int_" + u.usuario);
   _traza("—", "Contraseña restablecida", u.usuario);
+  _auditar_("Contraseña restablecida por el administrador", u.usuario, "Debe cambiarla al ingresar");
   return { ok: true, mensaje: "Contraseña temporal asignada a " + u.usuario + ". Deberá cambiarla al ingresar." };
 }
 function apiCambiarMiClave_(actual, nueva) {
   var u = _usuarios_().filter(function (x) { return x.usuario === SESION.usuario; })[0];
   if (!u || _hash_(String(actual || ""), u.sal) !== u.hash) return { ok: false, mensaje: "La contraseña actual no es correcta." };
-  if (!_claveValida_(nueva)) return { ok: false, mensaje: "La nueva contraseña debe tener mínimo 8 caracteres, con letras y números." };
+  if (!_claveValida_(nueva, SESION.usuario)) return { ok: false, mensaje: _msgClave_() };
+  if (String(nueva) === String(actual)) return { ok: false, mensaje: "La nueva contraseña debe ser distinta de la actual." };
   var sal = Utilities.getUuid();
   _hojaUsuarios_().getRange(u.fila, 9, 1, 2).setValues([[_hash_(nueva, sal), sal]]);
   _hojaUsuarios_().getRange(u.fila, 13).setValue("NO");
+  _auditar_("Contraseña cambiada", u.usuario, "");
   return { ok: true, mensaje: "Contraseña actualizada." };
 }
 
@@ -3883,13 +3973,13 @@ function _aplicarClasificador_(fila, modo) {
   var nuevo = _tipoEnLista_(r.tipo);
   if (modo === "auto" && (r.confianza === "alta" || !decl)) {
     h.getRange(fila, C.TIPO_PQRS).setValue(nuevo);
-    h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Reclasificada: " + (decl || "sin tipo") + " → " + nuevo + "]");
+    h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_((obs ? obs + " " : "") + "[Reclasificada: " + (decl || "sin tipo") + " → " + nuevo + "]"));
     if (_esFeli(decl) && !_esFeli(nuevo) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
     _traza(f[C.CODIGO - 1], "Reclasificada automáticamente", "Declarado: " + (decl || "—") + " · según el texto: " + nuevo +
       " (señales: " + r.razones.slice(0, 5).join(", ") + ")");
     r.aplicado = true;
   } else if (r.confianza !== "baja") {
-    h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Tipo sugerido: " + nuevo + "]");
+    h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_((obs ? obs + " " : "") + "[Tipo sugerido: " + nuevo + "]"));
   }
   return r;
 }
@@ -3903,7 +3993,7 @@ function apiReclasificar_(codigo, tipo) {
   var antes = h.getRange(fila, C.TIPO_PQRS).getValue();
   var obs = String(h.getRange(fila, C.OBSERVACIONES).getValue() || "").replace(/\s*\[(Tipo sugerido|Reclasificada)[^\]]*\]/g, "");
   h.getRange(fila, C.TIPO_PQRS).setValue(tipo);
-  h.getRange(fila, C.OBSERVACIONES).setValue(obs + (antes !== tipo ? " [Reclasificada: " + (antes || "sin tipo") + " → " + tipo + "]" : ""));
+  h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_(obs + (antes !== tipo ? " [Reclasificada: " + (antes || "sin tipo") + " → " + tipo + "]" : "")));
   if (_esFeli(antes) && !_esFeli(tipo) && !h.getRange(fila, C.ENTIDAD).getValue()) h.getRange(fila, C.ENTIDAD).setValue(entidadSedeLista_());
   SpreadsheetApp.flush();
   _traza(codigo, "Tipo de PQRS ajustado", (antes || "—") + " → " + tipo);
@@ -4849,7 +4939,7 @@ function _evaluarPrioridadFila_(fila, modo, f, cats) {
   if (modo === "auto" && r.categoria && !legal && _rango_(r.nivel) > _rango_(actual)) {
     h.getRange(fila, C.CLASIF_INTERNA).setValue(r.categoria);
     var obs = String(f[C.OBSERVACIONES - 1] || "").replace(/\s*\[Riesgo: [^\]]*\]/g, "");
-    h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Riesgo: " + r.nivel + " · " + r.razones.slice(0, 4).join(", ") + "]");
+    h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_((obs ? obs + " " : "") + "[Riesgo: " + r.nivel + " · " + r.razones.slice(0, 4).join(", ") + "]"));
     _traza(f[C.CODIGO - 1], "Priorizada por riesgo", r.categoria + " · señales: " + r.razones.join(", ") +
       (r.poblacion.length ? " · población: " + pobl : "") + " · " + (_nivelNorma_(r.nivel)));
     r.aplicado = true;
@@ -4967,7 +5057,7 @@ function apiFijarRiesgo_(codigo, nivel, motivo) {
   var h = _h(CFG.HOJA_DATOS), f = h.getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
   var obs = String(f[C.OBSERVACIONES - 1] || "").replace(/\s*\[Riesgo( manual)?: [^\]]*\]/g, "");
   if (nivel === "auto") {
-    h.getRange(fila, C.OBSERVACIONES).setValue(obs);
+    h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_(obs));
     SpreadsheetApp.flush();
     var r = _evaluarPrioridadFila_(fila, "auto");
     _traza(codigo, "Riesgo recalculado", (r.nivel || "sin riesgo especial") + (motivo ? " · " + motivo : ""));
@@ -4977,7 +5067,7 @@ function apiFijarRiesgo_(codigo, nivel, motivo) {
   var legal = CATS_LEGALES.test(_norm(f[C.CLASIF_INTERNA - 1]));
   if (!legal) h.getRange(fila, C.CLASIF_INTERNA).setValue(cat);
   h.getRange(fila, C.NIVEL_RIESGO).setValue(cat ? nivel + " · " + HORAS_NIVEL[nivel] + " h" : "");
-  h.getRange(fila, C.OBSERVACIONES).setValue((obs ? obs + " " : "") + "[Riesgo manual: " + (nivel || "sin riesgo especial") + (motivo ? " · " + motivo : "") + "]");
+  h.getRange(fila, C.OBSERVACIONES).setValue(_seguroCelda_((obs ? obs + " " : "") + "[Riesgo manual: " + (nivel || "sin riesgo especial") + (motivo ? " · " + motivo : "") + "]"));
   SpreadsheetApp.flush();
   _traza(codigo, "Riesgo ajustado a mano", (f[C.NIVEL_RIESGO - 1] || "sin riesgo") + " → " + (nivel || "sin riesgo especial") + (motivo ? " · " + motivo : ""));
   if (_rango_(nivel) >= 2) _alertaPrioritaria_(fila, { nivel: nivel, horas: HORAS_NIVEL[nivel], razones: ["ajuste manual" + (motivo ? ": " + motivo : "")], poblacion: String(f[C.POBLACION_PRIORIZADA - 1] || "").split(/\s*;\s*/).filter(String) });
@@ -5263,8 +5353,47 @@ function apiDiagnostico_() {
      "Configuración ▸ Automatización ▸ webhook de Google Chat (llega al celular con sonido).");
   ok(PropertiesService.getScriptProperties().getProperty("ESQUEMA") === ESQUEMA, "Estructura del consolidado", "versión " + (PropertiesService.getScriptProperties().getProperty("ESQUEMA") || "?"),
      "Abre la plataforma una vez como administrador o usa PQRS ▸ Reparar fechas y fórmulas.");
+  try { _chequeosSeguridad_(ok); } catch (e) { ok(false, "Revisión de seguridad", String(e.message || e), "Ejecuta de nuevo el diagnóstico; si persiste, revisa los permisos de Drive de la cuenta SIAU."); }
   ok(!!_param(9), "Fecha de corte del formulario", _param(9) ? _fmtHora_(new Date(_param(9)).getTime()) : "sin fijar", "Se fija sola en la primera importación.");
   return { ok: true, items: d, bien: d.filter(function (x) { return x.ok; }).length, total: d.length };
+}
+/**
+ * v8.4 · Revisión de seguridad (docs/SEGURIDAD.md): cómo está compartido el consolidado, quién es editor, la carpeta de respaldos,
+ * usuarios con contraseña temporal sin cambiar o sin uso, número de administradores y fortaleza del tema del push.
+ */
+function _chequeosSeguridad_(ok) {
+  var ss = _ss_(), cuenta = "", dominio = "";
+  try { cuenta = Session.getEffectiveUser().getEmail() || ""; dominio = (cuenta.split("@")[1] || "").toLowerCase(); } catch (e) {}
+  var propio = function (c) { return dominio && String(c).toLowerCase().split("@")[1] === dominio; };
+  try {
+    var arch = DriveApp.getFileById(ss.getId()), acc = String(arch.getSharingAccess());
+    var editores = arch.getEditors().map(function (x) { return x.getEmail(); }), externos = editores.filter(function (c) { return !propio(c); });
+    ok(!/^ANYONE/.test(acc), "Seguridad · acceso general al consolidado", "Compartido como «" + acc + "»",
+       "Abre el consolidado ▸ Compartir ▸ Acceso general ▸ «Restringido». Cualquiera con el enlace vería todos los datos de los usuarios.");
+    ok(editores.length <= 5 && !externos.length, "Seguridad · editores del consolidado", editores.length + " editor(es)" + (externos.length ? " · fuera de la institución: " + externos.join(", ") : ""),
+       "Deja como editores solo a quienes administran la plataforma y quita las cuentas externas. Un editor puede leer todo, incluida la hoja Usuarios.");
+  } catch (e) { ok(false, "Seguridad · acceso al consolidado", "No se pudo verificar: " + (e.message || e), "Revisa a mano: Compartir ▸ Acceso general debe ser «Restringido»."); }
+  try {
+    var it = DriveApp.getFoldersByName(CARPETA_RESPALDOS);
+    if (it.hasNext()) {
+      var car = it.next(), acc2 = String(car.getSharingAccess());
+      var viewers = car.getViewers().concat(car.getEditors()).map(function (x) { return x.getEmail(); }).filter(function (c) { return !propio(c); });
+      ok(!/^ANYONE/.test(acc2) && !viewers.length, "Seguridad · carpeta de respaldos en Excel", viewers.length ? "Compartida con cuentas fuera de la institución: " + viewers.join(", ") : "Solo la cuenta SIAU",
+         "Los respaldos traen datos personales y de salud. Comparte solo con cuentas autorizadas (preferiblemente institucionales) y quita el acceso a quien ya no lo necesite.");
+    }
+  } catch (e) {}
+  var us = _usuarios_(), ahora = Date.now(), dia = 86400000;
+  var admins = us.filter(function (u) { return u.activo && u.rol === "Administrador"; });
+  ok(admins.length >= 1 && admins.length <= 3, "Seguridad · administradores", admins.length + " activo(s)", "Mantén entre 1 y 3 administradores: quien administra puede ver y exportar todo.");
+  var temp = us.filter(function (u) { return u.activo && u.cambiar && u.creado instanceof Date && ahora - u.creado.getTime() > 7 * dia; });
+  ok(!temp.length, "Seguridad · contraseñas temporales sin cambiar", temp.length ? temp.map(function (u) { return u.usuario; }).join(", ") : "ninguna",
+     "Una contraseña temporal con más de 7 días es un riesgo: restablécela o inactiva el usuario.");
+  var sinUso = us.filter(function (u) { return u.activo && ((u.ultimo instanceof Date ? ahora - u.ultimo.getTime() : (u.creado instanceof Date ? ahora - u.creado.getTime() : 0)) > 90 * dia); });
+  ok(!sinUso.length, "Seguridad · usuarios sin ingresar en 90 días", sinUso.length ? sinUso.map(function (u) { return u.usuario; }).join(", ") : "ninguno",
+     "Inactiva a quienes ya no trabajan en el SIAU (Usuarios y sedes ▸ editar ▸ Usuario activo).");
+  var a = _ajustes_();
+  if (a.pushTema) ok(String(a.pushTema).length >= 20, "Seguridad · tema del push", "Longitud " + String(a.pushTema).length,
+     "Quien conozca el tema puede leer los avisos. Usa «Generar» en Configuración ▸ Automatización para uno largo y difícil de adivinar.");
 }
 function diagnosticoPlataforma() {   // menú de la hoja
   SpreadsheetApp.getUi();

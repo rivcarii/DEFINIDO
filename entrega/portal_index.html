@@ -1190,6 +1190,12 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
   .acceso-pie .vigilado{justify-content:center}
 }
 .fila-push{display:flex;gap:8px;align-items:center}.fila-push input{flex:1;min-width:0;font-family:var(--mono,Consolas,monospace);font-size:13.5px}
+/* auditoría */
+.aud{display:grid;gap:2px;max-height:420px;overflow:auto;font-size:12.5px}
+.aud-fila{display:grid;grid-template-columns:150px 130px minmax(0,1.2fr) minmax(0,1.6fr);gap:10px;padding:7px 10px;border-radius:10px;align-items:baseline;overflow-wrap:anywhere}
+.aud-fila:nth-child(even){background:var(--surface-2,#F3F5F8)}.aud-fila.alerta{background:#FDECEF;color:#8A0F27}
+.aud-cab{position:sticky;top:0;background:var(--surface,#fff)!important;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3,#86939C)}
+@media(max-width:760px){.aud-fila{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.aud-cab{display:none}}
 /* análisis de EPS y entes de control */
 .analisis{margin-bottom:14px;border-left:5px solid #006081}
 .analisis .an-cab{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
@@ -3543,6 +3549,8 @@ document.addEventListener("DOMContentLoaded", function(){
   if(window.IMG_MASCOTA_HERO) document.documentElement.style.setProperty("--mascota-hero", "url(" + window.IMG_MASCOTA_HERO + ")");
 });
 </script>
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; connect-src https://script.google.com https://script.googleusercontent.com; base-uri 'none'; form-action 'none'; object-src 'none'">
+<meta name="referrer" content="no-referrer">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#006081">
 <script>window.PQRS_API = "https://script.google.com/macros/s/AKfycbz23uMhiBQt0nU5Mr90Xoi5aJWaCcxNsNPZ0-82p1GUMy-aP4KpEU2ado-81QeqpnSJ/exec";</script>
@@ -3898,6 +3906,14 @@ document.addEventListener("DOMContentLoaded", function(){
     <div id="usrEnlace"></div>
     <div class="resp-barra"><div class="buscar"><svg class="ic s"><use href="#i-buscar"/></svg><input id="usrBuscar" placeholder="Buscar por nombre, usuario o sede"></div><span class="resp-cont" id="usrCont"></span></div>
     <div class="usr-lista" id="usrLista"></div>
+    <div class="card" style="margin-top:18px">
+      <div class="cab-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:10px">
+        <div><h3 style="margin:0">Auditoría de accesos y cambios</h3>
+          <p class="sub" style="margin:2px 0 0">Ingresos correctos y fallidos, bloqueos, cambios de contraseña, usuarios creados o modificados y exportaciones. No guarda contraseñas ni datos de los casos.</p></div>
+        <div style="display:flex;gap:8px;align-items:center"><input id="audBuscar" placeholder="Filtrar por usuario o evento" style="min-width:210px">
+          <button class="b sec mini" id="btnAudActualizar" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div></div>
+      <div class="aud" id="audLista"></div>
+    </div>
   </section>
 
   <!-- ===================== CONFIGURACIÓN ===================== -->
@@ -4138,6 +4154,7 @@ function llamar(fn, args, conCarga){
       if(conCarga) carga(-1);
       if(TOKEN !== token) return;
       if(x && x.__sesion === false){ sesionTerminada(x.mensaje); mal(new Error(x.mensaje)); return; }
+      if(x && x.__cambiarClave){ if($("modal").hidden) cambiarClave(true); mal(new Error(x.mensaje)); return; }   /* contraseña temporal: solo se puede cambiarla */
       ok(x);
     }).withFailureHandler(function(e){ if(conCarga) carga(-1); if(TOKEN !== token) return; mal(e); }).api(token, fn, args);
   });
@@ -6152,7 +6169,7 @@ function mostrarAcceso(estado, mensaje){
     $("accCampos").innerHTML = '<label for="a_nombre">Nombre completo</label><input id="a_nombre" autocomplete="name">'+
       '<label for="a_usuario">Usuario</label><input id="a_usuario" autocomplete="username" placeholder="p. ej. siau.lider">'+
       '<label for="a_correo">Correo (para avisos)</label><input id="a_correo" type="email" autocomplete="email">'+
-      campoClave("a_clave","Contraseña","new-password")+'<div class="hint">Mínimo 8 caracteres, con letras y números.</div>'+campoClave("a_clave2","Repite la contraseña","new-password");
+      campoClave("a_clave","Contraseña","new-password")+'<div class="hint">Mínimo 10 caracteres, con mayúscula, minúscula y número. No uses tu usuario ni palabras comunes.</div>'+campoClave("a_clave2","Repite la contraseña","new-password");
     $("btnAcceso").textContent = "Crear administrador e ingresar";
     $("btnAcceso").onclick = function(){
       if(val("a_clave") !== val("a_clave2")){ aviso("accAviso","Las contraseñas no coinciden.","err"); return; }
@@ -6202,7 +6219,7 @@ function aplicarSesion(){
 }
 function cambiarClave(obligatorio){
   $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(440px,100%)"><div class="modal-cab"><div><h3>'+(obligatorio?"Crea tu contraseña":"Cambiar mi contraseña")+'</h3>'+
-    '<p>'+(obligatorio?"Estás usando una contraseña temporal asignada por el administrador.":"Mínimo 8 caracteres, con letras y números.")+'</p></div>'+
+    '<p>'+(obligatorio?"Estás usando una contraseña temporal asignada por el administrador.":"Mínimo 10 caracteres, con mayúscula, minúscula y número (sin tu usuario ni palabras comunes).")+'</p></div>'+
     (obligatorio?'':'<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button>')+'</div>'+
     '<div class="modal-cuerpo"><div id="claveAviso"></div>'+campoClave("c_actual", obligatorio?"Contraseña temporal":"Contraseña actual")+
     campoClave("c_nueva","Nueva contraseña","new-password")+campoClave("c_nueva2","Repite la nueva contraseña","new-password")+
@@ -6322,9 +6339,21 @@ $("btnEscritorio").addEventListener("click", function(){
 /* ============================ USUARIOS ============================ */
 function cargarUsuarios(){
   $("usrLista").innerHTML = esqueleto(3);
-  srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); })
+  srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); cargarAuditoria(); })
     .catch(function(e){ aviso("usrAviso", msgErr(e), "err"); });
 }
+/* v8.4 · Auditoría de accesos y cambios (ingresos, bloqueos, contraseñas, usuarios, exportaciones). Solo administrador. */
+function cargarAuditoria(){
+  if(!$("audLista")) return;
+  $("audLista").innerHTML = esqueleto(3);
+  srvSilencioso("apiAuditoria", { texto: $("audBuscar") ? $("audBuscar").value : "", limite: 150 }).then(function(r){
+    if(!r.ok || !r.items.length){ $("audLista").innerHTML = vacio("escudo","Todavía no hay eventos registrados."); return; }
+    $("audLista").innerHTML = '<div class="aud-fila aud-cab"><span>Fecha</span><span>Usuario</span><span>Evento</span><span>Detalle</span></div>'+
+      r.items.map(function(x){ return '<div class="aud-fila'+(x.alerta?' alerta':'')+'"><span>'+esc(x.fecha)+'</span><span>'+esc(x.usuario)+'</span><b>'+esc(x.evento)+'</b><span>'+esc(x.detalle)+'</span></div>'; }).join("");
+  }).catch(function(e){ $("audLista").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+}
+$("btnAudActualizar").addEventListener("click", cargarAuditoria);
+$("audBuscar").addEventListener("input", function(){ clearTimeout(APP._audT); APP._audT = setTimeout(cargarAuditoria, 350); });
 /* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña).
    v9.2: el administrador lo cambia aquí mismo («Cambiar enlace»); se guarda en la propiedad URL_PLATAFORMA del proyecto. */
 function pintarEnlace(e){
