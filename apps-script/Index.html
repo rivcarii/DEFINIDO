@@ -6432,8 +6432,15 @@ $("btnAudActualizar").addEventListener("click", cargarAuditoria);
 $("audBuscar").addEventListener("input", function(){ clearTimeout(APP._audT); APP._audT = setTimeout(cargarAuditoria, 350); });
 /* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña).
    v9.2: el administrador lo cambia aquí mismo («Cambiar enlace»); se guarda en la propiedad URL_PLATAFORMA del proyecto. */
+var PORTAL_URL = "https://rivcarii.github.io/DEFINIDO/portal/";
+/* El enlace de ingreso para las personas es el del portal (GitHub Pages). Si el servidor aún devuelve el de Apps Script, se corrige aquí. */
+function enlaceVisible(e){
+  var o = {}, k; for(k in (e||{})) o[k] = e[k];
+  if(o.url && /script\.google\.com/.test(o.url) && !o.prueba){ o.appsScript = o.url; o.url = PORTAL_URL; }
+  return o;
+}
 function pintarEnlace(e){
-  e = e || {};
+  e = enlaceVisible(e);
   var ok = !!e.url && !e.prueba, abierto = !ok;
   $("usrEnlace").innerHTML = '<div class="enlace-card'+(ok?'':' mal')+'"><div class="enlace-ic">'+ic(ok?"enviar":"alerta")+'</div><div class="enlace-txt">'+
     '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : e.url ? 'Estás usando el enlace de prueba (/dev)' : 'Falta el enlace de la plataforma')+'</b>'+
@@ -6469,7 +6476,7 @@ function copiarTexto(t, msg){
 }
 function copiaManual(t){ var a=document.createElement("textarea"); a.value=t; document.body.appendChild(a); a.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(a); }
 function invitacion(u){
-  var url = (APP.usr && APP.usr.enlace && APP.usr.enlace.url) || "";
+  var url = enlaceVisible(APP.usr && APP.usr.enlace).url || "";
   return "Hola " + String(u.nombre||u.usuario).split(" ")[0] + ", ya tienes acceso a la Plataforma de PQRS de MiRed IPS.\n\n" +
     "Enlace: " + url + "\nUsuario: " + u.usuario + "\nContraseña: la temporal que te entregué (la cambiarás al ingresar).\n\n" +
     "No necesitas cuenta de Google. Verás las PQRS de: " + (u.rol === "Administrador" || u.sedes.some(function(x){ return /^todas$/i.test(x); }) ? "todas las sedes" : u.sedes.join(", ")) + ".";

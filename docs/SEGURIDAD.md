@@ -71,3 +71,24 @@ Regla de oro: **los avisos fuera de la plataforma** (correo a técnicos, Google 
 ## 7. Revisión de esta política
 
 La revisa el líder de Gestión de la Calidad al menos una vez al año o después de cualquier incidente. Cada cambio de seguridad en el código debe incluir su prueba en `tests/pruebas_v8.js` y quedar descrito aquí.
+
+## 8. Seguridad del repositorio en GitHub
+
+El repositorio es **público** (el portal se publica en GitHub Pages): solo contiene código y datos ficticios. Controles en el código:
+
+| Control | Dónde |
+|---|---|
+| Análisis estático CodeQL (semanal y en cada cambio) | `.github/workflows/codeql.yml` |
+| Lint, pruebas y revisión de que no se suban hojas de cálculo, credenciales ni llaves | `.github/workflows/verificar.yml` |
+| Alertas y PR automáticos de dependencias y acciones | `.github/dependabot.yml` |
+| Revisión obligatoria por la persona responsable | `.github/CODEOWNERS` |
+| Cómo reportar una vulnerabilidad | `SECURITY.md` |
+| Permisos mínimos en los flujos (`contents: read`) | todos los workflows |
+| Portal con política CSP (solo habla con `script.google.com`) | `tools/construir_portal.mjs` |
+
+Ajustes que solo puede hacer el dueño del repositorio, en **Settings** (una vez):
+1. **Code security ▸** activar *Dependency graph*, *Dependabot alerts*, *Dependabot security updates*, *Secret scanning* y **Push protection**, *Private vulnerability reporting* y *Code scanning (CodeQL)*.
+2. **Branches ▸ Add rule** para `main`: exigir pull request, exigir que pasen los chequeos *Verificar* y *CodeQL*, y bloquear *force push* y borrado.
+3. **Pages ▸** activar **Enforce HTTPS**.
+4. **Cuenta de GitHub:** verificación en dos pasos y llave de acceso o app autenticadora.
+5. Nadie más con permiso de escritura (*Settings ▸ Collaborators*).

@@ -72,6 +72,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
       await p.waitForFunction(() => /Excel listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
     }
     await irA("usuarios"); await p.waitForSelector("#usrLista .usr", { timeout: 8000 }); await p.waitForTimeout(300);
+    if (!/github\.io\/DEFINIDO\/portal\//.test(await p.textContent("#enlaceActual").catch(() => ""))) errores.push(w + " el enlace de ingreso para los técnicos no es el del portal de GitHub");
     await p.waitForSelector("#audLista .aud-fila:not(.aud-cab)", { timeout: 8000 }).catch(() => errores.push(w + " la auditoría de accesos no muestra eventos"));
     if (!/Ingreso correcto/.test(await p.textContent("#audLista"))) errores.push(w + " la auditoría no registra el ingreso del administrador");
     await desb("usuarios"); await p.screenshot({ path: CAP + `z_${w}_usuarios.png`, fullPage: true });
