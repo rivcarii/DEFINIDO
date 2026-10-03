@@ -4575,7 +4575,7 @@ function _urlPlataforma_(codigo) {
  * 1) la propiedad del proyecto URL_PLATAFORMA (Configuración del proyecto ▸ Propiedades de la secuencia de comandos),
  * 2) URL_PLATAFORMA_DEFECTO (la implementación activa al publicar esta versión), 3) getService().getUrl().
  */
-var URL_PLATAFORMA_DEFECTO = "https://script.google.com/macros/s/AKfycbz23uMhiBQt0nU5Mr90Xoi5aJWaCcxNsNPZ0-82p1GUMy-aP4KpEU2ado-81QeqpnSJ/exec";
+var URL_PLATAFORMA_DEFECTO = "https://script.google.com/macros/s/AKfycbygfb4GL4ht0B9RSJIUFO5CxREvHNdKoNVCj7qgbCfSqqXdSmJUggxBf0TGrQo3tqlp/exec";
 function _urlBase_() {
   var p = "";
   try { p = String(PropertiesService.getScriptProperties().getProperty("URL_PLATAFORMA") || "").trim(); } catch (e) {}
