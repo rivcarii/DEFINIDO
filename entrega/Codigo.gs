@@ -82,7 +82,7 @@ var LOGO_SIAU_MEDALLA_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAA
 // ---------------------------------------------------------------------------
 /** Ícono de la pestaña. Apps Script exige una URL https pública a un PNG: por defecto el favicon del portal en GitHub Pages
  *  (portal/favicon.png); se puede cambiar con la propiedad del proyecto FAVICON_URL. */
-var FAVICON_DEFECTO = "https://rivcarii.github.io/pqrs/favicon.png";
+var FAVICON_DEFECTO = "https://rivcarii.github.io/DEFINIDO/favicon.png";
 function _faviconUrl_() {
   var p = "";
   try { p = String(PropertiesService.getScriptProperties().getProperty("FAVICON_URL") || "").trim(); } catch (e) {}
@@ -4684,7 +4684,7 @@ var URL_PLATAFORMA_DEFECTO = "https://script.google.com/macros/s/AKfycbygfb4GL4h
  * (todos los correos, avisos y botones «Ingresar» lo usan). Propiedad opcional URL_PORTAL para cambiarlo
  * (por ejemplo un dominio propio). El portal habla con Apps Script por el /exec de URL_PLATAFORMA_DEFECTO.
  */
-var URL_PORTAL_DEFECTO = "https://rivcarii.github.io/pqrs/portal/";
+var URL_PORTAL_DEFECTO = "https://rivcarii.github.io/DEFINIDO/portal/";
 function _urlPortal_() {
   var p = "";
   try { p = String(PropertiesService.getScriptProperties().getProperty("URL_PORTAL") || "").trim(); } catch (e) {}

@@ -75,7 +75,7 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 1. `npm run portal` genera `portal/index.html`.
 2. Edita `portal/config.js`: `window.PQRS_API = "https://script.google.com/macros/s/…/exec";`
 3. En GitHub: Settings ▸ Pages ▸ Source: **GitHub Actions**. El flujo `.github/workflows/portal.yml` publica al hacer push a `main` (repositorio público o plan con Pages privado).
-4. Enlace para los técnicos: `https://<usuario>.github.io/pqrs/`. Sigue exigiendo usuario y contraseña; la URL /exec no es secreta.
+4. Enlace para los técnicos: `https://<usuario>.github.io/<nombre-del-repositorio>/`. Sigue exigiendo usuario y contraseña; la URL /exec no es secreta.
    Para probar sin publicar: abre `portal/index.html?api=<URL /exec>`.
 
 ## 6. Actualizar a una versión nueva
