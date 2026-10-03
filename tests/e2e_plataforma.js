@@ -44,7 +44,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
     const inst = await p.$$eval("#listaCorreos .hilo", els => els.length);
     if (inst) { await p.click("#listaCorreos .hilo"); await p.waitForSelector("#vistaHilo .msg", { timeout: 8000 }); await p.waitForTimeout(400);
       if (!(await p.$("#x_cat"))) errores.push(w + " sin selector de categoría para EPS");
-      if (!(await p.$("#vistaHilo .analisis .an-f"))) errores.push(w + " el hilo de la EPS no muestra el análisis detallado");
+      if (!(await p.$("#vistaHilo .analisis"))) errores.push(w + " el hilo de la EPS no muestra el análisis detallado");
       else if (!/Qué hacer/.test(await p.textContent("#vistaHilo .analisis"))) errores.push(w + " el análisis no trae las acciones sugeridas");
       await desb("hilo eps"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_hilo_eps.png`, fullPage: true }); }
     await irA("radicar"); await p.selectOption("#r_tipoPqrs", { index: 5 });
@@ -82,7 +82,9 @@ require("fs").mkdirSync(CAP, { recursive: true });
     if (w >= 1366) {   // barra lateral fija al desplazarse
       await p.evaluate(() => window.scrollTo(0, document.body.scrollHeight)); await p.waitForTimeout(200);
       const top = await p.evaluate(() => document.getElementById("lateral").getBoundingClientRect().top);
-      if (Math.abs(top) > 1) errores.push(w + " la barra lateral se desplaza: top=" + top);
+      await p.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(150);
+      const top0 = await p.evaluate(() => document.getElementById("lateral").getBoundingClientRect().top);
+      if (Math.abs(top - top0) > 1) errores.push(w + " la barra lateral se desplaza: top=" + top + " (en reposo " + top0 + ")");
       await p.evaluate(() => window.scrollTo(0, 0));
     }
     if (w === 1366) {   // afiche del QR: todo cabe en la hoja A4

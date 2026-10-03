@@ -100,7 +100,7 @@ function htmlAnalisis(a){
     '<div class="claves" style="margin-top:6px">'+(a.entidad ? '<span class="clave est">'+t(a.entidad)+'</span>' : '')+(a.categoria ? '<span class="clave cod">'+t(a.categoria)+'</span>' : '')+prio+
     (rg.nivel ? '<span class="clave pr-crit">'+t(rg.nivel)+(rg.horas ? " · "+rg.horas+" h" : "")+'</span>' : '')+'</div></div></div>'+
     '<div class="an-grid">'+
-      fila("Término legal", plazo)+
+      fila("Término legal", plazo || (a.categoria ? "" : "Sin categoría detectada: elígela abajo para calcular el término y la fecha límite"))+
       fila("Meta interna ("+(a.metaHoras||0)+" h)", a.limiteMeta ? 'Direccionar o responder antes de <u>'+t(a.limiteMeta)+'</u>' : '')+
       fila("Norma", a.norma ? t(a.norma) : '')+
       fila("Plazo que pide el texto", (a.plazosTexto||[]).length ? a.plazosTexto.map(t).join(" · ") : '')+
