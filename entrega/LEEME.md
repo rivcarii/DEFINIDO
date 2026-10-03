@@ -1,13 +1,11 @@
-# Entrega v8.2 — qué pegar y dónde
+# Entrega v8.3 — qué pegar y dónde
 
 | Archivo | Dónde va |
 |---|---|
-| `Codigo.gs` | Reemplaza **todo** el contenido de `Codigo.gs` en Apps Script |
-| `Index.html` | Reemplaza **todo** el contenido de `Index.html` en Apps Script |
+| `Codigo.gs` | Apps Script: reemplaza **todo** el contenido de `Codigo.gs` |
+| `Index.html` | Apps Script: reemplaza **todo** el contenido de `Index.html` |
+| `portal_index.html` | GitHub: carpeta `portal/`, reemplaza `index.html` (ya trae la URL de tu implementación) |
 
-Después: **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** (el enlace /exec no cambia).
-Guarda antes una copia del código actual por si necesitas volver atrás.
-
-`Index.html` se construyó sobre tu archivo v9 (diseño nuevo). `Codigo.gs` parte del repositorio (v8.1) con las funciones v9.1/9.2 de enlace
-(`_urlBase_`, `apiGuardarEnlace_`) llevadas desde tu código. Si en tu Apps Script hay otros cambios que no estén en el repositorio, súbeme el `Codigo.gs` como archivo
-y los integro antes de que lo reemplaces.
+Después, en Apps Script: **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión**.
+Luego, en la hoja: menú **PQRS ▸ Instalar disparadores** (el correo pasa a revisarse cada 3 minutos).
+Guarda antes una copia del código actual. Pasos completos: `docs/DESPLIEGUE.md` §6b y §6c.
