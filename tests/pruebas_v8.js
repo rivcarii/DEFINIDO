@@ -48,10 +48,12 @@ const viejo = new Date(Date.now() - 20 * 86400000), nuevo = new Date(Date.now() 
 // ---------- correo simulado ----------
 const H_ = {};
 const MARCA = "Mensaje generado por el Sistema de PQRS de MiRed IPS.";
+const FORWARDS = [];
 function M(id, de, asunto, cuerpo) {
   const m = { getId: () => id, getFrom: () => de, getSubject: () => asunto, getPlainBody: () => cuerpo, getDate: () => new Date(Date.now() - 60000),
     getAttachments: () => [], getThread: () => m.hilo.t,
-    reply() { m.hilo.msgs.push(M("r" + Math.random(), "SIAU <siau@miredips.org>", "Re: " + asunto, MARCA)); }, forward() {} };
+    reply() { m.hilo.msgs.push(M("r" + Math.random(), "SIAU <siau@miredips.org>", "Re: " + asunto, MARCA)); },
+    forward(para, op) { FORWARDS.push({ id, para, html: op && op.htmlBody, cc: op && op.cc, asunto: op && op.subject }); } };
   return m;
 }
 function Hilo(id, msgs) { const h = { id, msgs, etq: [] }; h.t = { getId: () => id, getMessages: () => h.msgs, getLabels: () => h.etq,
@@ -287,3 +289,73 @@ process.env.XLSX_FALLA = "1";
 G.rutinaDiaria();
 delete process.env.XLSX_FALLA;
 assert(traza.d.some(f => f[2] === "Respaldo en Drive falló"), "si el respaldo falla, queda en la trazabilidad y la rutina sigue");
+
+// =====================================================================================
+console.log("---- v8.3: EPS y entes sin correos automáticos, revisión cada 3 minutos y push ----");
+G.UrlFetchApp.llamadas.length = 0;
+G.__props.AJUSTES = JSON.stringify(Object.assign(JSON.parse(G.__props.AJUSTES), { pushTema: "pqrs-miredips-prueba-123", webhookChat: "" }));
+const codProc = (() => { const f = cons.d.map((r, i) => ({ r, i })).filter(x => /Remitente institucional/.test(String(x.r[50] || ""))); return f.length ? f[f.length - 1].r[0] : ""; })();
+assert(codProc, "hay radicados de entes de control en la hoja para probar");
+const filaInst = fila(codProc);
+cons.poner(filaInst, 12, "ente@procuraduria.gov.co"); cons.poner(filaInst, 47, ""); cons.poner(filaInst, 49, "");
+const nEnv0 = enviados().length;
+assert(/no aplica/.test(G._acuseRecepcion_(filaInst)) && enviados().length === nEnv0, "el acuse automático no se envía a un remitente institucional");
+const respInst = G.apiResponsables_().filter(r => r.activo && G._correoOk(r.correo))[0];
+cons.poner(filaInst, 34, new Date(Date.now() + 5 * 86400000));   // la fórmula de vencimiento no se evalúa en las pruebas
+const envArea = G.apiEnviarAlArea_(codProc, respInst.id, "prueba");
+assert(envArea.ok !== false && /no aplica \(remitente institucional\)/.test(envArea.aviso.usuario), "al enviar al área no se le avisa «en trámite» al ente: " + (envArea.aviso && envArea.aviso.usuario));
+assert(!enviados().some(e => e.para === "ente@procuraduria.gov.co"), "ningún correo llegó al remitente institucional");
+
+// Revisión cada 3 minutos: el disparador corre cada minuto y se salta lo que llega antes
+G.__props.ULTIMA_REVISION_CORREO = String(Date.now() - 60000);
+const salto = G.procesarCorreoEntrante({ triggerUid: "t1" });
+assert(salto.omitido === true, "una corrida del disparador a menos de ~3 minutos de la anterior se omite");
+G.__props.ULTIMA_REVISION_CORREO = String(Date.now() - 200000);
+const corre = G.procesarCorreoEntrante({ triggerUid: "t1" });
+assert(!corre.omitido && +G.__props.ULTIMA_REVISION_CORREO > Date.now() - 5000, "pasados ~3 minutos sí revisa y marca la hora");
+assert(!G.procesarCorreoEntrante().omitido, "la revisión manual (menú o botón) nunca se omite");
+
+// Push (ntfy): solo radicado, tipo, prioridad, sede y fechas
+G.UrlFetchApp.llamadas.length = 0;
+const pushRes = G._avisoPush_("[CRÍTICA] *SIAU-2026-10-9999* — Nueva EPS · REQUERIMIENTO · Queja · C. LA PLAYA\nRecibida 02/10/2026 · vence 12/10/2026\n<https://script.google.com/macros/s/X/exec?pqrs=SIAU-2026-10-9999|Abrir en la plataforma>", 5);
+const pl = G.UrlFetchApp.llamadas[G.UrlFetchApp.llamadas.length - 1];
+assert(pushRes && pl && pl.url === "https://ntfy.sh" && pl.json.topic === "pqrs-miredips-prueba-123" && pl.json.priority === 5, "push a ntfy con prioridad urgente");
+assert(pl.json.title === "[CRÍTICA] SIAU-2026-10-9999" && /exec\?pqrs=SIAU-2026-10-9999/.test(pl.json.click) && !/\*|<|\|/.test(pl.json.message), "título con el radicado, enlace al caso y mensaje sin marcas de Chat");
+assert(!/nombre|documento|descripci/i.test(pl.json.message), "el push no lleva datos personales");
+G.UrlFetchApp.llamadas.length = 0;
+G._avisoChat_("[NUEVA] *SIAU-2026-10-1* — Queja", 0);
+assert(!G.UrlFetchApp.llamadas.some(l => l.json && l.json.topic), "sin prioridad no hay push");
+assert(G.apiGuardarAjustes_({ pushTema: "corto" }).ok === false && G.apiGuardarAjustes_({ pushServidor: "http://inseguro.com" }).ok === false, "valida el tema y el servidor del push");
+assert(G.apiGuardarAjustes_({ pushTema: "pqrs-miredips-prueba-123", pushServidor: "https://ntfy.sh" }).ok !== false, "guarda el tema del push");
+G.UrlFetchApp.llamadas.length = 0;
+G._alertaPrioritaria_(fila(radQ.codigo), { nivel: "Vital NNA", horas: 8, razones: ["convulsiones"], poblacion: ["NNA"] });
+assert(G.UrlFetchApp.llamadas.some(l => l.json && l.json.topic && l.json.priority === 5), "un riesgo vital en NNA llega como push urgente");
+assert(/Responder antes de/.test(enviados()[enviados().length - 1].html || "") && /C8102E/i.test(enviados()[enviados().length - 1].html || ""), "el correo de alerta lleva la banda roja y el plazo destacado");
+
+// Notificaciones a las áreas en el mismo hilo y análisis detallado
+const fw = FORWARDS.filter(x => x.para === respInst.correo);
+assert(fw.length >= 1 && /Necesitamos la gestión de su área/.test(fw[fw.length - 1].html) && /mismo hilo de correo/.test(fw[fw.length - 1].html), "el caso que entró por correo se envía al área REENVIANDO dentro del hilo original");
+assert(fw[fw.length - 1].asunto === undefined, "el reenvío conserva el asunto del hilo (no abre una conversación nueva)");
+assert(/Responder antes de|Fecha límite de respuesta/.test(fw[fw.length - 1].html) && /Prioridad/.test(fw[fw.length - 1].html), "la notificación al área trae el plazo destacado y la prioridad");
+assert(/@media only screen and \(max-width:540px\)/.test(fw[fw.length - 1].html) && /cid:logoSiauB/.test(fw[fw.length - 1].html) && /cid:logoMiredB/.test(fw[fw.length - 1].html), "diseño adaptable a celular con los logos de MiRed y del SIAU");
+const nEnvA = enviados().length;
+const radArea = G.apiRadicar_({ descripcion: "Queja por demora en farmacia.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA", sede: "C. LA PLAYA", servicio: "FARMACIA" });
+G.apiEnviarAlArea_(radArea.codigo, respInst.id, "");
+assert(enviados().length > nEnvA && enviados()[enviados().length - 1].para === respInst.correo, "el caso que no entró por correo sale como correo nuevo al área");
+
+const hiloEnte = G.apiHilo_("p1");
+assert(hiloEnte.ok && hiloEnte.analisis && /Procuradur/.test(hiloEnte.analisis.entidad) && hiloEnte.analisis.categoria === "REQUERIMIENTO ENTE DE CONTROL", "el hilo de un ente trae su análisis: " + (hiloEnte.analisis && hiloEnte.analisis.categoria));
+assert(/10 días hábiles/.test(hiloEnte.analisis.termino) && /^\d\d\/\d\d\/\d{4}$/.test(hiloEnte.analisis.limite) && hiloEnte.analisis.acciones.length >= 3, "análisis con término, fecha límite y acciones sugeridas");
+const lim = hiloEnte.analisis.limite.split("/"), recibidoAn = new Date(Date.now() - 60000);
+assert(new Date(+lim[2], +lim[1] - 1, +lim[0]) > recibidoAn, "la fecha límite (10 hábiles) es posterior a la recepción");
+const an2 = G._analisisCorreo_({ asunto: "Notificación de tutela", cuerpo: "Se ordena responder en 48 horas. Radicado de la entidad: TUT-2026-00456. Mi hijo de 3 años no respira bien y no le entregan el oxígeno.",
+  ent: { entidad: "Juzgado 3", tipo: "Rama Judicial", prioridad: "Crítica" }, cat: G._categorias_().filter(c => c.nombre === "TUTELA")[0], recibido: Date.now(), adjuntos: ["auto.pdf"] });
+assert(an2.plazosTexto.indexOf("48 horas") !== -1 && an2.referencias.indexOf("TUT-2026-00456") !== -1, "detecta el plazo y la referencia que cita la entidad: " + an2.plazosTexto + " · " + an2.referencias);
+assert(an2.riesgo && /Vital/.test(an2.riesgo.nivel) && an2.adjuntos[0] === "auto.pdf" && an2.acciones.some(a => /Jurídica/.test(a)), "análisis con riesgo vital en NNA, adjuntos y acción para tutela");
+const detInst = G.apiDetalle_(codProc);
+assert(detInst.institucional === true && detInst.analisis && detInst.analisis.categoria, "el detalle de un radicado institucional trae el análisis");
+assert(!/Nueva EPS|Procuradur/.test(JSON.stringify(G.UrlFetchApp.llamadas.filter(l => l.json && l.json.topic).map(l => l.json.message)) && "") , "(el análisis nunca viaja por push)");
+const hb = G._sumarHabiles_(Utilities.parseDate("2026-10-02", TZ, "yyyy-MM-dd"), 1);
+assert(Utilities.formatDate(hb, TZ, "yyyy-MM-dd") === "2026-10-05", "sumar 1 día hábil a un viernes cae el lunes");
+const hf = G._sumarHabiles_(Utilities.parseDate("2026-10-09", TZ, "yyyy-MM-dd"), 1);
+assert(Utilities.formatDate(hf, TZ, "yyyy-MM-dd") === "2026-10-13", "los festivos no cuentan (lunes 12 de octubre, Día de la Raza)");

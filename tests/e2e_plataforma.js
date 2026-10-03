@@ -14,6 +14,10 @@ require("fs").mkdirSync(CAP, { recursive: true });
     await p.goto(url);
     await p.waitForSelector("#formAcceso #a_usuario", { timeout: 20000 });
     await desb("acceso"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_acceso.png` });
+    // v9.3 · el ingreso cabe en una pantalla: sin desplazarse en escritorio y con el botón visible en celular y tableta
+    const ing = await p.evaluate(() => ({ alto: document.documentElement.scrollHeight, vp: window.innerHeight, boton: document.getElementById("btnAcceso").getBoundingClientRect().bottom }));
+    if (w >= 1366 && ing.alto > ing.vp + 1) errores.push(w + " el ingreso obliga a desplazarse: " + ing.alto + " > " + ing.vp);
+    if (ing.boton > ing.vp) errores.push(w + " el botón Ingresar queda fuera de la pantalla: " + Math.round(ing.boton) + " > " + ing.vp);
     const entrar = async (u) => {
       await p.fill("#a_usuario", u); await p.fill("#a_clave", "Demo2026"); await p.click("#btnAcceso");
       try { await p.waitForSelector("#v-inicio:not([hidden]) .hero", { timeout: 15000 }); }
@@ -40,6 +44,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
     const inst = await p.$$eval("#listaCorreos .hilo", els => els.length);
     if (inst) { await p.click("#listaCorreos .hilo"); await p.waitForSelector("#vistaHilo .msg", { timeout: 8000 }); await p.waitForTimeout(400);
       if (!(await p.$("#x_cat"))) errores.push(w + " sin selector de categoría para EPS");
+      if (!(await p.$("#vistaHilo .analisis .an-f"))) errores.push(w + " el hilo de la EPS no muestra el análisis detallado");
+      else if (!/Qué hacer/.test(await p.textContent("#vistaHilo .analisis"))) errores.push(w + " el análisis no trae las acciones sugeridas");
       await desb("hilo eps"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_hilo_eps.png`, fullPage: true }); }
     await irA("radicar"); await p.selectOption("#r_tipoPqrs", { index: 5 });
     await p.fill("#r_descripcion", "Quiero felicitar al médico pero la recepcionista fue grosera, me gritó y hubo mucha demora. Pésima atención.");
@@ -66,6 +72,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
     await p.keyboard.press("Escape");
     await irA("config"); await p.waitForSelector("#tablaEntidades .cfg-fila[data-ent]", { timeout: 8000 }); await p.waitForTimeout(300);
     await p.waitForSelector("#qrImagen svg", { timeout: 8000 }).catch(() => errores.push(w + " sin código QR del formulario"));
+    if (!(await p.$("#aj_pushTema")) || (await p.$("#aj_acuseInstitucional"))) errores.push(w + " configuración de push ausente o con el acuse automático a EPS todavía visible");
+    else { await p.fill("#aj_pushTema", ""); await p.click("#btnGenerarPush"); if (!/^pqrs-miredips-[a-z2-9]{14}$/.test(await p.inputValue("#aj_pushTema"))) errores.push(w + " el generador del tema del push no funcionó"); }
     await p.click("#btnRespaldarAhora"); await p.waitForFunction(() => /Respaldo guardado en Drive/.test((document.getElementById("respAviso") || {}).textContent || ""), null, { timeout: 15000 })
       .catch(() => errores.push(w + " el respaldo ahora no respondió"));
     await p.click("#btnDiagnostico"); await p.waitForSelector("#diagCuerpo .dg", { timeout: 8000 }).catch(() => errores.push(w + " sin diagnóstico"));
@@ -76,6 +84,14 @@ require("fs").mkdirSync(CAP, { recursive: true });
       const top = await p.evaluate(() => document.getElementById("lateral").getBoundingClientRect().top);
       if (Math.abs(top) > 1) errores.push(w + " la barra lateral se desplaza: top=" + top);
       await p.evaluate(() => window.scrollTo(0, 0));
+    }
+    if (w === 1366) {   // afiche del QR: todo cabe en la hoja A4
+      const html = await p.evaluate(() => htmlAficheQR("https://forms.gle/PQRSMiRedIPS"));
+      const q = await b.newPage({ viewport: { width: 794, height: 1123 } });
+      await q.setContent(html); await q.waitForTimeout(300);
+      const fuera = await q.evaluate(() => { const h = document.querySelector(".hoja").getBoundingClientRect(); let n = 0; document.querySelectorAll(".hoja *").forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.bottom > h.bottom + 1 || r.right > h.right + 1)) n++; }); return n; });
+      if (fuera) errores.push("el afiche del QR se sale de la hoja A4 (" + fuera + " elementos)");
+      await q.screenshot({ path: CAP + "z_afiche_qr.png" }); await q.close();
     }
     await p.click("#btnPerfil"); await p.click("#btnSalir");
     await p.waitForSelector("#formAcceso #a_usuario", { timeout: 15000 });

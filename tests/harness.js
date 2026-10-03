@@ -97,7 +97,7 @@ function crear(hojas, gmail) {
         const blob = { setName(n) { blob.nombre = n; return blob; }, getName: () => blob.nombre, getBytes: () => bytes };
         return { getResponseCode: () => (process.env.XLSX_FALLA ? 500 : 200), getBlob: () => blob };
       }
-      this.llamadas.push({ url, texto: JSON.parse(op.payload).text }); return {}; } },
+      const j = JSON.parse(op.payload); this.llamadas.push({ url, texto: j.text || j.message || "", json: j }); return {}; } },
     DriveApp: (() => { const carpetas = {}; const archivosPorId = {};
       const mk = n => { const c = { nombre: n, archivos: [], vistas: [], getUrl: () => "https://drive.google.com/drive/folders/" + encodeURIComponent(n),
         getFoldersByName: m => { const k = n + "/" + m; return { hasNext: () => !!carpetas[k], next: () => carpetas[k] }; },

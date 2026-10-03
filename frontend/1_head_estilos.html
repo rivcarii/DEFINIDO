@@ -1146,9 +1146,70 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 }
 
 </style>
+<style>
+/* ===========================================================================
+   INGRESO · proporciones (v9.3)
+   Una sola pantalla en escritorio (sin desplazarse en 1366×768) y, en celular y tableta, el formulario
+   de usuario y contraseña va primero y visible sin bajar; el texto promocional queda debajo o se oculta.
+   =========================================================================== */
+.acceso{height:100vh;height:100dvh;min-height:560px;overflow:hidden}
+.acceso-marca{min-height:0;padding:clamp(22px,3.6vh,48px) clamp(28px,4vw,64px);justify-content:space-between;gap:12px}
+.acceso-marca>div:first-child{position:relative;z-index:1}
+.acceso-siau{height:clamp(64px,11vh,104px);margin:clamp(12px,2.6vh,30px) 0 6px}
+.acceso-marca h1{font-size:clamp(22px,2.3vw,34px);margin:6px 0 8px}
+.acceso-marca p{font-size:14.5px;line-height:1.55;max-width:470px;margin:0 0 clamp(10px,2vh,20px)}
+.canales{display:flex;flex-wrap:wrap;gap:8px;max-width:520px}
+.canal{padding:8px 13px;font-size:12.5px;border-radius:99px}
+.acceso-mascota{position:absolute;right:clamp(16px,5%,64px);bottom:clamp(40px,8vh,84px);width:auto;height:clamp(140px,31vh,280px);margin:0;z-index:0;pointer-events:none}
+.acceso-pie{position:relative;z-index:1}
+.acceso-pie .vigilado img{height:clamp(24px,4vh,34px)}
+.acceso-form{min-height:0;overflow:auto;padding:clamp(16px,3vh,48px) clamp(20px,3vw,56px)}
+.form-card{width:min(440px,100%);padding:clamp(20px,3.4vh,36px) clamp(22px,2.6vw,36px)}
+.form-card h2{font-size:clamp(24px,3.6vh,30px)}
+.form-card .sub{margin:0 0 clamp(10px,2vh,18px);font-size:14px}
+.form-card label{margin-top:clamp(8px,1.8vh,14px)}
+.form-card input:where(:not([type=checkbox])){height:clamp(42px,6vh,48px)}
+.form-card .b.pri{margin-top:clamp(14px,2.6vh,22px);padding:13px}
+@media(max-height:760px) and (min-width:1001px){
+  .acceso-marca p,.canales{display:none}
+  .acceso-mascota{height:clamp(120px,26vh,200px)}
+}
+@media(max-width:1000px){
+  .acceso{display:flex;flex-direction:column;height:auto;min-height:100vh;min-height:100dvh;overflow:visible}
+  .acceso-marca{display:contents}
+  .acceso-marca>div:first-child{order:1;padding:clamp(16px,3vh,28px) 20px 4px;text-align:center}
+  .acceso .lockup{justify-content:center}
+  .acceso-siau{height:clamp(52px,9vh,76px);margin:12px auto 6px}
+  .acceso-marca h1{font-size:clamp(19px,5.2vw,26px);margin:6px 0 0}
+  .acceso-marca p,.canales,.acceso-mascota{display:none}
+  .acceso-form{order:2;overflow:visible;padding:10px 14px 8px;display:flex;justify-content:center;align-items:flex-start}
+  .form-card{width:min(460px,100%)}
+  .acceso-pie{order:3;align-items:center;text-align:center;padding:12px 18px calc(18px + env(safe-area-inset-bottom,0px))}
+  .acceso-pie .vigilado{justify-content:center}
+}
+.fila-push{display:flex;gap:8px;align-items:center}.fila-push input{flex:1;min-width:0;font-family:var(--mono,Consolas,monospace);font-size:13.5px}
+/* análisis de EPS y entes de control */
+.analisis{margin-bottom:14px;border-left:5px solid #006081}
+.analisis .an-cab{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}
+.analisis .an-ic{width:42px;height:42px;border-radius:13px;background:rgba(0,96,129,.10);color:#006081;display:grid;place-items:center;flex:none}
+.analisis h3{margin:0;font-size:17px}
+.an-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+.an-f{display:flex;flex-direction:column;gap:2px;padding:9px 12px;border-radius:12px;background:var(--surface-2,#F3F5F8);min-width:0;overflow-wrap:anywhere}
+.an-f span{font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3,#86939C)}
+.an-f b{font-size:13.5px;font-weight:600;color:var(--ink,#0B1D26);line-height:1.45}
+.an-f u{text-decoration:none;font-weight:800;color:#AB1130}.an-f code{background:rgba(0,96,129,.10);color:#00475F;border-radius:6px;padding:1px 6px;font-size:12.5px}
+.an-acc{margin-top:12px}.an-acc ol{margin:6px 0 0;padding-left:20px;display:grid;gap:5px;font-size:13.5px;line-height:1.5}
+.clave.pr-crit{background:#FBE1E6;color:#AB1130}.clave.pr-alta{background:#FFE9D2;color:#9A4F00}
+@media(max-width:760px){.an-grid{grid-template-columns:minmax(0,1fr)}}
+@media(max-width:640px){
+  .acceso-form{padding:6px 12px 6px}
+  .form-card{border-radius:26px;padding:20px 18px 22px}
+}
+</style>
 <!-- VENDOR qrcode-generator -->
 <!-- VENDOR imagenes -->
 <!-- VENDOR imagenes_marca -->
+<!-- VENDOR imagenes_siau -->
 <script>
 /* v9 · marca: MiRed primero, Gestión de la Calidad después; blanco sobre fondo oscuro, color sobre fondo claro */
 document.addEventListener("DOMContentLoaded", function(){

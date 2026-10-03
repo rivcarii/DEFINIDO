@@ -407,10 +407,9 @@
     <div class="card" style="margin-bottom:16px">
       <div id="autoAviso"></div>
       <fieldset><legend>Automatización del canal correo</legend>
-        <p class="sub" style="margin:0 0 14px">Cada 5 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela o derecho de petición), se envía el acuse y se radica con sus adjuntos. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
+        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: te avisa a ti (correo interno, Google Chat y push al celular), muestra el análisis detallado y la respuesta la envías tú. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
         <div class="grid">
           <label class="interruptor"><input type="checkbox" id="aj_autoInstitucional"><i></i>Radicar solo lo de EPS y entes de control</label>
-          <label class="interruptor"><input type="checkbox" id="aj_acuseInstitucional"><i></i>Acuse de recibo automático a EPS y entes</label>
           <label class="interruptor"><input type="checkbox" id="aj_autoUsuarios"><i></i>Radicar solas las PQRS claras de usuarios</label>
           <label class="interruptor"><input type="checkbox" id="aj_citasAuto"><i></i>Direccionar solas las solicitudes de citas</label>
           <label class="interruptor"><input type="checkbox" id="aj_avisosSede"><i></i>Avisar por correo a los técnicos de cada sede</label>
@@ -419,6 +418,11 @@
           <div class="full"><label for="aj_webhookChat">Webhook de Google Chat (avisos fuera de la plataforma)</label>
             <input id="aj_webhookChat" placeholder="https://chat.googleapis.com/v1/spaces/…">
             <div class="hint">En el espacio de Google Chat del SIAU: Apps e integraciones ▸ Webhooks ▸ Agregar. Los avisos llegan al celular y al computador con sonido.</div></div>
+          <div class="full"><label for="aj_pushTema">Push al celular y al computador (ntfy)</label>
+            <div class="fila-push"><input id="aj_pushTema" placeholder="Tema secreto, p. ej. pqrs-miredips-x7k2m9q4" autocomplete="off" spellcheck="false">
+              <button class="b sec mini" id="btnGenerarPush" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Generar</button></div>
+            <div class="hint">Instala la app gratuita <b>ntfy</b> (Android o iPhone) o abre <b>ntfy.sh</b> en el navegador, toca «Suscribirse» y escribe este mismo tema. Cada correo de EPS o ente de control, las alertas de riesgo vital, priorizadas, tutelas y vencimientos llegan con sonido aunque la plataforma esté cerrada. Solo viajan radicado, tipo, prioridad, sede y fechas: nunca nombres ni descripciones. Quien conozca el tema puede leer esos avisos: usa uno largo y no lo compartas.</div></div>
+          <div><label for="aj_pushServidor">Servidor de ntfy</label><input id="aj_pushServidor" placeholder="https://ntfy.sh"></div>
           <div><label for="aj_chatModo">Qué enviar a Google Chat</label><select id="aj_chatModo"><option value="todas">Todas las PQRS nuevas y alertas</option><option value="prioritarias">Solo prioridad crítica y alta</option></select></div>
           <div><label for="aj_avisarA">Correos que reciben todos los avisos</label><input id="aj_avisarA" placeholder="lider.siau@miredips.org; calidad@miredips.org"></div>
           <div class="full"><label for="aj_alias">Cuenta que envía las notificaciones</label><select id="aj_alias"></select>

@@ -825,7 +825,7 @@ function pintarHilo(){
       '<span class="clave gris">'+h.mensajes.length+' mensaje(s)</span>'+(todosAdjuntos().length?'<span class="clave gris">'+todosAdjuntos().length+' adjunto(s)</span>':'')+'</div></div>'+
       '<div class="hilo-acc"><button class="b sec mini" type="button" id="btnHAtendida">'+ic("check","s")+'Marcar atendida</button>'+
       (h.codigo?'':'<button class="b fant mini" type="button" id="btnHDescartar">No es PQRS ni cita</button>')+'</div></div>'+
-      '<div id="hiloAviso"></div>'+
+      '<div id="hiloAviso"></div>'+(h.analisis ? htmlAnalisis(h.analisis) : '')+
       '<div class="hilo-cols"><div><p class="sub-tit">Conversación</p><div class="mensajes">'+mensajes+'</div></div>'+
       '<div><div class="tabs-acc">'+tabs.map(function(t){ return '<button type="button" data-tab="'+t[0]+'" class="'+(t[0]===tabIni?"on":"")+'">'+ic(t[2],"s")+t[1]+'</button>'; }).join("")+'</div>'+
         '<div class="panel" data-panel="radicar"'+(tabIni==="radicar"?"":" hidden")+'><h4>'+ic("radicar","s")+'Radicar como PQRS</h4>'+

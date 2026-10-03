@@ -86,6 +86,33 @@ function sugerenciasArea(sug){
     return '<button type="button" class="sa'+(i===0?" on":"")+'" data-area="'+esc(x.id)+'" title="'+esc((x.razones||[]).join(", "))+'">'+esc(x.area)+
       '<small>'+esc((x.razones||[]).slice(0,2).join(" · "))+'</small></button>'; }).join("")+'</div>';
 }
+/* v8.3 · Análisis detallado de lo que envía una EPS o un ente de control (solo dentro de la plataforma, con sesión). */
+function htmlAnalisis(a){
+  if(!a) return "";
+  var fila = function(k, v){ return v ? '<div class="an-f"><span>'+esc(k)+'</span><b>'+v+'</b></div>' : ''; };
+  var t = function(x){ return esc(x); };
+  var rg = a.riesgo || {};
+  var usr = a.datos || {};
+  var datosUsr = [usr.nombre, usr.documento ? "Doc. "+usr.documento : "", usr.telefono, usr.eps, usr.sede, usr.servicio].filter(String).map(t).join(" · ");
+  var plazo = a.termino ? t(a.termino)+(a.limite ? ' · vence el <u>'+t(a.limite)+'</u>' : '') : '';
+  var prio = a.prioridad ? '<span class="clave '+(a.prioridad==="Crítica"?"pr-crit":(a.prioridad==="Alta"?"pr-alta":"est"))+'">Prioridad '+t(a.prioridad)+'</span>' : '';
+  return '<div class="card analisis anim"><div class="an-cab"><div class="an-ic">'+ic("escudo")+'</div><div style="min-width:0"><h3>Análisis del requerimiento</h3>'+
+    '<div class="claves" style="margin-top:6px">'+(a.entidad ? '<span class="clave est">'+t(a.entidad)+'</span>' : '')+(a.categoria ? '<span class="clave cod">'+t(a.categoria)+'</span>' : '')+prio+
+    (rg.nivel ? '<span class="clave pr-crit">'+t(rg.nivel)+(rg.horas ? " · "+rg.horas+" h" : "")+'</span>' : '')+'</div></div></div>'+
+    '<div class="an-grid">'+
+      fila("Término legal", plazo)+
+      fila("Meta interna ("+(a.metaHoras||0)+" h)", a.limiteMeta ? 'Direccionar o responder antes de <u>'+t(a.limiteMeta)+'</u>' : '')+
+      fila("Norma", a.norma ? t(a.norma) : '')+
+      fila("Plazo que pide el texto", (a.plazosTexto||[]).length ? a.plazosTexto.map(t).join(" · ") : '')+
+      fila("Referencia de la entidad", (a.referencias||[]).length ? a.referencias.map(function(r){ return '<code>'+t(r)+'</code>'; }).join(" ") : '')+
+      fila("Riesgo detectado", rg.nivel || (rg.poblacion||[]).length ? t(rg.nivel || "Población de especial protección")+((rg.razones||[]).length ? " · "+rg.razones.map(t).join(", ") : "")+((rg.poblacion||[]).length ? " · "+rg.poblacion.map(t).join(", ") : "") : '')+
+      fila("Datos del usuario en el texto", datosUsr)+
+      fila("Adjuntos", (a.adjuntos||[]).length ? a.adjuntos.map(t).join(" · ") : '')+
+      fila("Áreas sugeridas", (a.areas||[]).length ? a.areas.map(function(x){ return t(x.area); }).join(" · ") : '')+
+    '</div>'+
+    ((a.acciones||[]).length ? '<div class="an-acc"><p class="sub-tit">Qué hacer</p><ol>'+a.acciones.map(function(x){ return '<li>'+t(x)+'</li>'; }).join("")+'</ol></div>' : '')+
+    '<div class="hint">Este análisis solo se ve aquí: no viaja en los avisos push, de Chat ni de correo.</div></div>';
+}
 function bandaRiesgo(d, puede, cerrada){
   var n = d.nivelRiesgo, i = NIVEL_INFO[n];
   if(d.esFelicitacion) return '<div class="banda-feliz">'+ic("estrella","s")+'<div style="flex:1"><b>Felicitación.</b> El usuario recibió el agradecimiento automático. Solo falta que el área la conozca; no requiere respuesta ni seguimiento.</div></div>';
@@ -190,31 +217,68 @@ $("btnQrPng").addEventListener("click", function(){
   };
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
 });
+/* Afiche (ficha) del QR · A4 · se imprime desde el navegador. Logos de MiRed y del SIAU, mascota y mensajes de la institución. */
+function htmlAficheQR(t){
+  var img = function(src, cls, alt){ return src ? '<img class="'+cls+'" src="'+src+'" alt="'+alt+'">' : ''; };
+  var css =
+    '@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Barlow,Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '.hoja{width:210mm;height:296mm;position:relative;overflow:hidden;background:#fff}'+
+    '.franja{display:flex;height:4mm}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
+    '.cab{display:flex;align-items:center;justify-content:space-between;padding:6mm 14mm 0}.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:12mm}.lockup .calidad{height:14mm}.lockup .sep{width:.4mm;height:11mm;background:#C7D6DC}'+
+    '.siau{height:22mm}'+
+    '.hero{padding:5mm 14mm 0;position:relative}.kicker{display:inline-block;font-weight:700;font-size:10.5pt;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:#006081;border-radius:99px;padding:1.6mm 5mm}'+
+    'h1{font-family:"Barlow Semi Condensed",Arial,sans-serif;font-weight:900;font-size:33pt;line-height:1.02;margin:4mm 0 3mm;color:#00475F;letter-spacing:-.01em}'+
+    'h1 em{font-style:normal;background:linear-gradient(transparent 62%,#FEDC00 62%,#FEDC00 92%,transparent 92%)}'+
+    'p.sub{font-size:13.5pt;line-height:1.35;margin:0;color:#465C68;max-width:170mm}p.sub b{color:#00475F}'+
+    '.centro{display:flex;gap:8mm;align-items:flex-end;padding:8mm 14mm 0}.col-qr{flex:0 0 92mm;position:relative}'+
+    '.qr{border:1.2mm solid #006081;border-radius:8mm;padding:5mm;background:#fff;box-shadow:0 2.4mm 0 #E6EEF1}.qr svg{width:78mm;height:78mm;display:block}'+
+    '.medalla{position:absolute;top:-13mm;right:-13mm;width:22mm;filter:drop-shadow(0 1.5mm 2mm rgba(0,0,0,.25))}'+
+    '.escanee{margin-top:4.5mm;display:flex;align-items:center;gap:3mm;font-weight:800;font-size:14pt;color:#00475F}.escanee span{width:9mm;height:9mm;border-radius:50%;background:#009C4D;color:#fff;display:grid;place-items:center;font-size:12pt}'+
+    '.url{font-family:Consolas,monospace;font-size:10.5pt;color:#00475F;margin-top:2mm;word-break:break-all}'+
+    '.col-mas{flex:1;position:relative;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}'+
+    '.globo{position:relative;background:#FFF8D6;border:.6mm solid #FEDC00;border-radius:6mm;padding:4mm 5mm;font-weight:700;font-size:13pt;line-height:1.25;color:#5C4700;text-align:center;margin-bottom:5mm}'+
+    '.globo::after{content:"";position:absolute;left:50%;bottom:-3.4mm;width:5mm;height:5mm;background:#FFF8D6;border-right:.6mm solid #FEDC00;border-bottom:.6mm solid #FEDC00;transform:translateX(-50%) rotate(45deg)}'+
+    '.mascota{height:84mm;display:block}'+
+    '.tipos{display:flex;flex-wrap:wrap;gap:2.4mm;padding:5mm 14mm 0}.tipos span{font-weight:800;font-size:11pt;padding:1.8mm 4.4mm;border-radius:99px;color:#fff}'+
+    '.pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;padding:4mm 14mm 0}.paso{display:flex;gap:3mm;align-items:flex-start;background:#F3F7F9;border-radius:5mm;padding:4mm}'+
+    '.paso b{flex:0 0 9mm;height:9mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:13pt}.paso:nth-child(2) b{background:#C9971C}.paso:nth-child(3) b{background:#009C4D}'+
+    '.paso span{font-size:11pt;line-height:1.3;font-weight:600;color:#2B3A42}'+
+    '.cinta{position:absolute;left:0;right:0;bottom:33mm;background:linear-gradient(90deg,#C9971C,#E6BE4A 50%,#C9971C);color:#3E2F00;text-align:center;font-weight:800;font-size:11.5pt;padding:3mm 8mm;letter-spacing:.01em}'+
+    '.pie{position:absolute;left:0;right:0;bottom:0;height:33mm;background:linear-gradient(160deg,#00566F,#00303F);color:#fff;padding:5mm 14mm 0}'+
+    '.pie .fila{display:flex;align-items:center;justify-content:space-between;gap:6mm}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
+    '.pie .aviso{font-size:8.6pt;line-height:1.4;opacity:.92;margin-top:3mm}.pie b{color:#FEDC00}'+
+    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow,Arial;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
+    '@media print{.imprimir{display:none}}@media screen{body{background:#DCE5E9;padding:16px 0}.hoja{margin:0 auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}}';
+  var tipos = [["Felicitaciones","#8455B8"],["Quejas","#E20A31"],["Reclamos","#B98A00"],["Peticiones","#006D93"],["Sugerencias","#00985A"]]
+    .map(function(x){ return '<span style="background:'+x[1]+'">'+x[0]+'</span>'; }).join("");
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Afiche QR · SIAU · MiRed IPS</title>'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Barlow+Semi+Condensed:wght@800;900&display=swap">'+
+    '<style>'+css+'</style></head><body><button class="imprimir" onclick="print()">Imprimir</button><div class="hoja">'+
+    '<div class="franja"><i></i><i></i><i></i><i></i></div>'+
+    '<div class="cab"><div class="lockup">'+img(window.IMG_MIRED,"mired","MiRed IPS")+'<span class="sep"></span>'+img(window.IMG_CALIDAD,"calidad","Gestión de la Calidad")+'</div>'+
+      img(window.IMG_SIAU_FICHA || window.IMG_SIAU,"siau","SIAU · Atención al Usuario")+'</div>'+
+    '<div class="hero"><span class="kicker">Oficina de Atención al Usuario</span>'+
+      '<h1>Su opinión es <em>muy importante</em><br>para nosotros</h1>'+
+      '<p class="sub">Cuéntenos <b>cómo fue su atención</b>, lo que hicimos bien y lo que podemos mejorar. Escanee el código con la cámara de su celular.</p></div>'+
+    '<div class="centro"><div class="col-qr"><div class="qr">'+qrSvg(t, 400)+'</div>'+img(window.IMG_SIAU_MEDALLA,"medalla","")+
+      '<div class="escanee"><span>&#9660;</span>Escanee aquí y cuéntenos</div><div class="url">'+esc(t)+'</div></div>'+
+      '<div class="col-mas"><div class="globo">Sus palabras nos ayudan a cuidar mejor de usted y de su familia.</div>'+img(window.IMG_MASCOTA,"mascota","SIAU MiRed IPS")+'</div></div>'+
+    '<div class="tipos">'+tipos+'</div>'+
+    '<div class="pasos"><div class="paso"><b>1</b><span>Abra la cámara de su celular y apunte al código.</span></div>'+
+      '<div class="paso"><b>2</b><span>Escriba su mensaje y su correo electrónico.</span></div>'+
+      '<div class="paso"><b>3</b><span>Reciba su número de radicado y la fecha de respuesta.</span></div></div>'+
+    '<div class="cinta">Una felicitación nos motiva &nbsp;·&nbsp; una queja nos ayuda a mejorar &nbsp;·&nbsp; cada opinión cuenta</div>'+
+    '<div class="pie"><div class="fila"><div><b>Oficina de Atención al Usuario (SIAU)</b><br>MiRed Barranquilla IPS S.A.S.</div>'+
+      '<div class="vig">'+img(window.IMG_SS_B,"","Vigilado Supersalud")+img(window.IMG_ALC_B,"","Alcaldía de Barranquilla")+'</div></div>'+
+      '<div class="aviso"><b>Urgente:</b> si su situación pone en riesgo su vida o la de un menor de edad, además del formulario acérquese de inmediato al personal de la sede. '+
+      'Sus datos se tratan conforme a la Ley 1581 de 2012 solo para gestionar su solicitud.</div></div>'+
+    '</div></body></html>';
+}
 $("btnQrAfiche").addEventListener("click", function(){
   var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
-  var logo = $("logo").getAttribute("src") || "";
   var w = window.open("", "_blank");
   if(!w){ aviso("qrAviso","El navegador bloqueó la ventana del afiche. Permite ventanas emergentes para este sitio.","err"); return; }
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Afiche QR · PQRS MiRed IPS</title>'+
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700&family=Barlow+Semi+Condensed:wght@800;900&display=swap">'+
-    '<style>@page{size:A4;margin:0}body{margin:0;font-family:Barlow,Arial,sans-serif;color:#10222C}'+
-    '.hoja{width:210mm;height:296mm;box-sizing:border-box;padding:16mm 16mm 12mm;display:flex;flex-direction:column;background:#fff;position:relative;overflow:hidden}'+
-    '.franja{display:flex;height:9px;margin:-16mm -16mm 12mm}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
-    '.logo{height:26mm}h1{font-family:"Barlow Semi Condensed";font-weight:900;font-size:40pt;line-height:1;margin:10mm 0 4mm;color:#00475F}'+
-    'p.sub{font-size:16pt;margin:0 0 8mm;color:#465C68}.centro{display:flex;gap:10mm;align-items:center;flex:1}'+
-    '.qr{border:3px solid #006081;border-radius:8mm;padding:6mm;background:#fff}.qr svg{width:92mm;height:92mm;display:block}'+
-    '.mascota{height:120mm}.tipos{display:flex;flex-wrap:wrap;gap:3mm;margin:6mm 0}.tipos span{font-weight:700;font-size:12pt;padding:2mm 4mm;border-radius:3mm;color:#fff}'+
-    '.url{font-family:Consolas,monospace;font-size:12pt;color:#00475F;margin-top:3mm;word-break:break-all}.pasos{font-size:13pt;line-height:1.5;margin:0;padding-left:6mm}'+
-    '.pie{font-size:9pt;color:#7F939E;border-top:1px solid #E1E8EC;padding-top:3mm;line-height:1.4}.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer}'+
-    '@media print{.imprimir{display:none}}</style></head><body><button class="imprimir" onclick="print()">Imprimir</button><div class="hoja"><div class="franja"><i></i><i></i><i></i><i></i></div>'+
-    (logo ? '<img class="logo" src="'+logo+'" alt="MiRed IPS">' : '')+
-    '<h1>¿Cómo fue su atención?<br>Cuéntenos aquí</h1><p class="sub">Escanee el código con la cámara de su celular: peticiones, quejas, reclamos, sugerencias y felicitaciones.</p>'+
-    '<div class="centro"><div><div class="qr">'+qrSvg(t, 400)+'</div><div class="url">'+esc(t)+'</div>'+
-      '<div class="tipos"><span style="background:#8455B8">Felicitaciones</span><span style="background:#E20A31">Quejas</span><span style="background:#B98A00">Reclamos</span><span style="background:#006D93">Peticiones</span><span style="background:#00985A">Sugerencias</span></div>'+
-      '<ol class="pasos"><li>Abra la cámara y apunte al código.</li><li>Escriba su mensaje y su correo.</li><li>Reciba su número de radicado y la fecha de respuesta.</li></ol></div>'+
-      (window.IMG_MASCOTA ? '<img class="mascota" src="'+IMG_MASCOTA+'" alt="SIAU MiRed IPS">' : '')+'</div>'+
-    '<div class="pie"><b>Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</b><br>Si su situación pone en riesgo su vida o la de un menor de edad, además del formulario acérquese de inmediato al personal de la sede. '+
-    'Sus datos se tratan conforme a la Ley 1581 de 2012 solo para gestionar su solicitud.</div></div></body></html>');
+  w.document.write(htmlAficheQR(t));
   w.document.close();
 });
 $("btnCrearForm").addEventListener("click", function(){

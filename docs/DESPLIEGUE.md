@@ -50,7 +50,7 @@ npx clasp create-deployment -d "v8"   # la primera vez; luego: npx clasp update-
 
 1. Abre el `/exec`, crea el **primer administrador** (tu usuario). La primera carga actualiza el consolidado a la versión 8 (fórmulas, festivos, categorías de riesgo, entes de control y directorio). Con 13.000 filas puede tardar 1–2 minutos.
 2. En la hoja aparece el menú **PQRS** (recarga la hoja si no lo ves):
-   - **Instalar disparadores** → formulario al enviarse, correo cada 5 min, alertas cada 30 min (riesgo vital 8 h/24 h), rutina diaria 7:00 (vencidas + resumen de felicitaciones por área).
+   - **Instalar disparadores** → formulario al enviarse, correo cada 3 min, alertas cada 30 min (riesgo vital 8 h/24 h), rutina diaria 7:00 (vencidas + resumen de felicitaciones por área).
    - **Diagnóstico de la puesta en marcha** → lista lo que falta y cómo resolverlo (también en Configuración ▸ Diagnóstico).
 3. **Formulario QR**:
    - Formulario actual: en el Google Form ▸ Respuestas ▸ ⋮ ▸ **Seleccionar destino de las respuestas ▸ hoja existente ▸ este consolidado**. Google copia todas las respuestas antiguas, pero **solo se radican las posteriores al corte** (Config B20 = 23/09/2026 20:34:53, la última respuesta migrada). El mapeo de preguntas ya viene configurado.
@@ -89,6 +89,13 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 3. **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** (el enlace /exec no cambia).
 4. La primera vez que alguien pulse «Exportar a Excel» o «Respaldar ahora» como administrador, Google puede pedir permisos de Drive/Hojas a la cuenta SIAU: ejecuta una vez `rutinaDiaria` desde el editor y acéptalos.
 5. Configuración ▸ Exportar y respaldar en Excel: deja activo el respaldo diario y, si quieres verlo en otro Drive, escribe ese correo (la carpeta se comparte en solo lectura).
+
+## 6c. Actualizar a la 8.3 (EPS y entes, push, correos nuevos)
+
+1. Reemplaza `Codigo.gs` e `Index.html` por los de `entrega/` y publica **Nueva versión** de la misma implementación.
+2. **Vuelve a ejecutar «Instalar disparadores»** (menú PQRS de la hoja): el correo pasa a revisarse cada 3 minutos.
+3. Configuración ▸ Automatización ▸ **Push**: pulsa «Generar», guarda, instala la app **ntfy** en los celulares, suscríbete a ese tema y prueba con «Enviar aviso de prueba».
+4. El portal de GitHub Pages usa `entrega/portal_index.html` (ya trae la URL de tu implementación).
 
 ## 7. Problemas típicos
 

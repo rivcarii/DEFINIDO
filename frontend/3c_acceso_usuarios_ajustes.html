@@ -329,7 +329,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario"];
+var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
@@ -338,6 +338,7 @@ function pintarAjustes(r){
   if(!r.ok){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
   APP.aj = r;
   AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
+  $("aj_pushTema").value = r.ajustes.pushTema || ""; $("aj_pushServidor").value = r.ajustes.pushServidor || "https://ntfy.sh";
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
   $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
   $("aj_respaldoCorreo").value = r.ajustes.respaldoCorreo || "";
@@ -398,11 +399,18 @@ $("btnNuevaEntidad").addEventListener("click", function(){ APP.nuevaEnt = true; 
 $("btnNuevaCategoria").addEventListener("click", function(){ APP.nuevaCat = true; pintarAjustes(APP.aj); });
 $("btnGuardarAjustes").addEventListener("click", function(){
   var a = {}; AJ_BOOL.forEach(function(k){ a[k] = $("aj_"+k).checked; });
-  a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
+  a.pushTema = val("aj_pushTema"); a.pushServidor = val("aj_pushServidor"); a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
   a.direccionFelicitaciones = val("aj_direccionFelicitaciones");
   var fin = ocupado("btnGuardarAjustes","Guardando…");
   srv("apiGuardarAjustes", a).then(function(r){ fin(); if(r.ok===false){ aviso("autoAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("autoAviso","Automatización guardada.","ok"); })
     .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnGenerarPush").addEventListener("click", function(){
+  var abc = "abcdefghijkmnpqrstuvwxyz23456789", v = new Uint8Array(14), t = "";
+  (window.crypto || window.msCrypto).getRandomValues(v);
+  for(var i=0;i<v.length;i++) t += abc.charAt(v[i] % abc.length);
+  $("aj_pushTema").value = "pqrs-miredips-"+t;
+  aviso("autoAviso","Tema generado. Pulsa «Guardar automatización» y suscríbete a ese tema en la app ntfy.","info");
 });
 $("btnProbarAviso").addEventListener("click", function(){
   var fin = ocupado("btnProbarAviso","Enviando…");
