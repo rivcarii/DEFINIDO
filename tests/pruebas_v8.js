@@ -74,7 +74,7 @@ const val = (cod, col) => cons.celda(fila(cod), col);
 
 console.log("---- v8: núcleo ----");
 const boot = G.appBootstrap_();
-assert(boot.migracion.hecho && G.__props.ESQUEMA === "8.1", "migración a la versión 8: " + boot.migracion.mensaje);
+assert(boot.migracion.hecho && G.__props.ESQUEMA === "8.5", "migración a la versión 8: " + boot.migracion.mensaje);
 assert(G._finDatos_() === 454, "rango dinámico: último registro en la fila 454 (450 registros, más del antiguo tope de 400)");
 assert(cons.celda(4, 54) && cons.celda(4, 57), "encabezados nuevos (nivel de riesgo … área sugerida)");
 assert(G._hojaFestivos_().hoja.getLastRow() > 100 && cons.formulas["5:34"].indexOf("Festivos!") !== -1, "festivos en su hoja y fórmulas que la usan");
@@ -414,3 +414,26 @@ assert(dgSeg.items.some(x => /contraseñas temporales sin cambiar/.test(x.titulo
 G.DriveApp.__ajustar("__editores", ["siau@miredips.org", "otra.persona@gmail.com"]);
 assert(G.apiDiagnostico_().items.some(x => /editores del consolidado/.test(x.titulo) && !x.ok && /otra\.persona@gmail\.com/.test(x.detalle)), "señala editores externos del consolidado");
 G.DriveApp.__ajustar("__editores", null);
+
+// ---- v8.5: clave predeterminada, bienvenida, motivo específico ----
+console.log("---- v8.5 ----");
+const antesEnv = enviados().length;
+const uNuevo = G.apiGuardarUsuario_({ usuario: "nuevo.tecnico", nombre: "Tecnica Nueva", correo: "nueva@miredips.org", rol: "Técnico", sedes: ["C. LA PLAYA"] });
+assert(uNuevo.ok !== false, "crear usuario sin clave: " + (uNuevo.mensaje || ""));
+const bienv = enviados().slice(antesEnv).filter(e => e.para === "nueva@miredips.org").pop();
+assert(bienv && /Siau123\*/.test(bienv.html) && /nuevo\.tecnico/.test(bienv.html), "el usuario nuevo recibe un correo con su usuario y la clave predeterminada");
+const fU = G._usuarios_().filter(x => x.usuario === "nuevo.tecnico")[0];
+assert(fU && G._hash_("Siau123*", fU.sal) === fU.hash && G._usuarios_().filter(x => x.usuario === "nuevo.tecnico")[0].fila, "la clave predeterminada es Siau123*");
+const ant2 = enviados().length;
+G.apiRestablecerClave_("nuevo.tecnico", "");
+assert(enviados().length > ant2 && /Siau123\*/.test(enviados()[enviados().length - 1].html), "restablecer sin clave vuelve a Siau123* y avisa por correo");
+assert(G.apiGuardarUsuario_({ usuario: "mala.clave", nombre: "X", correo: "x@miredips.org", rol: "Técnico", sedes: ["C. LA PLAYA"], clave: "corta" }).ok === false, "una clave temporal propia debe cumplir la política");
+// ficha para técnicos
+assert(typeof G.apiFichaFormulario_ === "function" && G.RUTAS && G.RUTAS.apiFichaFormulario && G.RUTAS.apiFichaFormulario[1] === G.P_RADICAR, "la ficha del formulario es accesible para quien radica");
+// motivo específico
+assert(cons.celda(4, 29) === "MOTIVO ESPECÍFICO (DERECHO VULNERADO)", "la columna de tipología pasa a ser motivo específico");
+G._cacheListas = null;
+const motivos = G._listasConfig_()["MOTIVO ESPECÍFICO"] || [];
+assert(motivos.length >= 15 && motivos.indexOf("Trato digno, respetuoso y humanizado") !== -1, "lista de motivos específicos (derechos del paciente) en Config");
+const rm = G.apiRadicar_({ descripcion: "Me trataron mal en la recepción", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA", sede: "C. LA PLAYA", tipologia: "Trato digno, respetuoso y humanizado" });
+assert(val(rm.codigo, 29) === "Trato digno, respetuoso y humanizado", "el motivo específico se guarda en el radicado");

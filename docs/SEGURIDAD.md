@@ -1,6 +1,6 @@
 # Política de seguridad de la información · Sistema de PQRS (MiRed Barranquilla IPS S.A.S.)
 
-Versión 8.4. Aplica a la plataforma (Apps Script + Google Sheets), al portal publicado en GitHub Pages, a los correos que envía y a los respaldos en Drive.
+Versión 8.5. Aplica a la plataforma (Apps Script + Google Sheets), al portal publicado en GitHub Pages, a los correos que envía y a los respaldos en Drive.
 Marco: Ley 1581 de 2012 (protección de datos personales), Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015) y reserva de la historia clínica (Ley 23 de 1981, Resolución 1995 de 1999).
 
 ## 1. Qué datos se protegen
@@ -32,7 +32,7 @@ Regla de oro: **los avisos fuera de la plataforma** (correo a técnicos, Google 
 
 ## 3. Reglas para las personas
 
-1. **Cuentas.** Una persona, un usuario. Nunca se comparten usuarios ni contraseñas. El administrador crea el usuario con una contraseña temporal que se entrega por un medio distinto al correo de la plataforma.
+1. **Cuentas.** Una persona, un usuario. Nunca se comparten usuarios ni contraseñas. Todo usuario nuevo (o restablecido) recibe por correo su usuario y la clave temporal predeterminada **Siau123\***; esa clave **vence a las 72 horas** y el servidor obliga a cambiarla en el primer ingreso. Si hace falta más reserva, el administrador puede escribir otra clave temporal (debe cumplir la política).
 2. **Roles mínimos.** Técnico: solo sus sedes. Administradores: entre 1 y 3. El rol «Consulta» para quien solo necesita ver.
 3. **Altas y bajas.** Quien deja el SIAU se inactiva el mismo día (*Usuarios y sedes ▸ editar ▸ activo*). Cada trimestre se revisa la lista de usuarios y el diagnóstico de seguridad.
 4. **Cuenta SIAU de Google.** Es la dueña de la implementación, del consolidado y de Gmail: activar la **verificación en dos pasos**, no usarla para navegar ni compartir su contraseña, y revisar sus dispositivos y sesiones cada trimestre.

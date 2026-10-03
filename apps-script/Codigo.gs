@@ -2316,7 +2316,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // ---------------------------------------------------------------------------
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
-var ESQUEMA = "8.1";
+var ESQUEMA = "8.5";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -2433,6 +2433,63 @@ function _estructuraV8_(h) {
   hechos = hechos.concat(_completarTabla_(_hojaEntidades_(), ENT_COLS, ENTIDADES_BASE, "entidad"));
   // Directorio: columnas de enrutamiento en Responsables
   hechos = hechos.concat(_directorioV8_());
+  hechos = hechos.concat(_motivosV85_(h));
+  return hechos;
+}
+
+/**
+ * v8.5 · «Motivo específico (derecho vulnerado)» reemplaza a «Tipología».
+ * Usa la misma columna 29 (no se mueve nada) y una lista nueva en Config. Base: derechos de los
+ * pacientes (Ley 1751 de 2015 art. 10, Resolución 13437 de 1991 y Ley 1438 de 2011). Es editable:
+ * River puede reemplazarla por el documento «Derechos y deberes» de MiRed directamente en Config.
+ */
+var MOTIVO_NOMBRE = "MOTIVO ESPECÍFICO";
+var ENCABEZADO_MOTIVO = "MOTIVO ESPECÍFICO (DERECHO VULNERADO)";
+var MOTIVOS_BASE = [
+  "Acceso oportuno a los servicios (citas, procedimientos)",
+  "Atención sin discriminación",
+  "Trato digno, respetuoso y humanizado",
+  "Información clara, suficiente y oportuna",
+  "Consentimiento informado y libre elección",
+  "Confidencialidad e historia clínica",
+  "Acceso a medicamentos e insumos",
+  "Continuidad del tratamiento",
+  "Calidad y seguridad de la atención",
+  "Atención de urgencias sin barreras",
+  "Intimidad y privacidad",
+  "Respeto a la autonomía y a las creencias",
+  "Segunda opinión y acompañamiento",
+  "Atención prioritaria a población de especial protección",
+  "Acceso a la información de la historia clínica",
+  "Derecho a presentar PQRS y a recibir respuesta",
+  "Incumplimiento de deberes administrativos (autorizaciones, facturación)",
+  "Infraestructura y condiciones del servicio",
+  "Otro motivo",
+];
+function _motivosV85_(h) {
+  var hechos = [];
+  var enc = h.getRange(CFG.FILA_DATOS - 1, C.TIPOLOGIA, 1, 1);
+  if (String(enc.getValue()) !== ENCABEZADO_MOTIVO) {
+    enc.setValue(ENCABEZADO_MOTIVO);
+    hechos.push("motivo específico (derecho vulnerado) en lugar de tipología");
+  }
+  var cfg = _h(CFG.HOJA_CONFIG);
+  var L = _filaEncabezadoListas_(cfg);
+  var ncol = Math.max(14, Math.min(40, cfg.getLastColumn ? cfg.getLastColumn() : 14));
+  var cab = cfg.getRange(L, 1, 1, ncol).getValues()[0];
+  var col = -1, libre = -1;
+  for (var i = 0; i < cab.length; i++) {
+    if (String(cab[i]).trim() === MOTIVO_NOMBRE) { col = i + 1; break; }
+    if (!cab[i] && libre < 0) libre = i + 1;
+  }
+  if (col < 0) {
+    if (libre < 0) libre = cab.length + 1;
+    cfg.getRange(L, libre).setValue(MOTIVO_NOMBRE);
+    cfg.getRange(L + 1, libre, MOTIVOS_BASE.length, 1).setValues(MOTIVOS_BASE.map(function (m) { return [m]; }));
+    try { cfg.getRange(L, libre).setFontWeight("bold"); } catch (e) {}
+    _cacheListas = null;
+    hechos.push("lista de motivos específicos");
+  }
   return hechos;
 }
 
@@ -3510,6 +3567,13 @@ var SESION = null;           // usuario de la llamada en curso (null = disparado
 var DURACION_SESION = 21600; // 6 horas sin actividad (máximo de CacheService)
 var SESION_MAX_MS = 43200000; // 12 horas desde el ingreso: pasado ese tiempo hay que volver a entrar aunque haya actividad
 var MAX_INTENTOS = 5;
+/*
+ * v8.4 · Contraseña temporal predeterminada (pedido de River): todo usuario nuevo, o al que el administrador le restablece la clave sin
+ * escribir otra, entra con «Siau123*» y el servidor lo obliga a cambiarla en su primer ingreso. Para limitar el riesgo de una clave conocida:
+ * vence a las 72 horas de asignada y la nueva contraseña debe cumplir la política (esta no la cumple a propósito).
+ */
+var CLAVE_TEMPORAL = "Siau123*";
+var TEMPORAL_MAX_MS = 259200000;   // 72 horas
 
 function _hojaUsuarios_() {
   var ss = _ss_();
@@ -3687,6 +3751,10 @@ function _iniciarSesion_(usuario, clave) {
     return { ok: false, mensaje: "Usuario o contraseña incorrectos." };
   }
   if (!u.activo) { _auditar_("Ingreso denegado", usuario, "Usuario inactivo"); return { ok: false, mensaje: "Tu usuario está inactivo. Habla con un administrador de la plataforma." }; }
+  if (u.cambiar && u.creado instanceof Date && Date.now() - u.creado.getTime() > TEMPORAL_MAX_MS) {
+    _auditar_("Ingreso denegado", usuario, "La contraseña temporal venció (más de 72 horas)");
+    return { ok: false, mensaje: "Tu contraseña temporal venció (duran 72 horas). Pídele a un administrador que te la restablezca." };
+  }
   cache.remove("int_" + usuario);
   var token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, "");
   cache.put("ses_" + token, JSON.stringify({ usuario: u.usuario, t: Date.now() }), DURACION_SESION);
@@ -3755,7 +3823,7 @@ var RUTAS = {
   apiPrioritarias: [apiPrioritarias_, P_LEER], apiEvaluarRiesgo: [apiEvaluarRiesgo_, P_LEER], apiSugerirArea: [apiSugerirArea_, P_LEER, "codigo"],
   apiIdentificarPrioritarias: [apiIdentificarPrioritarias_, P_RADICAR], apiFijarRiesgo: [apiFijarRiesgo_, P_RADICAR, "codigo"],
   apiRedactarRespuesta: [apiRedactarRespuesta_, P_GESTION, "codigo"], apiDireccionarFelicitaciones: [apiDireccionarFelicitaciones_, P_GESTION],
-  apiFormularioQR: [apiFormularioQR_, P_ADMIN], apiCrearFormulario: [apiCrearFormulario_, P_ADMIN], apiDiagnostico: [apiDiagnostico_, P_ADMIN],
+  apiFormularioQR: [apiFormularioQR_, P_ADMIN], apiFichaFormulario: [apiFichaFormulario_, P_RADICAR], apiCrearFormulario: [apiCrearFormulario_, P_ADMIN], apiDiagnostico: [apiDiagnostico_, P_ADMIN],
 };
 
 /*
@@ -3810,6 +3878,25 @@ function _filaVisible_(f) { return _sedeVisible_(f[C.SEDE - 1]); }
 // ---------------------------------------------------------------------------
 // Administración de usuarios
 // ---------------------------------------------------------------------------
+/** Correo de bienvenida con el usuario y la contraseña temporal. Devuelve el texto del resultado para mostrarlo en pantalla. */
+function _correoBienvenida_(usuario, nombre, correo, clave, rol, sedes, reinicio) {
+  correo = String(correo || "").trim();
+  if (!_correoOk(correo)) return "El usuario no tiene correo: entrégale en persona su usuario y la contraseña temporal.";
+  var url = _urlBase_();
+  var html = _correoDiseno_({
+    variante: "interno", etiqueta: "Acceso personal", banda: "ACCESO PERSONAL E INTRANSFERIBLE · NO LO COMPARTAS", sinCierre: true,
+    titulo: reinicio ? "Tu contraseña temporal" : "Te damos la bienvenida al Sistema de PQRS",
+    preheader: "Tu usuario y tu contraseña temporal para ingresar.",
+    mensajeHtml: _parrafosHtml_((reinicio ? "El administrador restableció tu acceso al Sistema de PQRS del SIAU." : "Hola, " + _html_(nombre || usuario) + ". Ya puedes ingresar al Sistema de PQRS del SIAU de MiRed IPS.") +
+      "<br><br>Ingresa con los datos de abajo. <b>La primera vez el sistema te pedirá crear tu propia contraseña</b>: mínimo 10 caracteres, con mayúscula, minúscula y número. " +
+      "La contraseña temporal <b>vence en 72 horas</b>; si no alcanzas a usarla, pídele al administrador que la restablezca."),
+    limite: { titulo: "Contraseña temporal", valor: clave, nota: "Usuario: " + usuario },
+    detalles: [["Usuario", usuario], ["Rol", rol], ["Sedes", String(sedes || "").replace(/;\s*/g, ", ")]],
+    boton: url ? { texto: "Ingresar a la plataforma", url: url } : null });
+  var r = _enviar(correo, "Tu acceso al Sistema de PQRS · MiRed IPS", "Usuario: " + usuario + " · Contraseña temporal: " + clave, html);
+  _auditar_("Correo de acceso enviado", usuario, r.ok ? "A " + correo : "No se pudo enviar: " + r.error);
+  return r.ok ? "Correo con el usuario y la contraseña temporal enviado a " + correo + "." : "No se pudo enviar el correo (" + r.error + "): entrégale los datos en persona.";
+}
 function apiUsuarios_() {
   return { ok: true, usuarios: _usuarios_().map(_publico_), roles: ROLES, sedes: _listasConfig_()["SEDE"] || [], enlace: _enlaceAcceso_() };
 }
@@ -3842,6 +3929,7 @@ function apiGuardarUsuario_(d) {
     if (d.correo && !_correoOk(d.correo)) return { ok: false, mensaje: "El correo no es válido." };
     var sedes = (d.sedes || []).join("; ") || (d.rol === "Administrador" ? "TODAS" : "");
     if (!sedes) return { ok: false, mensaje: "Asigna al menos una sede (o TODAS)." };
+    var avisoUsr = "";
     var existente = lista.filter(function (x) { return x.usuario === usuario; })[0];
     if (existente && !d.editar) return { ok: false, mensaje: "Ese usuario ya existe." };
     if (existente) {
@@ -3854,27 +3942,34 @@ function apiGuardarUsuario_(d) {
       _traza("—", "Usuario actualizado", usuario + " · " + d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : ""));
       _auditar_("Usuario actualizado", usuario, d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : "") + " · por " + (SESION ? SESION.usuario : "sistema"));
     } else {
-      if (!_claveValida_(d.clave, usuario)) return { ok: false, mensaje: "Contraseña temporal. " + _msgClave_() };
+      var claveNueva = d.clave ? String(d.clave) : CLAVE_TEMPORAL;
+      if (claveNueva !== CLAVE_TEMPORAL && !_claveValida_(claveNueva, usuario)) return { ok: false, mensaje: "Contraseña temporal. " + _msgClave_() };
       var sal = Utilities.getUuid();
       h.appendRow([usuario, d.nombre || "", d.correo || "", d.rol, sedes, d.gestionaCorreo ? "SI" : "NO", d.avisos ? "SI" : "NO",
-        d.activo === false ? "NO" : "SI", _hash_(d.clave, sal), sal, new Date(), "", "SI"]);
+        d.activo === false ? "NO" : "SI", _hash_(claveNueva, sal), sal, new Date(), "", "SI"]);
+      avisoUsr = _correoBienvenida_(usuario, d.nombre || usuario, d.correo, claveNueva, d.rol, sedes);
       _traza("—", "Usuario creado", usuario + " · " + d.rol + " · " + sedes);
       _auditar_("Usuario creado", usuario, d.rol + " · " + sedes + " · por " + (SESION ? SESION.usuario : "sistema"));
     }
-    return apiUsuarios_();
+    var salida = apiUsuarios_();
+    if (avisoUsr) salida.aviso = avisoUsr;
+    return salida;
   } finally { lock.releaseLock(); }
 }
 function apiRestablecerClave_(usuario, clave) {
   var u = _usuarios_().filter(function (x) { return x.usuario === String(usuario || "").toLowerCase(); })[0];
   if (!u) return { ok: false, mensaje: "No existe ese usuario." };
-  if (!_claveValida_(clave, u.usuario)) return { ok: false, mensaje: _msgClave_() };
+  clave = clave ? String(clave) : CLAVE_TEMPORAL;
+  if (clave !== CLAVE_TEMPORAL && !_claveValida_(clave, u.usuario)) return { ok: false, mensaje: _msgClave_() };
   var sal = Utilities.getUuid();
   _hojaUsuarios_().getRange(u.fila, 9, 1, 2).setValues([[_hash_(clave, sal), sal]]);
+  _hojaUsuarios_().getRange(u.fila, 11).setValue(new Date());   // la fecha de la clave temporal: cuenta las 72 horas
   _hojaUsuarios_().getRange(u.fila, 13).setValue("SI");
   CacheService.getScriptCache().remove("int_" + u.usuario);
   _traza("—", "Contraseña restablecida", u.usuario);
   _auditar_("Contraseña restablecida por el administrador", u.usuario, "Debe cambiarla al ingresar");
-  return { ok: true, mensaje: "Contraseña temporal asignada a " + u.usuario + ". Deberá cambiarla al ingresar." };
+  var envio = _correoBienvenida_(u.usuario, u.nombre, u.correo, clave, u.rol, u.sedes.join("; "), true);
+  return { ok: true, mensaje: "Contraseña temporal asignada a " + u.usuario + " (vence en 72 horas). Deberá cambiarla al ingresar." + (envio ? " " + envio : "") };
 }
 function apiCambiarMiClave_(actual, nueva) {
   var u = _usuarios_().filter(function (x) { return x.usuario === SESION.usuario; })[0];
@@ -5252,6 +5347,11 @@ function apiFormularioQR_() {
   return { ok: true, url: url, corto: corto, edicion: edit, titulo: titulo, plataforma: _urlPlataforma_(""),
            mensaje: url ? "" : "No encontré el formulario. Vincúlalo a este libro, créalo con el botón «Crear formulario» o pega su enlace en Config (B22)." };
 }
+/** v8.4 · La ficha (afiche) del formulario la descargan también los técnicos: solo reciben el enlace público, nunca el de edición del Form. */
+function apiFichaFormulario_() {
+  var r = apiFormularioQR_();
+  return { ok: true, url: r.corto || r.url || "", titulo: r.titulo || "", mensaje: r.url || r.corto ? "" : "Todavía no hay un formulario publicado. Pídele al administrador que lo cree en Configuración." };
+}
 function _sedesAmigables_() {
   return (_listasConfig_()["SEDE"] || []).filter(function (x) { return !/interprete/i.test(x); }).map(function (x) {
     return String(x).trim().replace(/^C\.\s*/i, "Camino ").replace(/^P\.\s*/i, "Paso ").toLowerCase()
@@ -5385,9 +5485,9 @@ function _chequeosSeguridad_(ok) {
   var us = _usuarios_(), ahora = Date.now(), dia = 86400000;
   var admins = us.filter(function (u) { return u.activo && u.rol === "Administrador"; });
   ok(admins.length >= 1 && admins.length <= 3, "Seguridad · administradores", admins.length + " activo(s)", "Mantén entre 1 y 3 administradores: quien administra puede ver y exportar todo.");
-  var temp = us.filter(function (u) { return u.activo && u.cambiar && u.creado instanceof Date && ahora - u.creado.getTime() > 7 * dia; });
+  var temp = us.filter(function (u) { return u.activo && u.cambiar && u.creado instanceof Date && ahora - u.creado.getTime() > TEMPORAL_MAX_MS; });
   ok(!temp.length, "Seguridad · contraseñas temporales sin cambiar", temp.length ? temp.map(function (u) { return u.usuario; }).join(", ") : "ninguna",
-     "Una contraseña temporal con más de 7 días es un riesgo: restablécela o inactiva el usuario.");
+     "La contraseña temporal («Siau123*») vence a las 72 horas: restablécela o inactiva el usuario.");
   var sinUso = us.filter(function (u) { return u.activo && ((u.ultimo instanceof Date ? ahora - u.ultimo.getTime() : (u.creado instanceof Date ? ahora - u.creado.getTime() : 0)) > 90 * dia); });
   ok(!sinUso.length, "Seguridad · usuarios sin ingresar en 90 días", sinUso.length ? sinUso.map(function (u) { return u.usuario; }).join(", ") : "ninguno",
      "Inactiva a quienes ya no trabajan en el SIAU (Usuarios y sedes ▸ editar ▸ Usuario activo).");

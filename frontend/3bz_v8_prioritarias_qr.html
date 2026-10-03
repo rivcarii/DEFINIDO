@@ -207,8 +207,7 @@ function cargarQR(){
 }
 $("qrTexto").addEventListener("input", function(){ clearTimeout(APP.tQr); APP.tQr = setTimeout(pintarQR, 300); });
 $("btnQrCopiar").addEventListener("click", function(){ if(qrActual()) copiarTexto(qrActual(), "Enlace del formulario copiado"); });
-$("btnQrPng").addEventListener("click", function(){
-  var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
+function descargarQrPng(t){
   var img = new Image(), svg = qrSvg(t, 1000);
   img.onload = function(){
     var cv = document.createElement("canvas"); cv.width = cv.height = 1000;
@@ -216,71 +215,75 @@ $("btnQrPng").addEventListener("click", function(){
     var a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = "QR_PQRS_MiRed_IPS.png"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+$("btnQrPng").addEventListener("click", function(){
+  var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
+  descargarQrPng(t);
 });
-/* Afiche (ficha) del QR · A4 · se imprime desde el navegador. Logos de MiRed y del SIAU, mascota y mensajes de la institución. */
+/* Ficha (afiche) del formulario QR · A4 · minimalista y con UNA sola tipografía institucional (Barlow).
+   Menos texto, la mascota de MiRed y mensajes simples. Se imprime o se guarda como PDF desde el navegador. */
 function htmlAficheQR(t){
   var img = function(src, cls, alt){ return src ? '<img class="'+cls+'" src="'+src+'" alt="'+alt+'">' : ''; };
   var css =
-    '@page{size:A4;margin:0}*{box-sizing:border-box}body{margin:0;font-family:Barlow,Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
-    '.hoja{width:210mm;height:296mm;position:relative;overflow:hidden;background:#fff}'+
-    '.franja{display:flex;height:4mm}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
-    '.cab{display:flex;align-items:center;justify-content:space-between;padding:6mm 14mm 0}.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:12mm}.lockup .calidad{height:14mm}.lockup .sep{width:.4mm;height:11mm;background:#C7D6DC}'+
-    '.siau{height:22mm}'+
-    '.hero{padding:5mm 14mm 0;position:relative}.kicker{display:inline-block;font-weight:700;font-size:10.5pt;letter-spacing:.14em;text-transform:uppercase;color:#fff;background:#006081;border-radius:99px;padding:1.6mm 5mm}'+
-    'h1{font-family:"Barlow Semi Condensed",Arial,sans-serif;font-weight:900;font-size:33pt;line-height:1.02;margin:4mm 0 3mm;color:#00475F;letter-spacing:-.01em}'+
-    'h1 em{font-style:normal;background:linear-gradient(transparent 62%,#FEDC00 62%,#FEDC00 92%,transparent 92%)}'+
-    'p.sub{font-size:13.5pt;line-height:1.35;margin:0;color:#465C68;max-width:170mm}p.sub b{color:#00475F}'+
-    '.centro{display:flex;gap:8mm;align-items:flex-end;padding:8mm 14mm 0}.col-qr{flex:0 0 92mm;position:relative}'+
-    '.qr{border:1.2mm solid #006081;border-radius:8mm;padding:5mm;background:#fff;box-shadow:0 2.4mm 0 #E6EEF1}.qr svg{width:78mm;height:78mm;display:block}'+
-    '.medalla{position:absolute;top:-13mm;right:-13mm;width:22mm;filter:drop-shadow(0 1.5mm 2mm rgba(0,0,0,.25))}'+
-    '.escanee{margin-top:4.5mm;display:flex;align-items:center;gap:3mm;font-weight:800;font-size:14pt;color:#00475F}.escanee span{width:9mm;height:9mm;border-radius:50%;background:#009C4D;color:#fff;display:grid;place-items:center;font-size:12pt}'+
-    '.url{font-family:Consolas,monospace;font-size:10.5pt;color:#00475F;margin-top:2mm;word-break:break-all}'+
-    '.col-mas{flex:1;position:relative;align-self:stretch;display:flex;flex-direction:column;justify-content:flex-end;align-items:center}'+
-    '.globo{position:relative;background:#FFF8D6;border:.6mm solid #FEDC00;border-radius:6mm;padding:4mm 5mm;font-weight:700;font-size:13pt;line-height:1.25;color:#5C4700;text-align:center;margin-bottom:5mm}'+
-    '.globo::after{content:"";position:absolute;left:50%;bottom:-3.4mm;width:5mm;height:5mm;background:#FFF8D6;border-right:.6mm solid #FEDC00;border-bottom:.6mm solid #FEDC00;transform:translateX(-50%) rotate(45deg)}'+
-    '.mascota{height:84mm;display:block}'+
-    '.tipos{display:flex;flex-wrap:wrap;gap:2.4mm;padding:5mm 14mm 0}.tipos span{font-weight:800;font-size:11pt;padding:1.8mm 4.4mm;border-radius:99px;color:#fff}'+
-    '.pasos{display:grid;grid-template-columns:repeat(3,1fr);gap:4mm;padding:4mm 14mm 0}.paso{display:flex;gap:3mm;align-items:flex-start;background:#F3F7F9;border-radius:5mm;padding:4mm}'+
-    '.paso b{flex:0 0 9mm;height:9mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:13pt}.paso:nth-child(2) b{background:#C9971C}.paso:nth-child(3) b{background:#009C4D}'+
-    '.paso span{font-size:11pt;line-height:1.3;font-weight:600;color:#2B3A42}'+
-    '.cinta{position:absolute;left:0;right:0;bottom:33mm;background:linear-gradient(90deg,#C9971C,#E6BE4A 50%,#C9971C);color:#3E2F00;text-align:center;font-weight:800;font-size:11.5pt;padding:3mm 8mm;letter-spacing:.01em}'+
-    '.pie{position:absolute;left:0;right:0;bottom:0;height:33mm;background:linear-gradient(160deg,#00566F,#00303F);color:#fff;padding:5mm 14mm 0}'+
-    '.pie .fila{display:flex;align-items:center;justify-content:space-between;gap:6mm}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
-    '.pie .aviso{font-size:8.6pt;line-height:1.4;opacity:.92;margin-top:3mm}.pie b{color:#FEDC00}'+
-    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow,Arial;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
+    '@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:Barlow,"Segoe UI",Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '.hoja{width:210mm;height:296mm;position:relative;overflow:hidden;background:#fff;display:flex;flex-direction:column}'+
+    '.franja{display:flex;height:3mm;flex:none}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
+    '.cab{display:flex;align-items:center;justify-content:space-between;padding:9mm 16mm 0;flex:none}.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:11mm}.lockup .calidad{height:13mm}.lockup .sep{width:.35mm;height:10mm;background:#C7D6DC}.siau{height:19mm}'+
+    '.texto{padding:14mm 16mm 0;flex:none}h1{font-weight:800;font-size:46pt;line-height:1.02;letter-spacing:-.01em;margin:0;color:#00475F}'+
+    'h1 em{font-style:normal;color:#006081}p.sub{font-weight:500;font-size:16pt;line-height:1.35;margin:5mm 0 0;color:#465C68;max-width:150mm}'+
+    '.centro{flex:1;display:flex;align-items:center;justify-content:center;gap:6mm;padding:0 16mm}'+
+    '.qr{flex:none;border:1.1mm solid #006081;border-radius:9mm;padding:6mm;background:#fff}.qr svg{width:88mm;height:88mm;display:block}'+
+    '.mas{position:relative;flex:none;width:62mm;height:100mm;display:grid;place-items:end center}.mas .foto{position:relative;height:88mm;width:auto}'+
+    '.mas .orb{position:absolute;width:12mm;height:12mm;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15pt}'+
+    '.orb.p{top:2mm;left:2mm;background:#8455B8}.orb.q{top:20mm;right:-3mm;background:#009C4D}.orb.r{top:50mm;left:-3mm;background:#F37021}.orb.s{top:68mm;right:-2mm;background:#fff;color:#00475F;box-shadow:0 0 0 .4mm #D5E1E6}'+
+    '.pill{position:absolute;left:50%;bottom:-2mm;transform:translateX(-50%) rotate(-3deg);background:#FEDC00;color:#2E2500;border-radius:4mm;padding:2.4mm 5mm;font-weight:800;font-size:12pt;white-space:nowrap}'+
+    '.pasos{display:flex;justify-content:center;gap:9mm;padding:0 16mm 9mm;font-weight:700;font-size:14pt;color:#00475F;flex:none}.pasos span{display:flex;align-items:center;gap:2.6mm}'+
+    '.pasos b{width:8mm;height:8mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:12pt}.pasos span:nth-child(2) b{background:#C9971C}.pasos span:nth-child(3) b{background:#009C4D}'+
+    '.pie{flex:none;height:28mm;background:#00475F;color:#fff;padding:0 16mm;display:flex;align-items:center;justify-content:space-between;gap:8mm}'+
+    '.pie b{display:block;font-weight:800;font-size:13pt}.pie span{font-weight:500;font-size:10.5pt;opacity:.9}.pie .urg{font-size:10pt;margin-top:1.4mm;color:#FEDC00;font-weight:700}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
+    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow,Arial,sans-serif;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
     '@media print{.imprimir{display:none}}@media screen{body{background:#DCE5E9;padding:16px 0}.hoja{margin:0 auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}}';
-  var tipos = [["Felicitaciones","#8455B8"],["Quejas","#E20A31"],["Reclamos","#B98A00"],["Peticiones","#006D93"],["Sugerencias","#00985A"]]
-    .map(function(x){ return '<span style="background:'+x[1]+'">'+x[0]+'</span>'; }).join("");
-  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Afiche QR · SIAU · MiRed IPS</title>'+
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;600;700;800&family=Barlow+Semi+Condensed:wght@800;900&display=swap">'+
-    '<style>'+css+'</style></head><body><button class="imprimir" onclick="print()">Imprimir</button><div class="hoja">'+
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Ficha del formulario · SIAU · MiRed IPS</title>'+
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700;800&display=block">'+
+    '<style>'+css+'</style></head><body><button class="imprimir" onclick="(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){print()})">Imprimir o guardar como PDF</button><div class="hoja">'+
     '<div class="franja"><i></i><i></i><i></i><i></i></div>'+
     '<div class="cab"><div class="lockup">'+img(window.IMG_MIRED,"mired","MiRed IPS")+'<span class="sep"></span>'+img(window.IMG_CALIDAD,"calidad","Gestión de la Calidad")+'</div>'+
       img(window.IMG_SIAU_FICHA || window.IMG_SIAU,"siau","SIAU · Atención al Usuario")+'</div>'+
-    '<div class="hero"><span class="kicker">Oficina de Atención al Usuario</span>'+
-      '<h1>Su opinión es <em>muy importante</em><br>para nosotros</h1>'+
-      '<p class="sub">Cuéntenos <b>cómo fue su atención</b>, lo que hicimos bien y lo que podemos mejorar. Escanee el código con la cámara de su celular.</p></div>'+
-    '<div class="centro"><div class="col-qr"><div class="qr">'+qrSvg(t, 400)+'</div>'+img(window.IMG_SIAU_MEDALLA,"medalla","")+
-      '<div class="escanee"><span>&#9660;</span>Escanee aquí y cuéntenos</div><div class="url">'+esc(t)+'</div></div>'+
-      '<div class="col-mas"><div class="globo">Sus palabras nos ayudan a cuidar mejor de usted y de su familia.</div>'+img(window.IMG_MASCOTA,"mascota","SIAU MiRed IPS")+'</div></div>'+
-    '<div class="tipos">'+tipos+'</div>'+
-    '<div class="pasos"><div class="paso"><b>1</b><span>Abra la cámara de su celular y apunte al código.</span></div>'+
-      '<div class="paso"><b>2</b><span>Escriba su mensaje y su correo electrónico.</span></div>'+
-      '<div class="paso"><b>3</b><span>Reciba su número de radicado y la fecha de respuesta.</span></div></div>'+
-    '<div class="cinta">Una felicitación nos motiva &nbsp;·&nbsp; una queja nos ayuda a mejorar &nbsp;·&nbsp; cada opinión cuenta</div>'+
-    '<div class="pie"><div class="fila"><div><b>Oficina de Atención al Usuario (SIAU)</b><br>MiRed Barranquilla IPS S.A.S.</div>'+
+    '<div class="texto"><h1>Su opinión<br><em>nos importa</em></h1>'+
+      '<p class="sub">Cuéntenos cómo fue su atención. Con su mensaje mejoramos para usted y para su familia.</p></div>'+
+    '<div class="centro"><div class="qr">'+qrSvg(t, 400)+'</div>'+
+      '<div class="mas"><i class="orb p">P</i><i class="orb q">Q</i><i class="orb r">R</i><i class="orb s">S</i>'+img(window.IMG_MASCOTA_MIRED || window.IMG_MASCOTA,"foto","Mascota de MiRed IPS")+'<span class="pill">¡La mejora comienza contigo!</span></div></div>'+
+    '<div class="pasos"><span><b>1</b>Escanee el código</span><span><b>2</b>Cuéntenos</span><span><b>3</b>Reciba su número de radicado</span></div>'+
+    '<div class="pie"><div><b>Oficina de Atención al Usuario (SIAU)</b><span>MiRed Barranquilla IPS S.A.S.</span><div class="urg">¿Es una urgencia? Acérquese de inmediato al personal de la sede.</div></div>'+
       '<div class="vig">'+img(window.IMG_SS_B,"","Vigilado Supersalud")+img(window.IMG_ALC_B,"","Alcaldía de Barranquilla")+'</div></div>'+
-      '<div class="aviso"><b>Urgente:</b> si su situación pone en riesgo su vida o la de un menor de edad, además del formulario acérquese de inmediato al personal de la sede. '+
-      'Sus datos se tratan conforme a la Ley 1581 de 2012 solo para gestionar su solicitud.</div></div>'+
     '</div></body></html>';
+}
+function abrirAfiche(t, avisoId){
+  var w = window.open("", "_blank");
+  if(!w){ aviso(avisoId,"El navegador bloqueó la ventana de la ficha. Permite ventanas emergentes para este sitio.","err"); return; }
+  w.document.write(htmlAficheQR(t));
+  w.document.close();
 }
 $("btnQrAfiche").addEventListener("click", function(){
   var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
-  var w = window.open("", "_blank");
-  if(!w){ aviso("qrAviso","El navegador bloqueó la ventana del afiche. Permite ventanas emergentes para este sitio.","err"); return; }
-  w.document.write(htmlAficheQR(t));
-  w.document.close();
+  abrirAfiche(t, "qrAviso");
 });
+/* v8.4 · Ficha del formulario para técnicos y administradores (menú «Ficha del formulario») */
+function cargarFicha(){
+  $("fichaQr").innerHTML = esqueleto(1);
+  srvSilencioso("apiFichaFormulario").then(function(r){
+    APP.ficha = r || {};
+    var t = (r && r.url) || "";
+    $("fichaQr").innerHTML = t ? qrSvg(t, 240) : '<div class="vacio">'+ic("qr")+'<div>Sin enlace del formulario</div></div>';
+    $("fichaUrl").textContent = t;
+    aviso("fichaAviso", r && r.mensaje ? esc(r.mensaje) : "", "info");
+  }).catch(function(e){ aviso("fichaAviso", msgErr(e), "err"); });
+}
+function fichaUrl(){ return (APP.ficha && APP.ficha.url) || ""; }
+$("btnFichaImprimir").addEventListener("click", function(){ if(!fichaUrl()){ aviso("fichaAviso","Todavía no hay un formulario publicado.","err"); return; } abrirAfiche(fichaUrl(), "fichaAviso"); });
+$("btnFichaPng").addEventListener("click", function(){ if(!fichaUrl()){ aviso("fichaAviso","Todavía no hay un formulario publicado.","err"); return; } descargarQrPng(fichaUrl()); });
+$("btnFichaCopiar").addEventListener("click", function(){ if(fichaUrl()) copiarTexto(fichaUrl(), "Enlace del formulario copiado"); });
 $("btnCrearForm").addEventListener("click", function(){
   if(!window.confirm("Se creará un Google Form nuevo con la autorización de datos, las sedes y los servicios, vinculado a este consolidado. El formulario actual no se borra. ¿Continuar?")) return;
   var fin = ocupado("btnCrearForm","Creando formulario…");

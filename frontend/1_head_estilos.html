@@ -1150,20 +1150,33 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 </style>
 <style>
 /* ===========================================================================
-   INGRESO · proporciones (v9.3)
-   Una sola pantalla en escritorio (sin desplazarse en 1366×768) y, en celular y tableta, el formulario
-   de usuario y contraseña va primero y visible sin bajar; el texto promocional queda debajo o se oculta.
+   INGRESO · proporciones y mascota (v9.4)
+   Una sola pantalla en escritorio (sin desplazarse en 1366×768). A la izquierda: marca, un lema corto y la mascota de MiRed con las
+   letras P-Q-R-S girando alrededor. En celular y tableta el formulario va primero y la mascota se oculta.
    =========================================================================== */
 .acceso{height:100vh;height:100dvh;min-height:560px;overflow:hidden}
-.acceso-marca{min-height:0;padding:clamp(22px,3.6vh,48px) clamp(28px,4vw,64px);justify-content:space-between;gap:12px}
-.acceso-marca>div:first-child{position:relative;z-index:1}
-.acceso-siau{height:clamp(64px,11vh,104px);margin:clamp(12px,2.6vh,30px) 0 6px}
-.acceso-marca h1{font-size:clamp(22px,2.3vw,34px);margin:6px 0 8px}
-.acceso-marca p{font-size:14.5px;line-height:1.55;max-width:470px;margin:0 0 clamp(10px,2vh,20px)}
-.canales{display:flex;flex-wrap:wrap;gap:8px;max-width:520px}
-.canal{padding:8px 13px;font-size:12.5px;border-radius:99px}
-.acceso-mascota{position:absolute;right:clamp(16px,5%,64px);bottom:clamp(40px,8vh,84px);width:auto;height:clamp(140px,31vh,280px);margin:0;z-index:0;pointer-events:none}
-.acceso-pie{position:relative;z-index:1}
+.acceso-marca{min-height:0;padding:clamp(20px,3.4vh,44px) clamp(28px,4vw,64px);justify-content:space-between;gap:10px}
+.acceso-marca>div:first-child{position:relative;z-index:2}
+.acceso-siau{height:clamp(60px,10vh,96px);margin:clamp(10px,2.2vh,26px) 0 6px}
+.acceso-marca h1{font-size:clamp(22px,2.3vw,34px);margin:6px 0 6px}
+.acceso-lema{margin:0;max-width:430px;font-size:clamp(13.5px,1.05vw,15.5px);line-height:1.5;color:rgba(255,255,255,.78)}
+.acceso-marca p.acceso-lema{opacity:1}
+.canales,.acceso-mascota{display:none}
+.acceso-hero{position:relative;z-index:1;flex:1;min-height:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.hero-caja{--hero-h:clamp(170px,min(44vh,calc(100vh - 430px)),420px);position:relative;flex:none;height:var(--hero-h);aspect-ratio:1/1;display:grid;place-items:center;margin-top:4px}
+.orbita{position:absolute;inset:6%;border-radius:50%;border:1.5px dashed rgba(255,255,255,.30);animation:orbitar 30s linear infinite}
+.orbita i{position:absolute;width:15%;aspect-ratio:1;border-radius:50%;display:grid;place-items:center;font:900 clamp(15px,2.4vh,26px)/1 "Barlow Semi Condensed",Barlow,Arial,sans-serif;
+  font-style:normal;color:#fff;box-shadow:0 8px 20px rgba(0,20,30,.30)}
+.orbita .p{top:6%;left:9%;background:#8455B8}
+.orbita .q{top:34%;right:-6%;background:#009C4D}
+.orbita .r{bottom:8%;left:5%;background:#F37021}
+.orbita .s{bottom:-6%;right:22%;background:#fff;color:#00475F}
+@keyframes orbitar{to{transform:rotate(360deg)}}
+#mascotaHero{position:relative;height:calc(var(--hero-h) * .84);width:auto;max-width:70%;object-fit:contain;filter:drop-shadow(0 18px 24px rgba(0,20,30,.40))}
+.hero-pill{position:absolute;left:-4%;bottom:5%;transform:rotate(-3deg);background:#FEDC00;color:#2E2500;border-radius:14px;padding:8px 14px;
+  font:800 clamp(12px,1.9vh,15px)/1.2 Barlow,Arial,sans-serif;box-shadow:0 10px 22px rgba(0,20,30,.30);white-space:nowrap}
+.hero-leyenda{flex:none;margin-top:6px;font:600 12.5px/1.3 Barlow,Arial,sans-serif;letter-spacing:.04em;color:rgba(255,255,255,.62);text-align:center}
+.acceso-pie{position:relative;z-index:2}
 .acceso-pie .vigilado img{height:clamp(24px,4vh,34px)}
 .acceso-form{min-height:0;overflow:auto;padding:clamp(16px,3vh,48px) clamp(20px,3vw,56px)}
 .form-card{width:min(440px,100%);padding:clamp(20px,3.4vh,36px) clamp(22px,2.6vw,36px)}
@@ -1172,10 +1185,8 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 .form-card label{margin-top:clamp(8px,1.8vh,14px)}
 .form-card input:where(:not([type=checkbox])){height:clamp(42px,6vh,48px)}
 .form-card .b.pri{margin-top:clamp(14px,2.6vh,22px);padding:13px}
-@media(max-height:760px) and (min-width:1001px){
-  .acceso-marca p,.canales{display:none}
-  .acceso-mascota{height:clamp(120px,26vh,200px)}
-}
+@media(max-height:620px) and (min-width:1001px){ .acceso-hero{display:none} }
+@media(prefers-reduced-motion:reduce){ .orbita{animation:none} }
 @media(max-width:1000px){
   .acceso{display:flex;flex-direction:column;height:auto;min-height:100vh;min-height:100dvh;overflow:visible}
   .acceso-marca{display:contents}
@@ -1183,13 +1194,17 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
   .acceso .lockup{justify-content:center}
   .acceso-siau{height:clamp(52px,9vh,76px);margin:12px auto 6px}
   .acceso-marca h1{font-size:clamp(19px,5.2vw,26px);margin:6px 0 0}
-  .acceso-marca p,.canales,.acceso-mascota{display:none}
+  .acceso-lema,.acceso-hero{display:none}
   .acceso-form{order:2;overflow:visible;padding:10px 14px 8px;display:flex;justify-content:center;align-items:flex-start}
   .form-card{width:min(460px,100%)}
   .acceso-pie{order:3;align-items:center;text-align:center;padding:12px 18px calc(18px + env(safe-area-inset-bottom,0px))}
   .acceso-pie .vigilado{justify-content:center}
 }
-.fila-push{display:flex;gap:8px;align-items:center}.fila-push input{flex:1;min-width:0;font-family:var(--mono,Consolas,monospace);font-size:13.5px}
+/* ficha del formulario */
+.ficha-card{display:flex;gap:26px;align-items:center;flex-wrap:wrap}
+.ficha-qr{flex:none;background:#fff;border:1px solid var(--line,#E7EEF1);border-radius:20px;padding:14px;min-width:200px;min-height:200px;display:grid;place-items:center}
+.ficha-qr svg{width:220px;height:220px;display:block}
+.ficha-info{flex:1;min-width:240px}.ficha-info h3{margin:0 0 6px}
 /* auditoría */
 .aud{display:grid;gap:2px;max-height:420px;overflow:auto;font-size:12.5px}
 .aud-fila{display:grid;grid-template-columns:150px 130px minmax(0,1.2fr) minmax(0,1.6fr);gap:10px;padding:7px 10px;border-radius:10px;align-items:baseline;overflow-wrap:anywhere}
@@ -1218,6 +1233,7 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 <!-- VENDOR imagenes -->
 <!-- VENDOR imagenes_marca -->
 <!-- VENDOR imagenes_siau -->
+<script>document.addEventListener("DOMContentLoaded", function(){ var m = document.getElementById("mascotaHero"); if(m && window.IMG_MASCOTA_MIRED) m.src = window.IMG_MASCOTA_MIRED; });</script>
 <script>
 /* v9 · marca: MiRed primero, Gestión de la Calidad después; blanco sobre fondo oscuro, color sobre fondo claro */
 document.addEventListener("DOMContentLoaded", function(){

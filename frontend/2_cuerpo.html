@@ -59,16 +59,16 @@
       <div class="lockup"><img class="lk-mired" id="logoAcceso" alt="MiRed IPS" src=""><span class="lk-div"></span><img class="lk-calidad" id="calidadAcceso" alt="Gestión de la Calidad" src=""></div>
       <img class="acceso-siau" id="siauAcceso" alt="SIAU" src="">
       <h1>Sistema de Gestión de PQRS</h1>
-      <p>Todas las vías de ingreso en un solo lugar: formulario QR, correo institucional, EPS y entes de control, y la atención presencial de cada sede. Con términos, prioridades y trazabilidad a tiempo.</p>
-      <div class="canales">
-        <div class="canal"><svg class="ic"><use href="#i-qr"/></svg>Formulario QR</div>
-        <div class="canal"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS</div>
-        <div class="canal"><svg class="ic"><use href="#i-sede"/></svg>Sedes y ventanilla</div>
-        <div class="canal"><svg class="ic"><use href="#i-escudo"/></svg>Riesgo vital y prioritarias</div>
-        <div class="canal"><svg class="ic"><use href="#i-estrella"/></svg>Felicitaciones al equipo</div>
-      </div>
+      <p class="acceso-lema">Cada opinión de nuestros usuarios nos ayuda a cuidar mejor de ellos.</p>
     </div>
-    <img class="acceso-mascota" id="mascotaAcceso" alt="" src="">
+    <div class="acceso-hero" aria-hidden="true">
+      <div class="hero-caja">
+        <div class="orbita"><i class="p">P</i><i class="q">Q</i><i class="r">R</i><i class="s">S</i></div>
+        <img id="mascotaHero" alt="" src="">
+        <span class="hero-pill">¡La mejora comienza contigo!</span>
+      </div>
+      <div class="hero-leyenda">Peticiones · Quejas · Reclamos · Sugerencias</div>
+    </div>
     <div class="acceso-pie"><div class="vigilado"><img id="ssAcceso" alt="Vigilado Supersalud" src=""><img id="alcAcceso" alt="Alcaldía de Barranquilla" src=""></div>Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
   </div>
   <div class="acceso-form">
@@ -95,6 +95,7 @@
     <button data-v="prioritarias"><svg class="ic"><use href="#i-escudo"/></svg>Prioritarias <span class="badge rojo" id="navPrio" hidden>0</span></button>
     <button data-v="correo" data-perm="correo"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS <span class="badge" id="navCorreo" hidden>0</span></button>
     <button data-v="radicar" data-perm="radicar"><svg class="ic"><use href="#i-radicar"/></svg>Radicar PQRS</button>
+    <button data-v="ficha" data-perm="radicar"><svg class="ic"><use href="#i-qr"/></svg>Ficha del formulario</button>
     <p class="grupo">Análisis</p>
     <button data-v="tablero"><svg class="ic"><use href="#i-tablero"/></svg>Tablero</button>
     <p class="grupo" data-perm="admin">Administración</p>
@@ -265,7 +266,7 @@
             <div><label class="req" for="r_tipoPqrs">Tipo de PQRS</label><select id="r_tipoPqrs"></select></div>
             <div><label for="r_entidad">Entidad presentada</label><select id="r_entidad"></select>
               <div class="hint">Define el término: sede 15 días hábiles, entes de control 24 y 72 horas.</div></div>
-            <div><label for="r_tipologia">Tipología</label><select id="r_tipologia"></select></div>
+            <div><label for="r_tipologia">Motivo específico (derecho vulnerado)</label><select id="r_tipologia"></select></div>
             <div class="full"><label class="req" for="r_descripcion">Descripción</label>
               <textarea id="r_descripcion" placeholder="Transcribe literalmente lo que manifiesta el usuario…"></textarea><div id="sugTipo"></div></div>
             <div class="full"><label for="r_observaciones">Observaciones internas</label><input id="r_observaciones"></div>
@@ -298,6 +299,26 @@
           <button class="b pri" id="btnIrDetalle" type="button"><svg class="ic s"><use href="#i-enviar"/></svg>Abrir y direccionar</button>
           <button class="b sec" id="btnOtra" type="button">Radicar otra</button>
         </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FICHA DEL FORMULARIO (técnicos y administradores) ===================== -->
+  <section id="v-ficha" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Ficha del formulario</h2>
+      <p class="sub">Imprímela y ubícala en la sala de espera de tu sede: el usuario escanea el código con el celular y cuenta su experiencia.</p></div></div>
+    <div id="fichaAviso"></div>
+    <div class="card ficha-card">
+      <div class="ficha-qr"><div id="fichaQr" class="qr-img"></div></div>
+      <div class="ficha-info">
+        <h3>Ficha lista para imprimir</h3>
+        <p class="sub">Tamaño carta o A4, con el código QR, la mascota de MiRed y los pasos para el usuario. En la ventana que se abre elige «Imprimir» o «Guardar como PDF».</p>
+        <div class="acciones">
+          <button class="b pri" id="btnFichaImprimir" type="button"><svg class="ic s"><use href="#i-imprimir"/></svg>Abrir ficha para imprimir</button>
+          <button class="b sec" id="btnFichaPng" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Descargar solo el QR (PNG)</button>
+          <button class="b fant" id="btnFichaCopiar" type="button"><svg class="ic s"><use href="#i-link"/></svg>Copiar enlace</button>
+        </div>
+        <div class="hint" id="fichaUrl"></div>
       </div>
     </div>
   </section>

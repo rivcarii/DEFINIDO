@@ -302,7 +302,8 @@ function formUsuario(usuario){
     '<div><label>Correo (avisos)</label><input id="u_correo" type="email" value="'+esc(u.correo||"")+'"></div>'+
     '<div><label>Rol</label><select id="u_rol">'+APP.usr.roles.map(function(x){ return '<option'+(x===u.rol?" selected":"")+'>'+x+'</option>'; }).join("")+'</select>'+
       '<div class="hint">Administrador: direcciona a las áreas, responde al usuario, gestiona el correo y los accesos. Técnico (SIAU de sede): radica y consulta las PQRS de sus sedes. Consulta: solo ve.</div></div>'+
-    (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal","new-password")+'</div>')+
+    (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal (opcional)","new-password")+
+      '<div class="hint">Si la dejas vacía se usa la predeterminada <b>Siau123*</b>. Si el usuario tiene correo, recibe un mensaje con su usuario y la contraseña; deberá cambiarla al ingresar y vence en 72 horas.</div></div>')+
     '<div class="full"><label>Sedes asignadas</label><label class="chk" style="margin:0 0 8px"><input type="checkbox" id="u_todas"'+(todas?" checked":"")+'> Todas las sedes</label>'+
       '<div class="chk-sedes" id="u_sedes">'+APP.usr.sedes.map(function(x){ return '<label><input type="checkbox" value="'+esc(x)+'"'+(u.sedes.indexOf(x)!==-1?" checked":"")+'>'+esc(x)+'</label>'; }).join("")+'</div></div>'+
     '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">'+
@@ -321,13 +322,13 @@ function formUsuario(usuario){
     var fin = ocupado("btnGuardarUsr","Guardando…");
     srv("apiGuardarUsuario", d).then(function(r){
       fin(); if(!r.ok){ aviso("uAviso", esc(r.mensaje), "err"); return; }
-      APP.usr = r; cerrarModal(); pintarUsuarios(); aviso("usrAviso", usuario ? "Usuario actualizado." : "Usuario creado. Entrégale su usuario y la contraseña temporal.", "ok");
+      APP.usr = r; cerrarModal(); pintarUsuarios(); aviso("usrAviso", usuario ? "Usuario actualizado." : "Usuario creado. "+esc(r.aviso || "Entrégale su usuario y la contraseña temporal."), "ok");
     }).catch(function(e){ fin(); aviso("uAviso", msgErr(e), "err"); });
   });
 }
 function restablecer(usuario){
   $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(420px,100%)"><div class="modal-cab"><div><h3>Contraseña temporal</h3><p>Para '+esc(usuario)+'. Deberá cambiarla al ingresar.</p></div>'+
-    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="rAviso"></div>'+campoClave("r_clave","Nueva contraseña temporal","new-password")+
+    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="rAviso"></div>'+campoClave("r_clave","Nueva contraseña temporal (opcional)","new-password")+'<div class="hint">Vacía = «Siau123*». Si el usuario tiene correo, se le envía.</div>'+
     '<div class="acciones"><button class="b pri" type="button" id="btnRest">Asignar</button></div></div></div></div>';
   $("modal").hidden = false; activarVerClave($("modal"));
   $("btnCerrarModal").addEventListener("click", cerrarModal);

@@ -73,7 +73,7 @@ var LISTAS={"SEDE":SEDES,"SERVICIO":SERV,"EPS / PRESTADOR":["Nueva EPS","Sanitas
   "TIPO DE PQRS":TIPOS,"TIPO SOLICITANTE":["Usuario","Familiar","Acompañante"],"TIPO DOCUMENTO":["CC","TI","CE","RC","PA"],
   "ENTIDAD PRESENTADA":["SEDE MIRED","SUPER SALUD","SECRETARIA DE SALUD"],"ESTADO":["Recibida","En análisis","En gestión","Respondida - Cerrada"],
   "SEXO":["Femenino","Masculino"],"RÉGIMEN":["Contributivo","Subsidiado"],"POBLACIÓN DIFERENCIAL":["Ninguna","Adulto mayor","Discapacidad"],
-  "MODALIDAD DE ATENCIÓN":["Intramural","Domiciliaria","Telemedicina"],"TIPOLOGÍA":["Oportunidad en citas","Trato del personal","Entrega de medicamentos","Infraestructura"]};
+  "MODALIDAD DE ATENCIÓN":["Intramural","Domiciliaria","Telemedicina"],"MOTIVO ESPECÍFICO":["Acceso oportuno a los servicios (citas, procedimientos)","Trato digno, respetuoso y humanizado","Acceso a medicamentos e insumos","Calidad y seguridad de la atención"]};
 Object.keys(LISTAS).forEach(function(k,j){ cfg.poner(43,j+1,k); LISTAS[k].forEach(function(v,i){ cfg.poner(44+i,j+1,v); }); });
 
 var semilla=7; function azar(){ semilla=(semilla*9301+49297)%233280; return semilla/233280; }

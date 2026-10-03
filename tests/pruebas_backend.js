@@ -94,7 +94,7 @@ const fr = cons.celda(5, 5);
 assert(Utilities.formatDate(fr, TZ, "HH:mm") === "00:00" && Utilities.formatDate(fr, TZ, "dd") === "03", "fecha desplazada corregida a medianoche del día correcto (" + Utilities.formatDate(fr, TZ, "yyyy-MM-dd HH:mm") + ")");
 const finDatos = 4 + n;   // último registro del libro de prueba
 assert(Object.keys(cons.formulas).length === (finDatos + 200 - 4) * 6, "fórmulas hasta el último registro + 200 filas de colchón: " + Object.keys(cons.formulas).length);
-assert(G.__props.ESQUEMA === "8.1", "versión de esquema guardada");
+assert(G.__props.ESQUEMA === "8.5", "versión de esquema guardada");
 assert(cons.formulas["5:34"].indexOf("Festivos!$A$2:$A$400") !== -1, "fecha máxima con la hoja de festivos");
 assert(G.appBootstrap_().migracion.hecho === false, "la migración no se repite");
 fs.writeFileSync(__dirname + "/salida/formulas_muestra.json", JSON.stringify({ AF: cons.formulas["5:32"], AG: cons.formulas["5:33"], AH: cons.formulas["5:34"], AI: cons.formulas["5:35"], AJ: cons.formulas["5:36"], AT: cons.formulas["5:46"] }, null, 1));

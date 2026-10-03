@@ -127,14 +127,14 @@ function animarNumeros(raiz){ (raiz||document).querySelectorAll("[data-n]").forE
 
 /* ============================ navegación ============================ */
 var TITULOS = { inicio:["Inicio","Resumen de tus sedes"], bandeja:["Bandeja de PQRS","Gestión por etapas"], prioritarias:["Prioritarias","Riesgo vital, priorizadas y términos cortos"], correo:["Correo y EPS","Canal de correo unificado"],
-  detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], tablero:["Tablero","Indicadores por mes y sede"],
+  detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], ficha:["Ficha del formulario","Para imprimir y ubicar en tu sede"], tablero:["Tablero","Indicadores por mes y sede"],
   responsables:["Áreas responsables","Correos de notificación"], usuarios:["Usuarios y sedes","Accesos a la plataforma"], config:["Configuración","Automatización y canales"] };
 function ver(v){
   var permitido = document.querySelector('#menu [data-v="'+v+'"]');
   if(permitido && permitido.hidden) v = "inicio";
   if(TITULOS[v]){ $("tituloVista").textContent = TITULOS[v][0]; $("subVista").textContent = TITULOS[v][1]; }
   cerrarLateral();
-  ["inicio","bandeja","prioritarias","correo","detalle","radicar","tablero","responsables","usuarios","config"].forEach(function(x){
+  ["inicio","bandeja","prioritarias","correo","detalle","radicar","ficha","tablero","responsables","usuarios","config"].forEach(function(x){
     var s=$("v-"+x); if(!s) return;
     s.hidden = (x!==v);
     if(x===v){ s.classList.remove("anim"); void s.offsetWidth; s.classList.add("anim"); }
@@ -145,6 +145,7 @@ function ver(v){
   $("menuPerfil").hidden = true;
   $("centro").hidden = true;
   if(v==="inicio") cargarInicio();
+  if(v==="ficha") cargarFicha();
   if(v==="tablero") cargarTablero();
   if(v==="prioritarias") cargarPrioritarias();
   if(v==="correo"){ $("vistaHilo").hidden = true; $("vistaLista").hidden = false; if(!APP.correosCargados) buscarCorreos(); }
@@ -175,7 +176,7 @@ function arrancar(d){
   llenar("r_eps", L["EPS / PRESTADOR"]); llenar("r_regimen", L["RÉGIMEN"]);
   llenar("r_sede", L["SEDE"]); llenar("r_servicio", L["SERVICIO"]);
   llenar("r_modalidad", L["MODALIDAD DE ATENCIÓN"]); llenar("r_tipoPqrs", L["TIPO DE PQRS"]);
-  llenar("r_entidad", L["ENTIDAD PRESENTADA"]); llenar("r_tipologia", L["TIPOLOGÍA"]);
+  llenar("r_entidad", L["ENTIDAD PRESENTADA"]); llenar("r_tipologia", L["MOTIVO ESPECÍFICO"] || L["TIPOLOGÍA"]);
   llenar("fEstado", L["ESTADO"], false); llenar("fCanal", L["CANAL"], false);
   $("fEstado").insertBefore(new Option("Todos",""), $("fEstado").firstChild); $("fEstado").value="";
   $("fCanal").insertBefore(new Option("Todos",""), $("fCanal").firstChild); $("fCanal").value="";

@@ -35,3 +35,9 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 - Cuotas de Google: correos/día (Workspace ~1.500 destinatarios), 6 min por ejecución (la importación del formulario corta a los 4 min y sigue en la siguiente), UrlFetch.
 - El motor de riesgo es por palabras: puede fallar con textos ambiguos. Por eso muestra las señales, avisa al SIAU y permite ajustar.
 - La vista previa y las pruebas no evalúan fórmulas (el simulador del navegador las emula).
+
+## Pendientes v8.5
+
+- **Separar el consolidado en dos libros (PQRS / resto de hojas):** no implementado. Es un cambio estructural (Config, Festivos, Usuarios y Categorías se leen con `_h()` del mismo libro). Propuesta: `DATOS_ID` opcional, espejos de lectura y migración con respaldo previo. Mientras tanto, solo el administrador exporta y el Excel nunca lleva la hoja `Usuarios`; el control real es no compartir el libro con técnicos (ellos entran por la plataforma).
+- **Motivo específico:** la lista de Config «MOTIVO ESPECÍFICO» es una base (Ley 1751/2015 art. 10, Res. 13437/1991). Reemplazarla por el documento «Derechos y deberes» de MiRed cuando River lo comparta.
+- **Felicitaciones:** decidir si conservan radicado (hoy lo tienen y se cierran al entregarse al área).
