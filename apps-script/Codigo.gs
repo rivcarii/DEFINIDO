@@ -2317,6 +2317,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
+var VERSION_CODIGO = "8.5.1 · enlace del portal";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3906,7 +3907,7 @@ function _enlaceAcceso_() {
   url = _urlPortal_() || _urlBase_();
   try { cuenta = Session.getEffectiveUser().getEmail() || ""; } catch (e) {}
   try { propio = String(PropertiesService.getScriptProperties().getProperty("URL_PORTAL") || "").trim(); } catch (e) {}
-  return { url: url, prueba: /\/dev(\?|$)/.test(url), cuenta: cuenta, personalizado: !!propio && propio === url, appsScript: _urlBase_() };
+  return { url: url, prueba: /\/dev(\?|$)/.test(url), cuenta: cuenta, personalizado: !!propio && propio === url, appsScript: _urlBase_(), version: VERSION_CODIGO };
 }
 /** v9.2 · El administrador cambia el enlace de la plataforma desde Usuarios y sedes (propiedad URL_PLATAFORMA).
  *  Solo acepta la «URL de la aplicación web» (/exec); vacío = vuelve al enlace predeterminado. */
