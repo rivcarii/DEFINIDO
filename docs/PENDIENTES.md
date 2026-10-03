@@ -26,7 +26,7 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 - ~~Exportar a Excel y respaldo en Drive~~ → hecho en 8.2 (Tablero ▸ Exportar a Excel; respaldo diario a las 7:00). Pendiente: PDF e informes con indicadores SOGCS/Supersalud ya calculados.
 - Tablero: gráfico por nivel de riesgo y tiempo de respuesta de las prioritarias en horas.
 - Encuesta de satisfacción automática al cerrar.
-- Recuperación de contraseña sin administrador; auditoría de ingresos.
+- Recuperación de contraseña sin administrador (la auditoría de ingresos ya existe desde 8.4); inicio de sesión con Google y segundo factor (ver `docs/SEGURIDAD.md` §6).
 - Redacción asistida con IA (Gemini de Google Workspace o Claude) **solo** con acuerdo de tratamiento de datos y anonimización; hoy el redactor es por reglas para no enviar datos de salud a terceros.
 
 ## P4 · Limitaciones conocidas (aceptadas)

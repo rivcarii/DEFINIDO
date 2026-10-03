@@ -93,6 +93,7 @@ function llamar(fn, args, conCarga){
       if(conCarga) carga(-1);
       if(TOKEN !== token) return;
       if(x && x.__sesion === false){ sesionTerminada(x.mensaje); mal(new Error(x.mensaje)); return; }
+      if(x && x.__cambiarClave){ if($("modal").hidden) cambiarClave(true); mal(new Error(x.mensaje)); return; }   /* contraseña temporal: solo se puede cambiarla */
       ok(x);
     }).withFailureHandler(function(e){ if(conCarga) carga(-1); if(TOKEN !== token) return; mal(e); }).api(token, fn, args);
   });

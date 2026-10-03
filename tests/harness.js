@@ -65,7 +65,7 @@ class Hoja {
 }
 
 function crear(hojas, gmail) {
-  const ss = { getSheetByName: n => hojas[n] || null, getSheets: () => Object.values(hojas), getSpreadsheetTimeZone: () => SHEET_TZ,
+  const ss = { getId: () => "libro-demo", getSheetByName: n => hojas[n] || null, getSheets: () => Object.values(hojas), getSpreadsheetTimeZone: () => SHEET_TZ,
                insertSheet: n => (hojas[n] = new Hoja(n)) };
   const props = {};
   const enviados = [], exportaciones = [];
@@ -103,6 +103,7 @@ function crear(hojas, gmail) {
         getFoldersByName: m => { const k = n + "/" + m; return { hasNext: () => !!carpetas[k], next: () => carpetas[k] }; },
         createFolder: m => (carpetas[n + "/" + m] = mk(n + "/" + m)),
         addViewer(correo) { c.vistas.push(correo); return c; },
+        getSharingAccess: () => "PRIVATE", getViewers: () => c.vistas.map(e => ({ getEmail: () => e })), getEditors: () => [],
         createFile(b) { const f = { nombre: b && b.getName ? b.getName() : "", blob: b, borrado: false, creado: new Date(),
           setName(x) { f.nombre = x; return f; }, getName: () => f.nombre, getUrl: () => "https://drive.google.com/file/d/" + encodeURIComponent(f.nombre || "x"),
           setTrashed(v) { f.borrado = v; return f; }, getDateCreated: () => f.creado };
@@ -111,8 +112,10 @@ function crear(hojas, gmail) {
         getFiles() { const l = c.archivos.filter(a => !a.borrado); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; } };
         return c; };
       const raiz = mk("");
-      return { getFoldersByName: raiz.getFoldersByName, createFolder: raiz.createFolder, __carpetas: carpetas,
-        getFileById: id => ({ setTrashed(v) { archivosPorId[id] = v; } }), __temporales: archivosPorId }; })(),
+      return { getFoldersByName: raiz.getFoldersByName, createFolder: raiz.createFolder, __carpetas: carpetas, __ajustar: (k, v) => { raiz[k] = v; },
+        getFileById: id => ({ setTrashed(v) { archivosPorId[id] = v; }, getSharingAccess: () => raiz.__acceso || "PRIVATE",
+          getEditors: () => (raiz.__editores || ["siau@miredips.org"]).map(e => ({ getEmail: () => e })) }),
+        __temporales: archivosPorId, __raiz: raiz }; })(),
   };
   ctx.GmailApp.sendEmail = (para, asunto, texto, op) => { enviados.push({ para, asunto, html: op && op.htmlBody, cc: op && op.cc }); };
   vm.createContext(ctx);

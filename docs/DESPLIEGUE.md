@@ -97,6 +97,13 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 3. Configuración ▸ Automatización ▸ **Push**: pulsa «Generar», guarda, instala la app **ntfy** en los celulares, suscríbete a ese tema y prueba con «Enviar aviso de prueba».
 4. El portal de GitHub Pages usa `entrega/portal_index.html` (ya trae la URL de tu implementación).
 
+## 6d. Actualizar a la 8.4 (seguridad)
+
+1. Reemplaza `Codigo.gs` e `Index.html` (y `portal/index.html` en GitHub) por los de `entrega/` y publica **Nueva versión**.
+2. Las contraseñas **existentes siguen funcionando**; la nueva política (10 caracteres, mayúscula, minúscula, número) aplica a las que se creen o cambien desde ahora.
+3. Entra como administrador ▸ **Configuración ▸ Diagnóstico** y corrige lo que salga en rojo en «Seguridad ·» (acceso general del consolidado «Restringido», editores, administradores, usuarios sin uso).
+4. Activa la verificación en dos pasos en la cuenta SIAU de Google y lee `docs/SEGURIDAD.md` con el equipo.
+
 ## 7. Problemas típicos
 
 | Síntoma | Solución |

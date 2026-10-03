@@ -316,3 +316,14 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
 - **Correos.** `_correoDiseno_` rehecho: cabecera con los logos blancos de MiRed y SIAU sobre el teal, franja roja/amarilla/verde, banda de prioridad (roja para crítica), tarjeta de plazo, fechas en una columna en celular (`@media max-width:540px`), botón a todo el ancho y mensaje de gratitud con la medalla. Imágenes en `tools/imagenes_siau.py` (`LOGO_SIAU_B_BASE64`, `LOGO_SIAU_BASE64`, `LOGO_MIRED_B_BASE64`, `LOGO_SIAU_MEDALLA_BASE64`). `tests/render_correos.js` captura cada muestra en 680 y 375 px.
 - **Interfaz.** Logos nuevos del SIAU (`assets/siau`, `frontend/vendor/imagenes_siau.js`), ingreso proporcionado (una pantalla en escritorio; formulario primero en celular), afiche del QR rediseñado (`htmlAficheQR`).
 
+## 13. Versión 8.4: seguridad
+
+Política completa en `docs/SEGURIDAD.md`. En el código:
+
+- `_claveValida_(c, usuario)` + `_msgClave_`: 10 caracteres, mayúscula, minúscula, número; sin el usuario ni `CLAVES_COMUNES`.
+- `_iniciarSesion_`: formato de usuario validado, mismo mensaje y mismo costo para usuario inexistente o contraseña incorrecta, bloqueo de 15 min tras `MAX_INTENTOS`, todo auditado. `_sesion_`: tope absoluto `SESION_MAX_MS` (12 h) además de los 6 h de inactividad. `api()`: con `debeCambiar` solo pasan `appBootstrap` y `apiCambiarMiClave` (el frontend lo atiende en `llamar()` con `__cambiarClave`).
+- `_auditar_` / `apiAuditoria_` (hoja oculta `Auditoria`, vista en *Usuarios y sedes*). Eventos: ingresos, fallos, bloqueos, cierres, acciones denegadas, contraseñas, usuarios, exportaciones.
+- `_seguroCelda_`: antepone `'` a los textos que empiezan por `= + - @` (inyección de fórmulas) en `_escribir`, `_traza`, `_guardarHilo_`, respuestas del área y del usuario, observaciones y exportaciones a Excel.
+- `_chequeosSeguridad_` (dentro del diagnóstico): acceso general y editores del consolidado, carpeta de respaldos, administradores, contraseñas temporales, usuarios sin uso, tema del push.
+- Portal: `tools/construir_portal.mjs` agrega CSP (`connect-src` solo a `script.google.com` y `script.googleusercontent.com`) y `referrer: no-referrer`. `doPost` rechaza cuerpos de más de 30 MB.
+

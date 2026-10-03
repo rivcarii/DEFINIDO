@@ -1190,6 +1190,12 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
   .acceso-pie .vigilado{justify-content:center}
 }
 .fila-push{display:flex;gap:8px;align-items:center}.fila-push input{flex:1;min-width:0;font-family:var(--mono,Consolas,monospace);font-size:13.5px}
+/* auditoría */
+.aud{display:grid;gap:2px;max-height:420px;overflow:auto;font-size:12.5px}
+.aud-fila{display:grid;grid-template-columns:150px 130px minmax(0,1.2fr) minmax(0,1.6fr);gap:10px;padding:7px 10px;border-radius:10px;align-items:baseline;overflow-wrap:anywhere}
+.aud-fila:nth-child(even){background:var(--surface-2,#F3F5F8)}.aud-fila.alerta{background:#FDECEF;color:#8A0F27}
+.aud-cab{position:sticky;top:0;background:var(--surface,#fff)!important;font-size:10.5px;font-weight:800;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-3,#86939C)}
+@media(max-width:760px){.aud-fila{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.aud-cab{display:none}}
 /* análisis de EPS y entes de control */
 .analisis{margin-bottom:14px;border-left:5px solid #006081}
 .analisis .an-cab{display:flex;gap:12px;align-items:flex-start;margin-bottom:12px}

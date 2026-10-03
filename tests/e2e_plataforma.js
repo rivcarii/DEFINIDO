@@ -66,6 +66,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
       await p.waitForFunction(() => /Excel listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
     }
     await irA("usuarios"); await p.waitForSelector("#usrLista .usr", { timeout: 8000 }); await p.waitForTimeout(300);
+    await p.waitForSelector("#audLista .aud-fila:not(.aud-cab)", { timeout: 8000 }).catch(() => errores.push(w + " la auditoría de accesos no muestra eventos"));
+    if (!/Ingreso correcto/.test(await p.textContent("#audLista"))) errores.push(w + " la auditoría no registra el ingreso del administrador");
     await desb("usuarios"); await p.screenshot({ path: CAP + `z_${w}_usuarios.png`, fullPage: true });
     await p.click("#btnNuevoUsr"); await p.waitForSelector("#u_sedes", { timeout: 5000 }); await p.waitForTimeout(300);
     await desb("modal usuario"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_usuario_nuevo.png` });
