@@ -220,41 +220,66 @@ $("btnQrPng").addEventListener("click", function(){
   var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
   descargarQrPng(t);
 });
-/* Ficha (afiche) del formulario QR · A4 · minimalista y con UNA sola tipografía institucional (Barlow).
+/* Ficha (afiche) del formulario QR · A4 · minimalista y con tipografía institucional: Volkswagen Serial (cuerpo) y Volkswagen Serial Black (títulos), con Barlow como respaldo.
    Menos texto, la mascota de MiRed y mensajes simples. Se imprime o se guarda como PDF desde el navegador. */
 function htmlAficheQR(t){
   var img = function(src, cls, alt){ return src ? '<img class="'+cls+'" src="'+src+'" alt="'+alt+'">' : ''; };
+  var T = { p:"#7B4FB8", q:"#E20A31", r:"#F29D00", s:"#1F6FD1", f:"#009C4D" };   // colores de los tipos (paleta del sistema)
   var css =
-    '@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:Barlow,"Segoe UI",Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:"Volkswagen Serial","VW Serial",Barlow,"Segoe UI",Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
     '.hoja{width:210mm;height:296mm;position:relative;overflow:hidden;background:#fff;display:flex;flex-direction:column}'+
-    '.franja{display:flex;height:3mm;flex:none}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
-    '.cab{display:flex;align-items:center;justify-content:space-between;padding:9mm 16mm 0;flex:none}.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:11mm}.lockup .calidad{height:13mm}.lockup .sep{width:.35mm;height:10mm;background:#C7D6DC}.siau{height:19mm}'+
-    '.texto{padding:14mm 16mm 0;flex:none}h1{font-weight:800;font-size:46pt;line-height:1.02;letter-spacing:-.01em;margin:0;color:#00475F}'+
-    'h1 em{font-style:normal;color:#006081}p.sub{font-weight:500;font-size:16pt;line-height:1.35;margin:5mm 0 0;color:#465C68;max-width:150mm}'+
-    '.centro{flex:1;display:flex;align-items:center;justify-content:center;gap:6mm;padding:0 16mm}'+
-    '.qr{flex:none;border:1.1mm solid #006081;border-radius:9mm;padding:6mm;background:#fff}.qr svg{width:88mm;height:88mm;display:block}'+
-    '.mas{position:relative;flex:none;width:62mm;height:100mm;display:grid;place-items:end center}.mas .foto{position:relative;height:88mm;width:auto}'+
-    '.mas .orb{position:absolute;width:12mm;height:12mm;border-radius:50%;display:grid;place-items:center;color:#fff;font-weight:800;font-size:15pt}'+
-    '.orb.p{top:2mm;left:2mm;background:#8455B8}.orb.q{top:20mm;right:-3mm;background:#009C4D}.orb.r{top:50mm;left:-3mm;background:#F37021}.orb.s{top:68mm;right:-2mm;background:#fff;color:#00475F;box-shadow:0 0 0 .4mm #D5E1E6}'+
-    '.pill{position:absolute;left:50%;bottom:-2mm;transform:translateX(-50%) rotate(-3deg);background:#FEDC00;color:#2E2500;border-radius:4mm;padding:2.4mm 5mm;font-weight:800;font-size:12pt;white-space:nowrap}'+
-    '.pasos{display:flex;justify-content:center;gap:9mm;padding:0 16mm 9mm;font-weight:700;font-size:14pt;color:#00475F;flex:none}.pasos span{display:flex;align-items:center;gap:2.6mm}'+
-    '.pasos b{width:8mm;height:8mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:12pt}.pasos span:nth-child(2) b{background:#C9971C}.pasos span:nth-child(3) b{background:#009C4D}'+
-    '.pie{flex:none;height:28mm;background:#00475F;color:#fff;padding:0 16mm;display:flex;align-items:center;justify-content:space-between;gap:8mm}'+
-    '.pie b{display:block;font-weight:800;font-size:13pt}.pie span{font-weight:500;font-size:10.5pt;opacity:.9}.pie .urg{font-size:10pt;margin-top:1.4mm;color:#FEDC00;font-weight:700}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
-    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow,Arial,sans-serif;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
+    /* encabezado como el del formulario: degradado de la marca, logos, título y mascota */
+    '.cab{position:relative;flex:none;height:122mm;color:#fff;overflow:hidden;background:radial-gradient(120% 120% at 0% 0%,#0A7096 0%,#005A78 38%,#00475F 70%,#02503F 100%)}'+
+    '.cab .aro{position:absolute;border-radius:50%;border:.3mm solid rgba(255,255,255,.16)}.aro.a1{width:118mm;height:118mm;right:-8mm;top:-6mm}.aro.a2{width:150mm;height:150mm;right:-30mm;top:10mm}'+
+    '.cab .sol{position:absolute;border-radius:50%}.sol.roja{width:50mm;height:50mm;right:20mm;top:14mm;background:#C8102E}.sol.amar{width:9mm;height:9mm;right:11mm;top:74mm;background:#FEDC00}'+
+    '.cab .mas{position:absolute;right:15mm;bottom:3mm;height:108mm;width:auto}'+
+    '.cab .izq{position:relative;z-index:2;padding:11mm 0 0 16mm;width:128mm}'+
+    '.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:10mm}.lockup .calidad{height:12mm}.lockup .sep{width:.35mm;height:10mm;background:rgba(255,255,255,.35)}'+
+    '.siau{height:21mm;display:block;margin-top:8mm}'+
+    'h1,.pasos h2,.paso strong,.tp b,.pie b,.qrcaja .et{font-family:"Volkswagen Serial Black","VW Serial Black","Volkswagen Serial","VW Serial","Barlow Semi Condensed",Barlow,Arial,sans-serif;font-weight:900}h1{font-size:33pt;line-height:1.02;letter-spacing:-.01em;margin:5mm 0 0}'+
+    'p.sub{font-weight:400;font-size:15pt;margin:2.5mm 0 0;color:rgba(255,255,255,.82)}'+
+    '.chips{display:flex;flex-wrap:wrap;gap:2.2mm;margin-top:7mm;max-width:118mm}.chips span{display:flex;align-items:center;gap:1.8mm;background:rgba(255,255,255,.13);border:.25mm solid rgba(255,255,255,.28);border-radius:99px;padding:1.4mm 3.4mm 1.4mm 2.4mm;font-weight:700;font-size:10.5pt}'+
+    '.chips i{width:2.8mm;height:2.8mm;border-radius:50%;display:block}'+
+    '.franja{display:flex;height:2.6mm;flex:none}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
+    /* paso a paso */
+    '.medio{flex:1;display:flex;gap:11mm;align-items:center;padding:8mm 16mm 4mm}'+
+    '.qrcaja{flex:none;text-align:center}.qr{border:1.2mm solid #006081;border-radius:9mm;padding:5.5mm;background:#fff;box-shadow:0 2mm 6mm rgba(0,70,95,.12)}.qr svg{width:68mm;height:68mm;display:block}'+
+    '.qrcaja .et{margin-top:4mm;font-size:12.5pt;color:#00475F}.qrcaja .et small{display:block;font-weight:500;font-size:10pt;color:#5A6F7A;margin-top:.8mm}'+
+    '.pasos{flex:1}.pasos h2{margin:0 0 4.5mm;font-size:19pt;color:#00475F}.pasos h2 em{font-style:normal;color:#E20A31}'+
+    '.paso{display:flex;gap:4mm;align-items:flex-start;position:relative;padding-bottom:5mm}.paso:last-child{padding-bottom:0}'+
+    '.paso:not(:last-child)::after{content:"";position:absolute;left:5.2mm;top:11.5mm;bottom:.5mm;width:.5mm;background:#CFDDE3}'+
+    '.paso b{flex:none;width:11mm;height:11mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:14pt;font-weight:800;box-shadow:0 1mm 2.5mm rgba(0,96,129,.3)}'+
+    '.paso:nth-child(2) b{background:#1F6FD1}.paso:nth-child(3) b{background:#F29D00}.paso:nth-child(4) b{background:#009C4D}'+
+    '.paso strong{display:block;font-size:13.5pt;color:#10222C;line-height:1.15}.paso span{display:block;font-weight:500;font-size:10.5pt;color:#4C616C;line-height:1.3;margin-top:.8mm}'+
+    /* tipos */
+    '.tipos{flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:3mm;padding:0 16mm 7mm}'+
+    '.tp{border-radius:3.5mm;background:#F5F9FB;border-top:1.3mm solid var(--c);padding:3mm 3mm 3.2mm}.tp b{display:block;font-size:11pt;color:var(--c)}.tp span{display:block;font-weight:500;font-size:8.6pt;line-height:1.28;color:#4C616C;margin-top:1mm}'+
+    '.pie{flex:none;height:25mm;background:#00475F;color:#fff;padding:0 16mm;display:flex;align-items:center;justify-content:space-between;gap:8mm}'+
+    '.pie b{display:block;font-size:12.5pt}.pie span{font-weight:500;font-size:10pt;opacity:.9}.pie .urg{font-size:9.5pt;margin-top:1.2mm;color:#FEDC00;font-weight:700}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
+    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px "Volkswagen Serial","VW Serial",Barlow,"Segoe UI",Arial,sans-serif;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
     '@media print{.imprimir{display:none}}@media screen{body{background:#DCE5E9;padding:16px 0}.hoja{margin:0 auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}}';
+  var chip = function(c, n){ return '<span><i style="background:'+c+'"></i>'+n+'</span>'; };
+  var paso = function(n, a, b){ return '<div class="paso"><b>'+n+'</b><div><strong>'+a+'</strong><span>'+b+'</span></div></div>'; };
+  var tipo = function(c, n, d){ return '<div class="tp" style="--c:'+c+'"><b>'+n+'</b><span>'+d+'</span></div>'; };
   return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Ficha del formulario · SIAU · MiRed IPS</title>'+
     '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'+
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700;800&display=block">'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Barlow+Semi+Condensed:wght@800;900&display=block">'+
     '<style>'+css+'</style></head><body><button class="imprimir" onclick="(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){print()})">Imprimir o guardar como PDF</button><div class="hoja">'+
+    '<div class="cab"><i class="aro a1"></i><i class="aro a2"></i><i class="sol roja"></i><i class="sol amar"></i>'+
+      img(window.IMG_MASCOTA_SIAU,"mas","Mascota del SIAU de MiRed IPS")+
+      '<div class="izq"><div class="lockup">'+img(window.IMG_MIRED_B,"mired","MiRed IPS")+'<span class="sep"></span>'+img(window.IMG_CALIDAD_B,"calidad","Gestión de la Calidad")+'</div>'+
+      img(window.IMG_SIAU_B,"siau","SIAU · Atención al Usuario")+
+      '<h1>Opiniones<br>del usuario</h1><p class="sub">Tu voz mejora nuestra atención</p>'+
+      '<div class="chips">'+chip(T.p,"Peticiones")+chip(T.q,"Quejas")+chip(T.r,"Reclamos")+chip(T.s,"Sugerencias")+chip(T.f,"Felicitaciones")+'</div></div></div>'+
     '<div class="franja"><i></i><i></i><i></i><i></i></div>'+
-    '<div class="cab"><div class="lockup">'+img(window.IMG_MIRED,"mired","MiRed IPS")+'<span class="sep"></span>'+img(window.IMG_CALIDAD,"calidad","Gestión de la Calidad")+'</div>'+
-      img(window.IMG_SIAU_FICHA || window.IMG_SIAU,"siau","SIAU · Atención al Usuario")+'</div>'+
-    '<div class="texto"><h1>Su opinión<br><em>nos importa</em></h1>'+
-      '<p class="sub">Cuéntenos cómo fue su atención. Con su mensaje mejoramos para usted y para su familia.</p></div>'+
-    '<div class="centro"><div class="qr">'+qrSvg(t, 400)+'</div>'+
-      '<div class="mas"><i class="orb p">P</i><i class="orb q">Q</i><i class="orb r">R</i><i class="orb s">S</i>'+img(window.IMG_MASCOTA_MIRED || window.IMG_MASCOTA,"foto","Mascota de MiRed IPS")+'<span class="pill">¡La mejora comienza contigo!</span></div></div>'+
-    '<div class="pasos"><span><b>1</b>Escanee el código</span><span><b>2</b>Cuéntenos</span><span><b>3</b>Reciba su número de radicado</span></div>'+
+    '<div class="medio"><div class="qrcaja"><div class="qr">'+qrSvg(t, 400)+'</div><div class="et">Escanee con la cámara de su celular<small>No necesita instalar ninguna aplicación</small></div></div>'+
+      '<div class="pasos"><h2>Así de <em>fácil</em>, en 4 pasos</h2>'+
+        paso(1,"Escanee el código","Abra la cámara de su celular y apunte al código QR.")+
+        paso(2,"Cuéntenos","Elija si es una petición, queja, reclamo, sugerencia o felicitación y escriba lo ocurrido.")+
+        paso(3,"Reciba su radicado","Al enviar, le llega un número de radicado para hacer seguimiento.")+
+        paso(4,"Le respondemos","Nuestro equipo revisa su caso y le contesta dentro de los términos de ley.")+
+      '</div></div>'+
+    '<div class="tipos">'+tipo(T.p,"Petición","Solicite información o un servicio.")+tipo(T.q,"Queja","Inconformidad con la atención de una persona.")+tipo(T.r,"Reclamo","Un servicio que no se prestó como debía.")+tipo(T.s,"Sugerencia","Una idea para mejorar nuestro servicio.")+tipo(T.f,"Felicitación","Reconozca una buena atención.")+'</div>'+
     '<div class="pie"><div><b>Oficina de Atención al Usuario (SIAU)</b><span>MiRed Barranquilla IPS S.A.S.</span><div class="urg">¿Es una urgencia? Acérquese de inmediato al personal de la sede.</div></div>'+
       '<div class="vig">'+img(window.IMG_SS_B,"","Vigilado Supersalud")+img(window.IMG_ALC_B,"","Alcaldía de Barranquilla")+'</div></div>'+
     '</div></body></html>';
@@ -339,7 +364,7 @@ $("btnDiagnostico").addEventListener("click", function(){
 function celebrar(){
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   var capa = document.createElement("div"); capa.className = "confeti";
-  var colores = ["#8455B8","#E20A31","#FEDC00","#009C4D","#006081","#0F7FA6"];
+  var colores = ["#009C4D","#E20A31","#FEDC00","#009C4D","#006081","#0F7FA6"];
   for(var i=0;i<70;i++){
     var p = document.createElement("i");
     p.style.left = (Math.random()*100)+"%"; p.style.background = colores[i % colores.length];

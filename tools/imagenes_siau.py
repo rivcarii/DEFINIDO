@@ -28,12 +28,20 @@ def mascota_b64(archivo, escala=2, colores=160):
     b = io.BytesIO(); im.save(b, "PNG", optimize=True)
     return base64.b64encode(b.getvalue()).decode()
 
+def mascota_siau_b64(ancho=720, colores=128):
+    im = Image.open(R / "assets" / "mascota" / "mascota_siau.png").convert("RGBA")
+    im = im.resize((ancho, round(im.height * ancho / im.width)), Image.LANCZOS)
+    im = im.quantize(colors=colores, method=Image.FASTOCTREE, dither=Image.NONE)
+    b = io.BytesIO(); im.save(b, "PNG", optimize=True)
+    return base64.b64encode(b.getvalue()).decode()
+
 web = {
     "IMG_SIAU": png_b64("Logo_SIAU_color_medalla_dorada.png", 640, 160),
     "IMG_SIAU_B": png_b64("Logo_SIAU_blanco_medalla_dorada.png", 640, 160),
     "IMG_SIAU_FICHA": png_b64("Logo_SIAU_color_medalla_dorada.png", 1100, 192),
     "IMG_SIAU_MEDALLA": png_b64("Medalla_SIAU_dorada.png", 240, 128),
     "IMG_MASCOTA_MIRED": mascota_b64("mascota_mired_busto.png"),
+    "IMG_MASCOTA_SIAU": mascota_siau_b64(),   # mascota con camiseta SIAU y megáfono (ingreso y ficha)
 }
 js = "/* Generado por tools/imagenes_siau.py a partir de assets/siau — no editar a mano. */\n" + "".join(
     'var %s = "data:image/png;base64,%s";\n' % (k, v) for k, v in web.items())

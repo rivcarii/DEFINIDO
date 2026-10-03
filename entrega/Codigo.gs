@@ -4629,10 +4629,10 @@ function _fechasDe_(codigo) {
  *   · Las felicitaciones tienen su propio diseño: agradecimiento al usuario y reconocimiento
  *     al equipo, sin términos ni vencimientos.
  */
-var COLOR_TIPO = { queja: "#E20A31", reclamo: "#B98A00", peticion: "#006D93", sugerencia: "#00985A",
-                   felicitacion: "#8455B8", tutela: "#3D5FA8", denuncia: "#B4531A" };
-var FONDO_TIPO = { queja: "#FDEBEE", reclamo: "#FBF4DF", peticion: "#E5F1F6", sugerencia: "#E3F4EC",
-                   felicitacion: "#F2ECFA", tutela: "#E9EDF7", denuncia: "#F9ECE4" };
+var COLOR_TIPO = { queja: "#E20A31", reclamo: "#F29D00", peticion: "#7B4FB8", sugerencia: "#1F6FD1",
+                   felicitacion: "#009C4D", tutela: "#374151", denuncia: "#B4531A" };
+var FONDO_TIPO = { queja: "#FDEBEE", reclamo: "#FFF3DB", peticion: "#F0EAF9", sugerencia: "#E4EEFB",
+                   felicitacion: "#E6F5EC", tutela: "#ECEEF1", denuncia: "#F9ECE4" };
 function _claveTipo_(t) {
   var k = _norm(t).replace(/[^a-z]/g, "");
   for (var c in COLOR_TIPO) if (k.indexOf(c) === 0) return c;
@@ -4710,7 +4710,7 @@ function _correoDiseno_(o) {
   var interno = o.variante === "interno" || o.variante === "reconocimiento";
   var feliz = o.variante === "felicitacion" || o.variante === "reconocimiento";
   var P = 'font-family:' + FF + ';';
-  var pal = feliz ? { a: "#8455B8", d: "#4B2A78", w: "#F2ECFA", b: "#DCCBF0", t: "#6A3FA0" }
+  var pal = feliz ? { a: "#009C4D", d: "#0B5530", w: "#E6F5EC", b: "#BFE5CE", t: "#0B7A3F" }
                   : { a: "#006081", d: "#00475F", w: "#E5F1F6", b: "#C9E0EA", t: "#00475F" };
   var colorK = o.kicker ? _colorTipo_(o.kicker) : pal.a;
   var etiqueta = o.etiqueta || (interno ? "Uso interno · Confidencial" : "Atención al usuario");
@@ -4734,14 +4734,14 @@ function _correoDiseno_(o) {
         '<span style="' + P + 'font-weight:800;font-size:13px;letter-spacing:.08em;color:#fff;">SIAU</span>') + '</td>' +
       '</tr></table></td></tr>' +
     '<tr><td style="font-size:0;line-height:0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>' +
-      '<td style="height:5px;background:' + (feliz ? "#8455B8" : "#FEDC00") + ';width:46%;"></td><td style="height:5px;background:#E20A31;width:18%;"></td>' +
+      '<td style="height:5px;background:' + (feliz ? "#009C4D" : "#FEDC00") + ';width:46%;"></td><td style="height:5px;background:#E20A31;width:18%;"></td>' +
       '<td style="height:5px;background:#FEDC00;width:18%;"></td><td style="height:5px;background:#009C4D;width:18%;"></td></tr></table></td></tr>';
 
   // Banda de contexto (uso interno / prioridad)
   var banda = '';
   if (o.banda) {
-    var cb = o.prioridad ? _colorPrioridad_(o.prioridad) : (feliz ? "#6A3FA0" : "#7A5A00");
-    var fondoB = o.prioridad && _norm(o.prioridad) !== "normal" ? cb : (feliz ? "#F2ECFA" : "#FFF4D1");
+    var cb = o.prioridad ? _colorPrioridad_(o.prioridad) : (feliz ? "#0B7A3F" : "#7A5A00");
+    var fondoB = o.prioridad && _norm(o.prioridad) !== "normal" ? cb : (feliz ? "#E6F5EC" : "#FFF4D1");
     var textoB = o.prioridad && _norm(o.prioridad) !== "normal" ? "#FFFFFF" : cb;
     banda = '<tr><td class="px" style="background:' + fondoB + ';padding:10px 28px;' + P + 'font-weight:800;font-size:11px;letter-spacing:.07em;color:' + textoB + ';">' +
       (interno ? '&#128274;&nbsp;' : '') + _html_(o.banda) + '</td></tr>';
@@ -4754,7 +4754,7 @@ function _correoDiseno_(o) {
       ';border-radius:99px;padding:4px 11px;">' + _html_(o.kicker) + '</span>' : '';
   var icono = o.mascota
     ? '<img src="cid:mascotaSiau" width="96" alt="SIAU MiRed IPS" style="display:block;border:0;margin:0 0 12px 0;"/>'
-    : (feliz ? '<div style="width:54px;height:54px;border-radius:50%;background:#F2ECFA;text-align:center;line-height:54px;font-size:28px;color:#8455B8;margin-bottom:14px;">&#9733;</div>' : '');
+    : (feliz ? '<div style="width:54px;height:54px;border-radius:50%;background:#E6F5EC;text-align:center;line-height:54px;font-size:28px;color:#009C4D;margin-bottom:14px;">&#9733;</div>' : '');
   var rad = o.codigo
     ? '<div style="' + P + 'font-size:12px;color:#6B7F89;margin-top:12px;">Radicado&nbsp; <span style="display:inline-block;background:#E3EFF4;color:#00475F;' +
       'font-family:Consolas,\'SF Mono\',Menlo,monospace;font-weight:800;font-size:13px;padding:4px 10px;border-radius:7px;letter-spacing:.02em;">' + _html_(o.codigo) + '</span></div>' : '';
@@ -4798,7 +4798,7 @@ function _correoDiseno_(o) {
 
   // Cita (palabras del usuario en una felicitación, mensaje original en un reenvío)
   var cita = o.cita && o.cita.texto
-    ? '<div style="margin-top:20px;background:' + (feliz ? "#F7F3FC" : "#F6F9FA") + ';border-radius:14px;padding:18px 20px 6px;border-left:5px solid ' + (feliz ? "#8455B8" : "#94A3AB") + ';">' +
+    ? '<div style="margin-top:20px;background:' + (feliz ? "#F2FAF5" : "#F6F9FA") + ';border-radius:14px;padding:18px 20px 6px;border-left:5px solid ' + (feliz ? "#009C4D" : "#94A3AB") + ';">' +
       (feliz ? '<div style="font-family:Georgia,serif;font-size:42px;line-height:22px;color:#C8B3E6;height:24px;">&ldquo;</div>' : '') +
       (o.cita.autor ? '<div style="' + P + 'font-size:10.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:#6B7F89;margin-bottom:8px;">' + _html_(o.cita.autor) + '</div>' : '') +
       _parrafos_(o.cita.texto, P + 'font-size:14px;line-height:1.7;color:#3B4A52;' + (feliz ? 'font-style:italic;' : '')) + '</div>' : '';
@@ -4817,7 +4817,7 @@ function _correoDiseno_(o) {
       }).join("") + '</table>' : '';
 
   var boton = o.boton && o.boton.url
-    ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;" class="btn"><tr><td class="btn" style="background:' + (feliz ? "#6A3FA0" : "#006081") + ';border-radius:12px;">' +
+    ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;" class="btn"><tr><td class="btn" style="background:' + (feliz ? "#0B7A3F" : "#006081") + ';border-radius:12px;">' +
       '<a href="' + _html_(o.boton.url) + '" style="display:inline-block;padding:14px 26px;' + P + 'font-size:14.5px;font-weight:800;color:#ffffff;text-decoration:none;">' +
       _html_(o.boton.texto || "Abrir en la plataforma") + ' &rarr;</a></td></tr></table>' : '';
 
@@ -4825,10 +4825,10 @@ function _correoDiseno_(o) {
   var gracias = '';
   if (!interno && !o.sinCierre) {
     gracias = '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:24px 0 4px;"><tr>' +
-      '<td style="background:' + (feliz ? "#F7F3FC" : "#FFF9E3") + ';border:1px solid ' + (feliz ? "#E3D6F3" : "#F1E2A6") + ';border-radius:14px;padding:14px 16px;">' +
+      '<td style="background:' + (feliz ? "#F2FAF5" : "#FFF9E3") + ';border:1px solid ' + (feliz ? "#CBE9D6" : "#F1E2A6") + ';border-radius:14px;padding:14px 16px;">' +
       '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
       (LOGO_SIAU_MEDALLA_BASE64 ? '<td valign="middle" style="padding-right:12px;"><img src="cid:medallaSiau" width="40" alt="" style="display:block;border:0;"/></td>' : '') +
-      '<td valign="middle" style="' + P + 'font-size:13px;line-height:1.5;color:' + (feliz ? "#4B2A78" : "#6B5415") + ';"><b style="font-size:14px;">Su opinión es muy importante para nosotros.</b><br>' +
+      '<td valign="middle" style="' + P + 'font-size:13px;line-height:1.5;color:' + (feliz ? "#0B5530" : "#6B5415") + ';"><b style="font-size:14px;">Su opinión es muy importante para nosotros.</b><br>' +
       'Gracias por ayudarnos a cuidar mejor de usted y de su familia.</td></tr></table></td></tr></table>';
   }
 
@@ -4878,7 +4878,7 @@ function _plantilla(o) {
   var bloques = [];
   if (!feli) bloques.push({ titulo: o.interno ? "Descripción de la PQRS" : "Su mensaje", html: _parrafos_(o.descripcion, PB), color: "#94A3AB" });
   bloques.push({ titulo: "Indicaciones del SIAU", html: _parrafos_(o.gestion, PB), color: "#B98A00" });
-  bloques.push({ titulo: feli && !o.interno ? "Mensaje de la institución" : "Respuesta de la institución", html: _parrafos_(o.respuesta, PB), color: feli ? "#8455B8" : "#006081" });
+  bloques.push({ titulo: feli && !o.interno ? "Mensaje de la institución" : "Respuesta de la institución", html: _parrafos_(o.respuesta, PB), color: feli ? "#009C4D" : "#006081" });
   return _correoDiseno_({
     variante: variante,
     etiqueta: o.reconocimiento ? "Reconocimiento · Uso interno" : (o.interno ? "Solicitud interna · Confidencial" : (feli ? "Felicitación" : "Atención al usuario")),
@@ -5239,7 +5239,7 @@ function apiDireccionarFelicitaciones_(soloContar) {
       kicker: "Felicitación", titulo: items.length === 1 ? "Un usuario reconoce la labor de su equipo" : items.length + " usuarios reconocen la labor de su equipo",
       mensajeHtml: _parrafosHtml_("La Oficina de Atención al Usuario comparte con " + _html_(resp.area) + " las felicitaciones recibidas. " +
         "Gracias por su compromiso con una atención humanizada, segura y cercana.<br><br>No requieren gestión ni respuesta. Compártanlas con el equipo."),
-      bloques: [{ titulo: "Palabras de los usuarios", html: _parrafos_(lineas.join("\n\n"), 'font-family:' + FF + ';font-size:13.5px;line-height:1.7;color:#3B4A52;font-style:italic;'), color: "#8455B8" }] });
+      bloques: [{ titulo: "Palabras de los usuarios", html: _parrafos_(lineas.join("\n\n"), 'font-family:' + FF + ';font-size:13.5px;line-height:1.7;color:#3B4A52;font-style:italic;'), color: "#009C4D" }] });
     var r = _enviar(resp.correo, "[RECONOCIMIENTOS] " + items.length + " felicitación(es) para " + resp.area,
       items.length + " felicitaciones de usuarios para " + resp.area, html, { cc: (resp.copia || []).join(",") });
     if (!r.ok) return;

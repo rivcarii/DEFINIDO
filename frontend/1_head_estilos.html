@@ -31,10 +31,10 @@
   --rojo:#E20A31; --amarillo:#FEDC00; --verde:#009C4D;
   /* Estados (reservados al semáforo) */
   --ok:#1C6B44; --ok-wash:#DDF0E5; --warn:#8E5B00; --warn-wash:#FBEFD6;
-  --bad:#AB1130; --bad-wash:#FBE1E6; --star:#5B3E97; --star-wash:#ECE6F7;
+  --bad:#AB1130; --bad-wash:#FBE1E6; --star:#0B6B3A; --star-wash:#DDF3E6;
   /* Tipos de PQRS (derivados del logo, validados para daltonismo en este orden) */
-  --t-queja:#E20A31; --t-peticion:#006D93; --t-sugerencia:#00985A; --t-felicitacion:#8455B8;
-  --t-reclamo:#B98A00; --t-tutela:#3D5FA8; --t-denuncia:#B4531A;
+  --t-queja:#E20A31; --t-peticion:#7B4FB8; --t-sugerencia:#1F6FD1; --t-felicitacion:#009C4D;
+  --t-reclamo:#F29D00; --t-tutela:#374151; --t-denuncia:#B4531A;
   --r-sm:9px; --r:14px; --r-lg:18px;
   --sh-1:0 1px 1px rgba(16,42,56,.04),0 2px 6px rgba(16,42,56,.05);
   --sh-2:0 1px 2px rgba(16,42,56,.05),0 8px 22px rgba(16,42,56,.08);
@@ -719,7 +719,7 @@ label.chk input{width:auto;margin-top:2px;accent-color:var(--teal)}
 .nivel{display:inline-flex;align-items:center;gap:5px;font-size:10.5px;font-weight:800;letter-spacing:.04em;text-transform:uppercase;border-radius:6px;padding:3px 8px;white-space:nowrap}
 .nivel.vnna{background:#AB1130;color:#fff}.nivel.vital{background:#FBE1E6;color:#AB1130}.nivel.prz{background:#FFF0DB;color:#9A4F00}
 .nivel.tutela{background:#E7ECF8;color:#3D5FA8}.nivel.simple{background:var(--teal-wash);color:var(--teal-dark)}
-.acc-f{--c:#8455B8;--w:var(--star-wash)}
+.acc-f{--c:#009C4D;--w:var(--star-wash)}
 .banda-riesgo{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;border-radius:14px;padding:14px 16px;margin-bottom:14px;border:1px solid}
 .banda-riesgo .br-ic{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;flex:none}
 .banda-riesgo .br-tx{flex:1;min-width:220px;display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--ink-2)}
@@ -732,9 +732,9 @@ label.chk input{width:auto;margin-top:2px;accent-color:var(--teal)}
 .riesgo-ajuste select,.riesgo-ajuste input{width:auto;flex:1;min-width:160px}
 .riesgo-mini{margin:0 0 12px;font-size:12px;color:var(--ink-3)}.riesgo-mini summary{cursor:pointer;display:flex;gap:6px;align-items:center}
 .riesgo-mini .riesgo-ajuste{margin-top:8px}
-.pr-pob{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}.pr-pob span{font-size:10.5px;font-weight:700;color:#5B3E97;background:var(--star-wash);border-radius:99px;padding:2px 8px}
-.banda-feliz{display:flex;gap:10px;align-items:center;background:linear-gradient(90deg,#F2ECFA,#FBF8FE);border:1px solid #D9CCF0;border-radius:13px;padding:12px 14px;margin-bottom:14px;font-size:13px}
-.banda-feliz .ic{color:#8455B8}.feliz-panel h4 .ic{color:#8455B8}
+.pr-pob{display:flex;gap:5px;flex-wrap:wrap;margin-top:4px}.pr-pob span{font-size:10.5px;font-weight:700;color:#0B6B3A;background:var(--star-wash);border-radius:99px;padding:2px 8px}
+.banda-feliz{display:flex;gap:10px;align-items:center;background:linear-gradient(90deg,#E6F5EC,#F4FBF7);border:1px solid #BFE5CE;border-radius:13px;padding:12px 14px;margin-bottom:14px;font-size:13px}
+.banda-feliz .ic{color:#009C4D}.feliz-panel h4 .ic{color:#009C4D}
 .sug-areas{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:0 0 10px}
 .sug-areas .et{display:inline-flex;gap:5px;align-items:center;font-size:11px;font-weight:700;color:var(--ink-3);text-transform:uppercase;letter-spacing:.05em;margin-right:4px}
 .sug-areas .sa{display:inline-flex;flex-direction:column;align-items:flex-start;gap:1px;border:1px solid var(--line-2);background:var(--surface);border-radius:10px;padding:5px 10px;font:600 12px var(--sans);color:var(--ink);cursor:pointer}
@@ -777,7 +777,7 @@ textarea.destello{animation:destello .9s var(--ease)}
 .acceso-mascota{width:150px;align-self:flex-end;margin:-10px 10px -8px auto;filter:drop-shadow(0 10px 18px rgba(0,0,0,.25));animation:flotar 4.5s ease-in-out infinite}
 @keyframes flotar{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 /* celebración y alarma */
-.toast.feliz .bola{background:var(--star-wash);color:#8455B8}.toast.feliz .tiempo{background:#8455B8}
+.toast.feliz .bola{background:var(--star-wash);color:#009C4D}.toast.feliz .tiempo{background:#009C4D}
 .confeti{position:fixed;inset:0;pointer-events:none;z-index:95;overflow:hidden}
 .confeti i{position:absolute;top:-20px;border-radius:2px;animation:caer linear forwards}
 @keyframes caer{to{transform:translateY(110vh) rotate(720deg);opacity:.9}}
@@ -1168,23 +1168,23 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 /* Sistema solar: cada letra tiene su propia órbita (tamaño y velocidad) y gira en sentido contrario para quedar siempre derecha */
 .orb{position:absolute;left:50%;top:50%;border-radius:50%;border:1.5px dashed rgba(255,255,255,.26);transform:translate(-50%,-50%);animation:orbitar var(--t) linear infinite;animation-delay:var(--d,0s)}
 .orb i{position:absolute;left:50%;top:0;width:var(--l,13%);min-width:26px;aspect-ratio:1;margin:calc(var(--l,13%) / -2) 0 0 calc(var(--l,13%) / -2);border-radius:50%;display:grid;place-items:center;
-  font:900 clamp(14px,2.3vh,24px)/1 "Barlow Semi Condensed",Barlow,Arial,sans-serif;font-style:normal;color:#fff;
+  font-weight:900;font-size:clamp(14px,2.3vh,24px);line-height:1;font-family:var(--display);font-style:normal;color:#fff;
   box-shadow:0 8px 18px rgba(0,20,30,.30);animation:contra var(--t) linear infinite;animation-delay:var(--d,0s)}
 .orb.o1{width:68%;height:68%;--t:14s;--d:-2s;--l:15%}
 .orb.o2{width:82%;height:82%;--t:22s;--d:-9s;--l:15%}
 .orb.o3{width:94%;height:94%;--t:32s;--d:-20s;--l:15%}
 .orb.o4{width:100%;height:100%;--t:44s;--d:-5s;--l:15%}
-.orb.o1 i{background:#8455B8}
-.orb.o2 i{background:#009C4D}
-.orb.o3 i{background:#F37021}
-.orb.o4 i{background:#fff;color:#00475F}
+.orb.o1 i{background:#7B4FB8}
+.orb.o2 i{background:#E20A31}
+.orb.o3 i{background:#F29D00}
+.orb.o4 i{background:#1F6FD1}
 @keyframes orbitar{from{transform:translate(-50%,-50%) rotate(0)}to{transform:translate(-50%,-50%) rotate(360deg)}}
 @keyframes contra{from{transform:rotate(0)}to{transform:rotate(-360deg)}}
 /* La mascota conserva su proporción: solo se fija el alto, el ancho es automático */
-#mascotaHero{position:relative;z-index:2;height:calc(var(--hero-h) * .56);width:auto;max-width:none;aspect-ratio:auto;object-fit:contain;filter:drop-shadow(0 14px 20px rgba(0,20,30,.40))}
+#mascotaHero{position:relative;z-index:2;height:calc(var(--hero-h) * .66);width:auto;max-width:none;aspect-ratio:auto;object-fit:contain;filter:drop-shadow(0 14px 20px rgba(0,20,30,.40))}
 .hero-pill{position:absolute;left:-4%;bottom:5%;transform:rotate(-3deg);background:#FEDC00;color:#2E2500;border-radius:14px;padding:8px 14px;
-  font:800 clamp(12px,1.9vh,15px)/1.2 Barlow,Arial,sans-serif;box-shadow:0 10px 22px rgba(0,20,30,.30);white-space:nowrap}
-.hero-leyenda{flex:none;margin-top:6px;font:600 12.5px/1.3 Barlow,Arial,sans-serif;letter-spacing:.04em;color:rgba(255,255,255,.62);text-align:center}
+  font-weight:900;font-size:clamp(12px,1.9vh,15px);line-height:1.2;font-family:var(--display);box-shadow:0 10px 22px rgba(0,20,30,.30);white-space:nowrap}
+.hero-leyenda{flex:none;margin-top:6px;font-weight:500;font-size:12.5px;line-height:1.3;font-family:var(--sans);letter-spacing:.04em;color:rgba(255,255,255,.62);text-align:center}
 /* Barra lateral: se desplaza si la pantalla es baja, pero sin mostrar la barra de desplazamiento */
 .lateral,#menu{scrollbar-width:none;-ms-overflow-style:none}
 .lateral::-webkit-scrollbar,#menu::-webkit-scrollbar{display:none;width:0;height:0}
@@ -1246,7 +1246,7 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 <!-- VENDOR imagenes -->
 <!-- VENDOR imagenes_marca -->
 <!-- VENDOR imagenes_siau -->
-<script>document.addEventListener("DOMContentLoaded", function(){ var m = document.getElementById("mascotaHero"); if(m && window.IMG_MASCOTA_MIRED) m.src = window.IMG_MASCOTA_MIRED; });</script>
+<script>document.addEventListener("DOMContentLoaded", function(){ var m = document.getElementById("mascotaHero"); if(m && window.IMG_MASCOTA_SIAU) m.src = window.IMG_MASCOTA_SIAU; });</script>
 <script>
 /* v9 · marca: MiRed primero, Gestión de la Calidad después; blanco sobre fondo oscuro, color sobre fondo claro */
 document.addEventListener("DOMContentLoaded", function(){

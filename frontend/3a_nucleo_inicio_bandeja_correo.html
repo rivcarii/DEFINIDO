@@ -61,8 +61,8 @@ var MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Se
 
 /* Colores por tipo de PQRS: paleta del logo MiRed (orden validado para daltonismo). */
 var TIPOS_ORDEN = ["Queja","Petición","Sugerencia","Felicitación","Reclamo","Tutela","Denuncia"];
-var TIPO_COLOR = { "queja":"#E20A31", "peticion":"#006D93", "sugerencia":"#00985A", "felicitacion":"#8455B8",
-                   "reclamo":"#B98A00", "tutela":"#3D5FA8", "denuncia":"#B4531A" };
+var TIPO_COLOR = { "queja":"#E20A31", "peticion":"#7B4FB8", "sugerencia":"#1F6FD1", "felicitacion":"#009C4D",
+                   "reclamo":"#F29D00", "tutela":"#374151", "denuncia":"#B4531A" };
 function colorTipo(t){ var k=norm(t); for(var p in TIPO_COLOR){ if(k.indexOf(p)===0) return TIPO_COLOR[p]; } return "#8398A3"; }
 function tipoTag(t){ return '<span class="tipo"><i style="background:'+colorTipo(t)+'"></i>'+esc(t||"Sin clasificar")+'</span>'; }
 function ordenarTipos(obj){

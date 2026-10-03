@@ -93,15 +93,17 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 
    | Tipo | Color |
    |---|---|
-   | Queja | `#E20A31` |
-   | Petición | `#006D93` |
-   | Sugerencia | `#00985A` |
-   | Felicitación | `#8455B8` |
-   | Reclamo | `#B98A00` |
-   | Tutela | `#3D5FA8` |
+   | Queja | `#E20A31` (rojo) |
+   | Reclamo | `#F29D00` (amarillo-naranja) |
+   | Sugerencia | `#1F6FD1` (azul) |
+   | Felicitación | `#009C4D` (verde) |
+   | Petición | `#7B4FB8` |
+   | Tutela | `#374151` |
    | Denuncia | `#B4531A` |
 
-   Marca MiRed: teal `#006081` / `#00475F` y franja rojo `#E20A31`, amarillo `#FEDC00` y verde `#009C4D`. Fuentes: Barlow / Barlow Semi Condensed en la web, "Volkswagen Serial" con respaldo en los correos.
+   Los cuatro primeros son los del logo de MiRed y los fijó River; se aplican en TODO el sistema (interfaz, correos, ficha, gráficos). Fuente única en `COLOR_TIPO`/`FONDO_TIPO` (Codigo.gs), `TIPO_COLOR` (3a) y `--t-*` (CSS). No uses violeta para felicitaciones ni verde para sugerencias.
+
+   Marca MiRed: teal `#006081` / `#00475F` y franja rojo `#E20A31`, amarillo `#FEDC00` y verde `#009C4D`. **Tipografía (regla de la institución):** cuerpo de cualquier apartado e imagen = **Volkswagen Serial**; títulos = **Volkswagen Serial Black**. Van primero en la pila (`--sans`, `--display`, `FF`, `FT`, ficha) y solo si no están instaladas cae a Barlow / Barlow Semi Condensed (lo más parecido libre). No uses otras fuentes. Mascotas: ingreso y ficha usan `IMG_MASCOTA_SIAU` (camiseta SIAU con megáfono), sin deformarla.
 10. **Despliegue.** `clasp push` solo actualiza el código (el enlace /dev). Para que los técnicos vean el cambio hay que ir a **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** en la misma implementación (el enlace /exec no cambia). La implementación debe estar en **Ejecutar como: Yo (cuenta SIAU)** y **Quién tiene acceso: Cualquier persona**.
 
 ## Glosario rápido

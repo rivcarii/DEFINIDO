@@ -120,7 +120,7 @@ function pintarDetalle(d){
     (d.etiquetas && d.etiquetas.sugerido && puede.radicar ? '<div class="banda-sug">'+ic("alerta","s")+'<div style="flex:1">Por lo que dice el texto, esta PQRS parece una <b>'+esc(d.etiquetas.sugerido)+'</b> y está registrada como <b>'+esc(d.tipoPqrs||"sin tipo")+'</b>.</div>'+
       '<button class="b pri mini" type="button" id="btnReclasificar" data-tipo="'+esc(d.etiquetas.sugerido)+'">Cambiar a '+esc(d.etiquetas.sugerido)+'</button>'+
       '<button class="b fant mini" type="button" id="btnMantener">Mantener</button></div>' : '')+
-    (d.etiquetas && d.etiquetas.reclasificada ? '<div class="banda-sug" style="background:var(--star-wash);border-color:#D9CCF0">'+ic("check","s")+'<div>Reclasificada automáticamente por su contenido: <b>'+esc(d.etiquetas.reclasificada)+'</b>. Puedes cambiarla editando el tipo si no corresponde.</div></div>' : '')+
+    (d.etiquetas && d.etiquetas.reclasificada ? '<div class="banda-sug" style="background:var(--star-wash);border-color:#BFE5CE">'+ic("check","s")+'<div>Reclasificada automáticamente por su contenido: <b>'+esc(d.etiquetas.reclasificada)+'</b>. Puedes cambiarla editando el tipo si no corresponde.</div></div>' : '')+
     (d.etiquetas && d.etiquetas.datosFaltantes ? '<div class="banda-sug" style="background:var(--bad-wash);border-color:#F1C4CD">'+ic("usuario","s")+'<div style="flex:1">Radicada sin: <b>'+esc(d.etiquetas.datosFaltantes)+'</b>.</div>'+
       (d.hiloId && puede.correo ? '<button class="b pri mini" type="button" id="btnPedirDatos">Pedir los datos al usuario</button>' : '')+'</div>' : '')+
     '<div id="detAviso"></div>'+
@@ -312,7 +312,7 @@ $("btnIrDetalle").addEventListener("click", function(){
 /* ============================ TABLERO ============================ */
 var GRAF = {};
 var PAL = { teal:"#006081", teal2:"#0F7FA6", teal3:"#6FB6CE", teal4:"#A8D3E2", ok:"#1C6B44", gris:"#C7D6DC",
-            tinta:"#465C68", tinta3:"#7F939E", linea:"#E7EEF1", superficie:"#FFFFFF", star:"#5B3E97" };
+            tinta:"#465C68", tinta3:"#7F939E", linea:"#E7EEF1", superficie:"#FFFFFF", star:"#0B6B3A" };
 var FUENTE = "Barlow";
 if(window.Chart){
   FUENTE = getComputedStyle(document.body).fontFamily || "Barlow";

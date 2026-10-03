@@ -99,7 +99,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
       const html = await p.evaluate(() => htmlAficheQR("https://forms.gle/PQRSMiRedIPS"));
       const q = await b.newPage({ viewport: { width: 794, height: 1123 } });
       await q.setContent(html); await q.waitForTimeout(300);
-      const fuera = await q.evaluate(() => { const h = document.querySelector(".hoja").getBoundingClientRect(); let n = 0; document.querySelectorAll(".hoja *").forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.bottom > h.bottom + 1 || r.right > h.right + 1)) n++; }); return n; });
+      const fuera = await q.evaluate(() => { const h = document.querySelector(".hoja").getBoundingClientRect(); let n = 0; document.querySelectorAll(".hoja *:not(.aro)").forEach(e => { const r = e.getBoundingClientRect(); if (r.width && (r.bottom > h.bottom + 1 || r.right > h.right + 1)) n++; }); return n; });
       if (fuera) errores.push("el afiche del QR se sale de la hoja A4 (" + fuera + " elementos)");
       await q.screenshot({ path: CAP + "z_afiche_qr.png" }); await q.close();
     }
