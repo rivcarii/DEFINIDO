@@ -45,7 +45,20 @@ require("fs").mkdirSync(CAP, { recursive: true });
     await p.fill("#r_descripcion", "Quiero felicitar al médico pero la recepcionista fue grosera, me gritó y hubo mucha demora. Pésima atención.");
     await p.waitForSelector("#usarSug", { timeout: 6000 }).catch(() => errores.push(w + " sin sugerencia de tipo"));
     await desb("radicar"); if (w === 1366) await p.screenshot({ path: CAP + `z_${w}_radicar.png` });
+    // v8.2 · el radicado aparece al instante y el acuse llega en un segundo paso
+    await p.fill("#r_correo", "e2e.usuario@correo.com"); await p.click("#btnRadicar");
+    await p.waitForSelector("#radExito:not([hidden]) .cod", { timeout: 15000 }).catch(() => errores.push(w + " no se mostró el radicado"));
+    if (!/^SIAU-\d{4}-\d{2}-\d{4,}$/.test((await p.textContent("#radExito .cod")).trim())) errores.push(w + " radicado con formato inesperado");
+    await p.waitForFunction(() => /enviado a e2e\.usuario@correo\.com/.test((document.getElementById("radAcuse") || {}).textContent || ""), null, { timeout: 15000 })
+      .catch(() => errores.push(w + " el acuse en segundo plano no se completó"));
+    await desb("radicado");
     await irA("tablero"); await p.waitForSelector("#gMesTipo", { timeout: 8000 }); await p.waitForTimeout(1200); await desb("tablero");
+    if (await p.$eval("#bloqueExcel", e => e.hidden)) errores.push(w + " el administrador no ve «Exportar a Excel»");
+    else {
+      const [descarga] = await Promise.all([p.waitForEvent("download", { timeout: 15000 }).catch(() => null), p.click("#btnExportarExcel")]);
+      if (!descarga || !/^Consolidado_PQRS_.*\.xlsx$/.test(descarga.suggestedFilename())) errores.push(w + " no se descargó el Excel del tablero");
+      await p.waitForFunction(() => /Excel listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
+    }
     await irA("usuarios"); await p.waitForSelector("#usrLista .usr", { timeout: 8000 }); await p.waitForTimeout(300);
     await desb("usuarios"); await p.screenshot({ path: CAP + `z_${w}_usuarios.png`, fullPage: true });
     await p.click("#btnNuevoUsr"); await p.waitForSelector("#u_sedes", { timeout: 5000 }); await p.waitForTimeout(300);
@@ -53,6 +66,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
     await p.keyboard.press("Escape");
     await irA("config"); await p.waitForSelector("#tablaEntidades .cfg-fila[data-ent]", { timeout: 8000 }); await p.waitForTimeout(300);
     await p.waitForSelector("#qrImagen svg", { timeout: 8000 }).catch(() => errores.push(w + " sin código QR del formulario"));
+    await p.click("#btnRespaldarAhora"); await p.waitForFunction(() => /Respaldo guardado en Drive/.test((document.getElementById("respAviso") || {}).textContent || ""), null, { timeout: 15000 })
+      .catch(() => errores.push(w + " el respaldo ahora no respondió"));
     await p.click("#btnDiagnostico"); await p.waitForSelector("#diagCuerpo .dg", { timeout: 8000 }).catch(() => errores.push(w + " sin diagnóstico"));
     await desb("config"); if (w === 1366) await p.screenshot({ path: CAP + `z_${w}_config.png`, fullPage: true });
     // técnico
@@ -75,6 +90,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
     const sedes = await p.$$eval("#listaBandeja .fila .med b", els => els.map(e => e.textContent));
     if (sedes.some(t => !/Camino La Playa|Camino Luz Chinita/.test(t))) errores.push(w + " el técnico ve sedes ajenas");
     if (!visibles.includes("radicar")) errores.push(w + " el técnico no ve Radicar");
+    if (!(await p.$eval("#bloqueExcel", e => e.hidden))) errores.push(w + " el técnico ve el botón de exportar a Excel");
     await p.click("#listaBandeja .fila"); await p.waitForSelector(".det-head .cod", { timeout: 8000 }); await p.waitForTimeout(300);
     if (!/Seguimiento de la gestión/.test(await p.textContent("#detalleCuerpo")) || (await p.$("#btnEnviarArea"))) errores.push(w + " el técnico ve acciones de gestión");
     if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_detalle_tecnico.png`, fullPage: w === 390 });

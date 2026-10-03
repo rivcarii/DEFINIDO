@@ -241,6 +241,21 @@ $("btnFelicitacionesAhora").addEventListener("click", function(){
     .catch(function(e){ fin(); aviso("qrAviso", msgErr(e), "err"); });
 });
 
+/* ---------------- respaldo en Excel (v8.2) ---------------- */
+$("btnGuardarRespaldo").addEventListener("click", function(){
+  var fin = ocupado("btnGuardarRespaldo","Guardando…");
+  srv("apiGuardarAjustes", { respaldoDiario:$("aj_respaldoDiario").checked, respaldoCorreo:$("aj_respaldoCorreo").value })
+    .then(function(r){ fin(); if(r.ok===false){ aviso("respAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("respAviso","Respaldo guardado. Se aplica desde la próxima rutina de las 7:00 a.m.","ok"); })
+    .catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+$("btnRespaldarAhora").addEventListener("click", function(){
+  var fin = ocupado("btnRespaldarAhora","Respaldando… (puede tardar un minuto)");
+  srv("apiRespaldarAhora").then(function(r){
+    fin();
+    aviso("respAviso", esc(r.mensaje||"")+(r.url ? ' <a href="'+esc(r.url)+'" target="_blank" rel="noopener">Abrir en Drive</a>' : ""), r.ok===false ? "err" : "ok");
+  }).catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+
 /* ---------------- diagnóstico ---------------- */
 $("btnDiagnostico").addEventListener("click", function(){
   $("diagCuerpo").innerHTML = '<div class="card" style="margin-bottom:16px">'+esqueleto(4)+'</div>';

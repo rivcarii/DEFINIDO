@@ -104,7 +104,7 @@ G._setParam(9, new Date(Date.now() - 5 * 86400000));
 const imp = G.apiImportarRespuestasForm_({ notificar: false });
 assert(imp.ok && imp.importadas === 1 && /anteriores a la fecha de corte/.test(imp.mensaje), "solo importa lo posterior al corte: " + imp.mensaje);
 const cFel = cons.celda(G._finDatos_(), 1);
-assert(cFel === "SIAU-2026-09-3817" && cons.celda(G._finDatos_(), 22) === "C. SUROCCIDENTE", "respuesta del QR con radicado SIAU y sede normalizada («Camino Sur Occidente» → C. SUROCCIDENTE): " + cFel);
+assert(cFel === "SIAU-" + Utilities.formatDate(nuevo, TZ, "yyyy-MM") + "-3817" && cons.celda(G._finDatos_(), 22) === "C. SUROCCIDENTE", "respuesta del QR con radicado SIAU y sede normalizada («Camino Sur Occidente» → C. SUROCCIDENTE): " + cFel);
 assert(G.apiImportarRespuestasForm_({ notificar: false }).importadas === 0, "no duplica al importar otra vez");
 
 console.log("---- v8: priorización (circulares Supersalud) ----");
@@ -215,3 +215,75 @@ muestra("alerta_riesgo", /RIESGO VITAL NNA/);
 muestra("reconocimientos", /^\[RECONOCIMIENTOS\]/);
 muestra("cierre_area", /^\[CERRADA/);
 muestra("acuse_felicitacion", /^Gracias por su felicitación/);
+
+// =====================================================================================
+console.log("---- v8.2: radicación rápida, avisos en segundo plano, Excel y respaldo ----");
+// Rango dinámico leyendo solo el final de la hoja
+const finReal = G._finDatos_();
+const leidas = []; const getRangeOrig = cons.getRange.bind(cons);
+cons.getRange = function (r, c, nr, nc) { leidas.push(nr || 1); return getRangeOrig(r, c, nr, nc); };
+G._FIN_ = { fin: 0, ultima: -1 };
+const finRapido = G._finDatos_();
+cons.getRange = getRangeOrig;
+assert(finRapido === finReal && leidas.reduce((a, b) => a + b, 0) <= 1000, "el final de los datos se halla leyendo el último bloque, no toda la hoja: " + leidas.reduce((a, b) => a + b, 0) + " filas leídas");
+
+// Consecutivo guardado y candado
+const ultimoGuardado = +G.__props.ULTIMO_CONSECUTIVO;
+const rapida = G.apiRadicar_({ descripcion: "Queja por la demora en la entrega de resultados.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA",
+  sede: "C. LA PLAYA", servicio: "URGENCIAS", correo: "rapida@correo.com", diferir: true });
+assert(+rapida.codigo.split("-")[3] === ultimoGuardado + 1 && +G.__props.ULTIMO_CONSECUTIVO === ultimoGuardado + 1, "el consecutivo guardado avanza con cada radicado: " + rapida.codigo);
+assert(rapida.pendienteAvisos === true && /segundo plano/.test(rapida.acuse), "con «diferir» el radicado se entrega sin esperar el correo");
+assert(!enviados().some(e => e.para === "rapida@correo.com"), "todavía no salió el acuse al usuario");
+assert(JSON.parse(G.__props.COLA_AVISOS).some(x => x.c === rapida.codigo), "el radicado queda en la cola de avisos");
+const aviso = G.apiNotificarRadicacion_(rapida.codigo);
+assert(aviso.ok && /enviado a rapida@correo.com/.test(aviso.acuse) && enviados().some(e => e.para === "rapida@correo.com"), "segundo paso: sale el acuse al usuario: " + aviso.acuse);
+const nEnv = enviados().length;
+const repetido = G.apiNotificarRadicacion_(rapida.codigo);
+assert(repetido.yaEnviado && enviados().length === nEnv, "un segundo llamado no repite los avisos");
+const otra = G.apiRadicar_({ descripcion: "Reclamo por medicamento incompleto.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "RECLAMO",
+  sede: "C. LA PLAYA", correo: "otra@correo.com", diferir: true });
+G.procesarCorreoEntrante();
+assert(!enviados().some(e => e.para === "otra@correo.com"), "la red de seguridad no se adelanta a la interfaz (espera 1 minuto)");
+const cola = JSON.parse(G.__props.COLA_AVISOS); cola.forEach(x => { x.t -= 120000; }); G.__props.COLA_AVISOS = JSON.stringify(cola);
+G.procesarCorreoEntrante();
+assert(enviados().some(e => e.para === "otra@correo.com") && JSON.parse(G.__props.COLA_AVISOS).length === 0, "si el navegador se cerró, la revisión de 5 minutos envía los avisos pendientes");
+const tope = +otra.codigo.split("-")[3];
+const filaTope = fila(otra.codigo); cons.poner(filaTope, 1, "SIAU-2026-09-" + (tope + 40)); G._invalidarDatos_();
+const sigue = G.apiRadicar_({ descripcion: "Queja por trato.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "QUEJA", sede: "C. LA PLAYA" });
+assert(+sigue.codigo.split("-")[3] === tope + 41, "si alguien escribe a mano un consecutivo mayor al final de la hoja, el siguiente lo respeta: " + sigue.codigo);
+
+// Excel
+const ex = G.apiExportarExcel_({ anio: 2026, mes: 9 });
+const libro = G.__exportaciones[G.__exportaciones.length - 1];
+assert(ex.ok && ex.filas > 0 && ex.base64 && /^Consolidado_PQRS_2026-09_/.test(ex.nombre) && /\.xlsx$/.test(ex.nombre), "exporta el consolidado de un mes a .xlsx: " + ex.nombre + " · " + ex.filas + " filas");
+assert(Object.keys(libro.hojas).filter(k => k !== "Hoja 1").sort().join() === "Consolidado,Resumen", "el Excel solo lleva Consolidado y Resumen (nunca la hoja Usuarios)");
+assert(libro.hojas.Consolidado.celda(1, 1) === "CÓDIGO DE RADICACIÓN" && libro.hojas.Consolidado.getLastRow() === ex.filas + 1, "encabezados y filas completos en el libro exportado");
+assert(libro.hojas.Resumen.d.some(f => f[0] === "POR TIPO") && libro.hojas.Resumen.d.some(f => f[0] === "POR SEDE"), "hoja Resumen con totales por tipo y sede");
+assert(G.DriveApp.__temporales[libro.id] === true, "el libro temporal se manda a la papelera");
+const carpeta = G.DriveApp.__carpetas["/PQRS · Respaldos (Excel)"];
+assert(carpeta && carpeta.archivos.some(a => a.nombre === ex.nombre), "el archivo queda guardado en la carpeta de Drive");
+const sinFiltro = G.apiExportarExcel_({});
+assert(sinFiltro.filas > ex.filas && /^Consolidado_PQRS_historico_/.test(sinFiltro.nombre), "sin filtros exporta todo el histórico: " + sinFiltro.filas);
+G.SESION = { usuario: "t", nombre: "T", rol: "Técnico", todas: false, sedes: ["C. LA PLAYA"], sedesNorm: [G._norm("C. LA PLAYA")] };
+const soloSede = G.apiExportarExcel_({});
+G.SESION = null;
+assert(soloSede.filas > 0 && soloSede.filas < sinFiltro.filas, "la exportación respeta las sedes asignadas: " + soloSede.filas + " de " + sinFiltro.filas);
+assert(G.RUTAS.apiExportarExcel[1] === "admin" && G.RUTAS.apiRespaldarAhora[1] === "admin", "solo el administrador exporta y respalda");
+
+// Respaldo diario
+const hoyTxt = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
+const viejoResp = carpeta.createFile({ getName: () => "Respaldo_diario_2020-01-01.xlsx" }); viejoResp.creado = new Date(Date.now() - 40 * 86400000);
+const noMio = carpeta.createFile({ getName: () => "Consolidado_PQRS_manual.xlsx" }); noMio.creado = new Date(Date.now() - 400 * 86400000);
+G.__props.AJUSTES = JSON.stringify(Object.assign(JSON.parse(G.__props.AJUSTES), { respaldoCorreo: "river@correo.com" }));
+const resp1 = G.apiRespaldarAhora_(), resp2 = G.apiRespaldarAhora_();
+const delDia = carpeta.archivos.filter(a => !a.borrado && a.nombre === "Respaldo_diario_" + hoyTxt + ".xlsx");
+assert(resp1.ok && delDia.length === 1 && resp2.ok, "un solo respaldo por día (el segundo reemplaza al primero): " + resp1.mensaje);
+assert(viejoResp.borrado && !noMio.borrado, "se borran los respaldos de más de 14 días y no se tocan las exportaciones manuales");
+assert(carpeta.vistas.indexOf("river@correo.com") !== -1 && /compartida con river@correo.com/.test(resp1.mensaje), "la carpeta se comparte (solo lectura) con la cuenta indicada");
+assert(G.apiGuardarAjustes_({ respaldoCorreo: "no-es-un-correo" }).ok === false, "valida el correo del respaldo");
+G.rutinaDiaria();
+assert(cons && G.__props.AJUSTES && carpeta.archivos.filter(a => a.nombre === "Respaldo_diario_" + hoyTxt + ".xlsx" && !a.borrado).length === 1, "la rutina diaria hace el respaldo");
+process.env.XLSX_FALLA = "1";
+G.rutinaDiaria();
+delete process.env.XLSX_FALLA;
+assert(traza.d.some(f => f[2] === "Respaldo en Drive falló"), "si el respaldo falla, queda en la trazabilidad y la rutina sigue");

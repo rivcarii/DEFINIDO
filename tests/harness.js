@@ -68,32 +68,56 @@ function crear(hojas, gmail) {
   const ss = { getSheetByName: n => hojas[n] || null, getSheets: () => Object.values(hojas), getSpreadsheetTimeZone: () => SHEET_TZ,
                insertSheet: n => (hojas[n] = new Hoja(n)) };
   const props = {};
-  const enviados = [];
+  const enviados = [], exportaciones = [];
   const ctx = {
     console, Math, Date, JSON, Object, Array, String, Number, RegExp, parseInt, isNaN, isFinite,
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {}, getUi() { throw new Error("sin UI"); } },
+    SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {}, getUi() { throw new Error("sin UI"); },
+      // v8.2: libro temporal para exportar a Excel (se registra lo que se escribió para verificarlo en las pruebas)
+      create(nombre) {
+        const hs = {}, h0 = new Hoja("Hoja 1");
+        h0.setName = function (n) { this.nombre = n; hs[n] = this; }; hs["Hoja 1"] = h0;
+        const libro = { id: "tmp" + exportaciones.length, nombre, hojas: hs, getId: () => libro.id, getSheets: () => [h0],
+          insertSheet: n => (hs[n] = new Hoja(n)) };
+        exportaciones.push(libro); return libro; } },
     Session: { getScriptTimeZone: () => process.env.SCRIPT_TZ || "America/New_York", getActiveUser: () => ({ getEmail: () => "siau@miredips.org" }),
                getEffectiveUser: () => ({ getEmail: () => "siau@miredips.org" }) },
     Utilities, Logger: { log() {} },
     PropertiesService: { getScriptProperties: () => ({ getProperty: k => props[k] || null, setProperty: (k, v) => { props[k] = String(v); } }) },
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock() {}, releaseLock() {} }) },
-    ScriptApp: { getProjectTriggers: () => [], getService: () => ({ getUrl: () => "" }) },
+    ScriptApp: { getProjectTriggers: () => [], getService: () => ({ getUrl: () => "" }), getOAuthToken: () => "token" },
     GmailApp: gmail || {},
     HtmlService: {},
     ContentService: { MimeType: { JSON: "json" }, createTextOutput: t => ({ contenido: t, setMimeType() { return this; }, getContent() { return t; } }) },
     FormApp: {},
     CacheService: (() => { const m = {}; const c = { get: k => (k in m ? m[k] : null), put: (k, v) => { m[k] = String(v); }, remove: k => { delete m[k]; } }; return { getScriptCache: () => c }; })(),
-    UrlFetchApp: { llamadas: [], fetch(url, op) { this.llamadas.push({ url, texto: JSON.parse(op.payload).text }); return {}; } },
-    DriveApp: (() => { const carpetas = {}; const mk = n => ({ nombre: n, archivos: [], getUrl: () => "https://drive.google.com/drive/folders/" + encodeURIComponent(n),
+    UrlFetchApp: { llamadas: [], fetch(url, op) {
+      if (/\/export\?format=xlsx/.test(url)) {   // exportación a Excel: devuelve un archivo de mentira
+        this.exportado = (this.exportado || 0) + 1;
+        const bytes = Buffer.from("XLSX:" + url);
+        const blob = { setName(n) { blob.nombre = n; return blob; }, getName: () => blob.nombre, getBytes: () => bytes };
+        return { getResponseCode: () => (process.env.XLSX_FALLA ? 500 : 200), getBlob: () => blob };
+      }
+      this.llamadas.push({ url, texto: JSON.parse(op.payload).text }); return {}; } },
+    DriveApp: (() => { const carpetas = {}; const archivosPorId = {};
+      const mk = n => { const c = { nombre: n, archivos: [], vistas: [], getUrl: () => "https://drive.google.com/drive/folders/" + encodeURIComponent(n),
         getFoldersByName: m => { const k = n + "/" + m; return { hasNext: () => !!carpetas[k], next: () => carpetas[k] }; },
         createFolder: m => (carpetas[n + "/" + m] = mk(n + "/" + m)),
-        createFile(b) { const f = { setName() { return f; }, getUrl: () => "https://drive.google.com/file/d/x" }; this.archivos.push(b); return f; } });
-      const raiz = mk(""); return { getFoldersByName: raiz.getFoldersByName, createFolder: raiz.createFolder, __carpetas: carpetas }; })(),
+        addViewer(correo) { c.vistas.push(correo); return c; },
+        createFile(b) { const f = { nombre: b && b.getName ? b.getName() : "", blob: b, borrado: false, creado: new Date(),
+          setName(x) { f.nombre = x; return f; }, getName: () => f.nombre, getUrl: () => "https://drive.google.com/file/d/" + encodeURIComponent(f.nombre || "x"),
+          setTrashed(v) { f.borrado = v; return f; }, getDateCreated: () => f.creado };
+          c.archivos.push(f); return f; },
+        getFilesByName(nm) { const l = c.archivos.filter(a => !a.borrado && a.nombre === nm); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; },
+        getFiles() { const l = c.archivos.filter(a => !a.borrado); let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; } };
+        return c; };
+      const raiz = mk("");
+      return { getFoldersByName: raiz.getFoldersByName, createFolder: raiz.createFolder, __carpetas: carpetas,
+        getFileById: id => ({ setTrashed(v) { archivosPorId[id] = v; } }), __temporales: archivosPorId }; })(),
   };
   ctx.GmailApp.sendEmail = (para, asunto, texto, op) => { enviados.push({ para, asunto, html: op && op.htmlBody, cc: op && op.cc }); };
   vm.createContext(ctx);
   vm.runInContext(fs.readFileSync(require("path").join(__dirname, "..", "apps-script", "Codigo.gs"), "utf8").replace(/^const /gm, "var "), ctx);
-  ctx.__enviados = enviados; ctx.__props = props; ctx.UrlFetchApp = ctx.UrlFetchApp;
+  ctx.__enviados = enviados; ctx.__props = props; ctx.__exportaciones = exportaciones; ctx.UrlFetchApp = ctx.UrlFetchApp;
   return ctx;
 }
 module.exports = { Hoja, crear, Utilities };

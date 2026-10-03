@@ -263,6 +263,7 @@ $("btnRadicar").addEventListener("click", function(){
   if(!d.descripcion) faltan.push("Descripción");
   if(faltan.length){ aviso("radAviso","Completa: <b>"+faltan.join(", ")+"</b>","err"); window.scrollTo({top:0,behavior:"smooth"}); return; }
   var fin=ocupado("btnRadicar","Radicando…");
+  d.diferir = true;   // v8.2: el radicado se muestra al instante; acuse y avisos salen en un segundo paso
   srv("apiRadicar", d).then(function(r){
     fin();
     if(!r.ok){ aviso("radAviso", esc(r.mensaje), "err"); return; }
@@ -273,14 +274,21 @@ $("btnRadicar").addEventListener("click", function(){
     $("radResumen").innerHTML =
       (rg.nivel ? '<div><span>Nivel de riesgo</span><span class="alerta">'+esc(rg.nivel)+(rg.horas?" · "+rg.horas+" horas":"")+'</span></div>' : '')+
       '<div><span>Fecha límite de respuesta</span><span>'+esc(r.fechaMax)+'</span></div>'+
-      '<div><span>Acuse al usuario</span><span>'+esc(r.acuse)+'</span></div>'+
+      '<div><span>Acuse al usuario</span><span id="radAcuse">'+esc(r.acuse)+'</span></div>'+
       (r.direccionada ? '<div><span>Direccionada sola a</span><span>'+esc(r.direccionada)+'</span></div>' :
-        '<div><span>Siguiente paso</span><span>'+(r.areas && r.areas.length ? "Direccionarla a "+esc(r.areas[0].area)+" (sugerida)" : "Direccionarla al área")+'</span></div>');
+        '<div><span id="radSigK">Siguiente paso</span><span id="radSig">'+(r.areas && r.areas.length ? "Direccionarla a "+esc(r.areas[0].area)+" (sugerida)" : "Direccionarla al área")+'</span></div>');
     if(rg.nivel && /vital|priorizado/i.test(rg.nivel)){ sonar(/vital/i.test(rg.nivel) ? "Vital" : "Crítica"); }
     if(/felicit/i.test(d.tipoPqrs)) celebrar();
     $("radForm").hidden = true; $("radExito").hidden = false;
     $("radExito").classList.remove("anim"); void $("radExito").offsetWidth; $("radExito").classList.add("anim");
-    toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+" · acuse: "+r.acuse, dur:6000 });
+    toast({ tipo:"area", titulo:"PQRS radicada", texto:r.codigo+(r.pendienteAvisos ? " · enviando el acuse…" : " · acuse: "+r.acuse), dur:6000 });
+    if(r.pendienteAvisos){
+      srvSilencioso("apiNotificarRadicacion", r.codigo).then(function(n){
+        if($("radAcuse")) $("radAcuse").textContent = n.acuse || "";
+        if(n.direccionada && $("radSig")){ $("radSigK").textContent = "Direccionada sola a"; $("radSig").textContent = n.direccionada; }
+        if(n.acuse && /^error/.test(n.acuse)) toast({ tipo:"err", titulo:"No se pudo enviar el acuse", texto:n.acuse, dur:9000 });
+      }).catch(function(){ if($("radAcuse")) $("radAcuse").textContent = "se enviará en unos minutos"; });
+    }
     window.scrollTo({top:0,behavior:"smooth"});
   }).catch(function(e){ fin(); aviso("radAviso", msgErr(e), "err"); });
 });
@@ -341,6 +349,23 @@ function cargarTablero(){
 }
 ["dAnio","dMes","dSede","dServicio"].forEach(function(id){ $(id).addEventListener("change", cargarTablero); });
 $("btnRefrescarTablero").addEventListener("click", cargarTablero);
+/* v8.2 · Exportar a Excel lo que muestran los filtros del tablero (solo administrador). El archivo también queda en Drive. */
+function descargarXlsx(nombre, b64){
+  var bin = atob(b64), u8 = new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++) u8[i] = bin.charCodeAt(i);
+  var tipo = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", href;
+  try { href = URL.createObjectURL(new Blob([u8], { type:tipo })); } catch(e){ href = "data:"+tipo+";base64,"+b64; }
+  var a = document.createElement("a"); a.href = href; a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+$("btnExportarExcel").addEventListener("click", function(){
+  var fin = ocupado("btnExportarExcel","Generando Excel…");
+  srv("apiExportarExcel", { anio:$("dAnio").value, mes:$("dMes").value, sede:$("dSede").value, servicio:$("dServicio").value }).then(function(r){
+    fin();
+    if(r.ok===false){ toast({ tipo:"err", titulo:"No se pudo exportar", texto:r.mensaje||"", dur:9000 }); return; }
+    if(r.base64) descargarXlsx(r.nombre, r.base64);
+    toast({ tipo:"area", titulo:"Excel listo · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive.", dur:9000 });
+  }).catch(function(e){ fin(); toast({ tipo:"err", titulo:"No se pudo exportar", texto:String(e && e.message || e), dur:9000 }); });
+});
 
 function llenarSlicer(id, valores, todos){
   var sel = $(id), actual = sel.value;

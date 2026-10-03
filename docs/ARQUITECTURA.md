@@ -297,3 +297,12 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
 
 ### 10.9 Migración del histórico
 `tools/migrar_historico.py` usa el propio `Codigo.gs` (vía `tests/harness.js`) para las fórmulas, festivos, categorías, entidades y directorio, de modo que el libro migrado es idéntico a lo que escribiría la plataforma. Deduplica el formulario contra el histórico (documento, descripción, teléfono; felicitaciones por documento y fecha ±1 día). Fechas con errores de digitación (0206, 16/062026, 2027) se corrigen o se estiman por el mes y se marcan en OBSERVACIONES.
+
+## 11. Versión 8.2: radicación rápida, Excel y respaldo
+
+- **Radicado seguro y rápido.** `_reservarRadicado_` toma el candado del documento (no el del script, que mantiene el proceso del correo), reserva fila y consecutivo y escribe; así dos técnicos que radican a la vez nunca repiten número. `_finDatos_` lee solo el último bloque de 400 filas; `_siguienteConsecutivo` usa la propiedad `ULTIMO_CONSECUTIVO` más el final de ambas hojas (primera vez: recorrido completo).
+- **Avisos en segundo plano.** `apiRadicar` con `diferir: true` (la interfaz lo envía) devuelve el radicado y deja el código en la cola `COLA_AVISOS`. La interfaz llama enseguida a `apiNotificarRadicacion` (acuse, aviso interno/Chat, direccionamiento automático); si el navegador se cierra, `procesarCorreoEntrante` (cada 5 min) la vacía pasado 1 minuto. `_sacarDeCola_` garantiza que los avisos no se envíen dos veces.
+- **Excel.** `apiExportarExcel` (solo administrador) arma un libro temporal con los valores del consolidado (nunca la hoja Usuarios), lo convierte con la exportación de Google (`/export?format=xlsx` + token OAuth), lo guarda en la carpeta «PQRS · Respaldos (Excel)» y, si pesa ≤ 6 MB, lo entrega para descargar. Filtros: año, mes, sede, servicio; respeta `_filaVisible_`.
+- **Respaldo.** `rutinaDiaria` (7:00) llama a `_respaldoExcel_`: un archivo `Respaldo_diario_AAAA-MM-DD.xlsx` por día, retención de 14 días solo para esos archivos y, si `respaldoCorreo` está definido, la carpeta se comparte en solo lectura con esa cuenta. Los fallos quedan en Trazabilidad («Respaldo en Drive falló») y no detienen la rutina.
+- Pruebas: sección «v8.2» de `tests/pruebas_v8.js`; la vista previa y el recorrido e2e cubren el radicado en dos pasos, el botón del Tablero y «Respaldar ahora».
+

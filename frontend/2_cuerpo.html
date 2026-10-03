@@ -313,6 +313,7 @@
       <div><label for="dSede">Sede</label><select id="dSede"><option value="">Todas</option></select></div>
       <div><label for="dServicio">Servicio</label><select id="dServicio"><option value="">Todos</option></select></div>
       <div><button class="b sec" id="btnRefrescarTablero" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
+      <div id="bloqueExcel" hidden><button class="b pri" id="btnExportarExcel" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Exportar a Excel</button></div>
     </div>
     <div id="tableroCuerpo"></div>
   </section>
@@ -385,6 +386,18 @@
           <button class="b pri" id="btnGuardarDireccion" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar direccionamiento</button>
           <button class="b sec" id="btnFelicitacionesAhora" type="button"><svg class="ic s"><use href="#i-estrella"/></svg>Entregar felicitaciones pendientes ahora</button>
         </div>
+      </fieldset>
+      <fieldset style="margin:16px 0 0"><legend>Exportar y respaldar en Excel</legend>
+        <p class="sub" style="margin:0 0 12px">Cada día a las 7:00 a.m. se guarda un Excel con todo el consolidado en la carpeta «PQRS · Respaldos (Excel)» del Drive de la cuenta SIAU (se conservan 14 días). Para tener una copia en otro Drive, escribe ese correo: la carpeta se comparte en solo lectura. El Excel incluye datos personales y de salud (Ley 1581 de 2012): compártelo solo con cuentas autorizadas, de preferencia institucionales. Para exportar un mes, sede o servicio usa el botón «Exportar a Excel» del Tablero.</p>
+        <div class="grid">
+          <label class="interruptor"><input type="checkbox" id="aj_respaldoDiario"><i></i>Respaldo diario en Drive (Excel)</label>
+          <div><label for="aj_respaldoCorreo">Compartir la carpeta con (opcional)</label><input id="aj_respaldoCorreo" type="email" placeholder="correo@dominio.com"></div>
+        </div>
+        <div class="acciones">
+          <button class="b pri" id="btnGuardarRespaldo" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar respaldo</button>
+          <button class="b sec" id="btnRespaldarAhora" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Respaldar ahora</button>
+        </div>
+        <div id="respAviso"></div>
       </fieldset>
     </div>
     <div class="card" style="margin-bottom:16px">

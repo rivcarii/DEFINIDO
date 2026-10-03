@@ -18,9 +18,12 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
   - Leer solo las columnas necesarias en Inicio/Prioritarias.
 - `setFormulas` sobre 13.400 filas en la primera migración: 1–2 min (una sola vez).
 
+- **8.2 (hecho):** el final de los datos se halla por bloques desde el final de la hoja, el consecutivo se guarda en `ULTIMO_CONSECUTIVO` (tail-scan de respaldo) y el acuse, el aviso interno y el direccionamiento automático salen después de mostrar el radicado (`diferir` → `apiNotificarRadicacion`; red de seguridad cada 5 min). La lectura completa en Inicio/Bandeja/Tablero sigue pendiente.
+- Si Apps Script sigue siendo el cuello de botella con el volumen real, el siguiente paso es mover la radicación y la lectura a una base de datos (p. ej. Supabase/Firestore) y dejar Sheets como reporte; es un cambio de arquitectura, no un ajuste.
+
 ## P3 · Mejoras funcionales
 
-- Reportes exportables (Excel/PDF) por sede, tipo, oportunidad y nivel de riesgo (indicadores SOGCS y Supersalud).
+- ~~Exportar a Excel y respaldo en Drive~~ → hecho en 8.2 (Tablero ▸ Exportar a Excel; respaldo diario a las 7:00). Pendiente: PDF e informes con indicadores SOGCS/Supersalud ya calculados.
 - Tablero: gráfico por nivel de riesgo y tiempo de respuesta de las prioritarias en horas.
 - Encuesta de satisfacción automática al cerrar.
 - Recuperación de contraseña sin administrador; auditoría de ingresos.

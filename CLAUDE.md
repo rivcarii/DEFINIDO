@@ -2,7 +2,7 @@
 
 Aplicación web en **Google Apps Script** (también publicable como portal estático que llama a `doPost`) que opera sobre un **Google Sheets** (el "consolidado") de la cuenta del SIAU (Oficina de Atención al Usuario). Unifica en un solo lugar las PQRS (peticiones, quejas, reclamos, sugerencias, felicitaciones, denuncias y tutelas) que llegan por formulario QR, correo institucional (EPS y entes de control) y atención presencial en cada sede. La plataforma **radica**, calcula términos legales y semáforo, **direcciona** al área responsable, registra la respuesta del área, **responde** al usuario y deja **trazabilidad** de todo.
 
-Versión actual: **8.1**. Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
+Versión actual: **8.2** (radicación rápida con avisos en segundo plano, exportación a Excel y respaldo diario en Drive). Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
 
 ## Con quién trabajas
 

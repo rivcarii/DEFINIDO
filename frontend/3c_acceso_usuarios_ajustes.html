@@ -311,7 +311,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea"];
+var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
@@ -322,6 +322,7 @@ function pintarAjustes(r){
   AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
   $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
+  $("aj_respaldoCorreo").value = r.ajustes.respaldoCorreo || "";
   var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
   $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
     (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");

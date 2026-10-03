@@ -82,6 +82,14 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 
 `clasp push` (o pegar los archivos) actualiza el código de `/dev`. Para los técnicos: **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Versión: Nueva versión ▸ Implementar** (el enlace /exec no cambia). Volver atrás: el mismo camino eligiendo la versión anterior.
 
+## 6b. Actualizar a la 8.2 (Excel, respaldo y radicación rápida)
+
+1. En el editor de Apps Script, copia el `Codigo.gs` actual a un archivo de respaldo (por si quieres volver atrás).
+2. Reemplaza todo `Codigo.gs` por el de `entrega/Codigo.gs` y todo `Index.html` por el de `entrega/Index.html`. Guarda.
+3. **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** (el enlace /exec no cambia).
+4. La primera vez que alguien pulse «Exportar a Excel» o «Respaldar ahora» como administrador, Google puede pedir permisos de Drive/Hojas a la cuenta SIAU: ejecuta una vez `rutinaDiaria` desde el editor y acéptalos.
+5. Configuración ▸ Exportar y respaldar en Excel: deja activo el respaldo diario y, si quieres verlo en otro Drive, escribe ese correo (la carpeta se comparte en solo lectura).
+
 ## 7. Problemas típicos
 
 | Síntoma | Solución |
