@@ -163,7 +163,7 @@ function arrancar(d){
   APP.categorias = d.categorias || [];
   aplicarSesion();
   APP.desde = d.ahora || Date.now();
-  if(d.logo) $("logo").src = "data:image/png;base64," + d.logo;
+  if(d.logo && !window.IMG_MIRED) $("logo").src = "data:image/png;base64," + d.logo;
   $("quien").textContent = APP.sesion.nombre || d.usuario || "";
   var L = APP.listas;
   var canalesManual = ["Presencial","Buzón de sugerencias","Telefónico","Correspondencia física","Correo electrónico","Redes sociales","WhatsApp"];

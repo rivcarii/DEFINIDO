@@ -16,7 +16,7 @@ function activarVerClave(raiz){
 }
 function mostrarAcceso(estado, mensaje){
   $("app").hidden = true; $("acceso").hidden = false;
-  if(estado && estado.logo) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
+  if(estado && estado.logo && !window.IMG_MIRED_B) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
   if(window.IMG_MASCOTA && $("mascotaAcceso") && !$("mascotaAcceso").getAttribute("src")) $("mascotaAcceso").src = IMG_MASCOTA;
   aviso("accAviso", mensaje ? esc(mensaje) : "", "err");
   if(estado && estado.hayUsuarios === false){
@@ -198,19 +198,37 @@ function cargarUsuarios(){
   srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); })
     .catch(function(e){ aviso("usrAviso", msgErr(e), "err"); });
 }
-/* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña). */
+/* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña).
+   v9.2: el administrador lo cambia aquí mismo («Cambiar enlace»); se guarda en la propiedad URL_PLATAFORMA del proyecto. */
 function pintarEnlace(e){
   e = e || {};
-  if(!e.url){ $("usrEnlace").innerHTML = ""; return; }
-  var ok = !e.prueba;
+  var ok = !!e.url && !e.prueba, abierto = !ok;
   $("usrEnlace").innerHTML = '<div class="enlace-card'+(ok?'':' mal')+'"><div class="enlace-ic">'+ic(ok?"enviar":"alerta")+'</div><div class="enlace-txt">'+
-    '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : 'Estás usando el enlace de prueba (/dev)')+'</b>'+
+    '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : e.url ? 'Estás usando el enlace de prueba (/dev)' : 'Falta el enlace de la plataforma')+'</b>'+
     '<span>'+(ok ? 'Compártelo con cada técnico junto con su usuario. No necesitan cuenta de Google ni permisos sobre la hoja: todo se ejecuta con la cuenta '+esc(e.cuenta||"de la implementación")+'.'
-      : 'Ese enlace solo lo abren los editores del proyecto; por eso a los técnicos les pide acceso. Usa el enlace que termina en <b>/exec</b>: Implementar ▸ Administrar implementaciones ▸ copiar «URL de la aplicación web».')+'</span>'+
-    '<code>'+esc(e.url)+'</code></div>'+
-    (ok ? '<div class="enlace-acc"><button class="b pri mini" type="button" id="btnCopiarEnlace">'+ic("check","s")+'Copiar enlace</button>'+
-      '<a class="b sec mini" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent("Plataforma de PQRS · MiRed IPS\n"+e.url+"\nIngresa con el usuario y la contraseña temporal que te entregó el administrador.")+'">WhatsApp</a></div>' : '')+'</div>';
+      : 'Los técnicos no pueden entrar con ese enlace. Pega abajo la «URL de la aplicación web» (termina en <b>/exec</b>): Implementar ▸ Administrar implementaciones ▸ Copiar.')+'</span>'+
+    (e.url ? '<code id="enlaceActual">'+esc(e.url)+'</code>' : '')+
+    '<form class="enlace-edit" id="enlaceEdit"'+(abierto?'':' hidden')+'><input id="enlaceUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" aria-label="Enlace de la plataforma" placeholder="https://script.google.com/macros/s/…/exec" value="'+esc(e.url||"")+'">'+
+      '<button class="b pri mini" type="submit" id="btnGuardarEnlace">'+ic("check","s")+'Guardar enlace</button>'+
+      (ok ? '<button class="b sec mini" type="button" id="btnCancelarEnlace">Cancelar</button>' : '')+
+      (e.personalizado ? '<button class="b sec mini" type="button" id="btnEnlaceDefecto">Usar el predeterminado</button>' : '')+'</form>'+
+    '</div><div class="enlace-acc">'+
+    (ok ? '<button class="b pri mini" type="button" id="btnCopiarEnlace">'+ic("check","s")+'Copiar enlace</button>'+
+      '<a class="b sec mini" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent("Plataforma de PQRS · MiRed IPS\n"+e.url+"\nIngresa con el usuario y la contraseña temporal que te entregó el administrador.")+'">WhatsApp</a>'+
+      '<button class="b sec mini" type="button" id="btnCambiarEnlace">'+ic("link","s")+'Cambiar enlace</button>' : '')+'</div></div>';
   if($("btnCopiarEnlace")) $("btnCopiarEnlace").addEventListener("click", function(){ copiarTexto(e.url, "Enlace copiado"); });
+  if($("btnCambiarEnlace")) $("btnCambiarEnlace").addEventListener("click", function(){ $("enlaceEdit").hidden = false; $("enlaceUrl").focus(); $("enlaceUrl").select(); });
+  if($("btnCancelarEnlace")) $("btnCancelarEnlace").addEventListener("click", function(){ $("enlaceEdit").hidden = true; });
+  if($("btnEnlaceDefecto")) $("btnEnlaceDefecto").addEventListener("click", function(){ guardarEnlace(""); });
+  $("enlaceEdit").addEventListener("submit", function(ev){ ev.preventDefault(); guardarEnlace($("enlaceUrl").value); });
+}
+function guardarEnlace(url){
+  srv("apiGuardarEnlace", String(url||"").trim()).then(function(r){
+    if(!r || !r.ok){ toast({ tipo:"err", titulo:"No se guardó el enlace", texto: (r && r.mensaje) || "Intenta de nuevo." }); return; }
+    if(APP.usr) APP.usr.enlace = r.enlace;
+    pintarEnlace(r.enlace);
+    toast({ tipo:"area", titulo:"Enlace actualizado", texto:"Las invitaciones, el WhatsApp y los avisos por correo ya usan el enlace nuevo." });
+  }).catch(function(err){ toast({ tipo:"err", titulo:"No se guardó el enlace", texto: (err && err.message) || String(err) }); });
 }
 function copiarTexto(t, msg){
   var hecho = function(){ toast({ tipo:"area", titulo: msg || "Copiado", texto: "" , dur:3000 }); };
