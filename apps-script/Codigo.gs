@@ -80,11 +80,21 @@ var LOGO_SIAU_MEDALLA_BASE64 = "iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAMAAADVRocKAAAA
 // ---------------------------------------------------------------------------
 // APLICACIÓN WEB
 // ---------------------------------------------------------------------------
+/** Ícono de la pestaña. Apps Script exige una URL https pública a un PNG: por defecto el favicon del portal en GitHub Pages
+ *  (portal/favicon.png); se puede cambiar con la propiedad del proyecto FAVICON_URL. */
+var FAVICON_DEFECTO = "https://rivcarii.github.io/pqrs/favicon.png";
+function _faviconUrl_() {
+  var p = "";
+  try { p = String(PropertiesService.getScriptProperties().getProperty("FAVICON_URL") || "").trim(); } catch (e) {}
+  return /^https:\/\//.test(p) ? p : FAVICON_DEFECTO;
+}
 function doGet(e) {
-  return HtmlService.createTemplateFromFile("Index").evaluate()
+  var salida = HtmlService.createTemplateFromFile("Index").evaluate()
     .setTitle("Sistema PQRS · MiRed IPS")
     .addMetaTag("viewport", "width=device-width, initial-scale=1")
     .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  try { salida.setFaviconUrl(_faviconUrl_()); } catch (err) { Logger.log("Favicon: " + err); }
+  return salida;
 }
 
 /*
