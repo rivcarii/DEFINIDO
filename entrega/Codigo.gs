@@ -2412,7 +2412,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "8.7.3 · Excel por plantilla";
+var VERSION_CODIGO = "8.8 · WhatsApp";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3657,7 +3657,7 @@ var CATS_CACHE = null, ENT_CACHE = null;
  * rol y las sedes asignadas.
  */
 var USR_COLS = ["USUARIO", "NOMBRE", "CORREO", "ROL", "SEDES ASIGNADAS", "GESTIONA CORREO", "AVISOS POR CORREO",
-                "ACTIVO", "CLAVE (HASH)", "SAL", "CREADO", "ÚLTIMO INGRESO", "DEBE CAMBIAR CLAVE"];
+                "ACTIVO", "CLAVE (HASH)", "SAL", "CREADO", "ÚLTIMO INGRESO", "DEBE CAMBIAR CLAVE", "WHATSAPP"];
 var ROLES = ["Administrador", "Técnico", "Consulta"];
 var SESION = null;           // usuario de la llamada en curso (null = disparadores / sistema)
 var DURACION_SESION = 21600; // 6 horas sin actividad (máximo de CacheService)
@@ -3674,7 +3674,15 @@ var TEMPORAL_MAX_MS = 259200000;   // 72 horas
 function _hojaUsuarios_() {
   var ss = _ss_();
   var h = ss.getSheetByName("Usuarios");
-  if (h) return h;
+  if (h) {   // v8.8: la columna de WhatsApp se agrega sola a una hoja existente
+    try {
+      if (h.getMaxColumns() < USR_COLS.length) h.insertColumnsAfter(h.getMaxColumns(), USR_COLS.length - h.getMaxColumns());
+      if (!h.getRange(1, USR_COLS.length).getValue()) {
+        h.getRange(1, USR_COLS.length).setValue(USR_COLS[USR_COLS.length - 1]).setFontWeight("bold").setBackground("#00475F").setFontColor("#FFFFFF");
+      }
+    } catch (e) { Logger.log("Columna WhatsApp: " + e); }
+    return h;
+  }
   h = ss.insertSheet("Usuarios");
   h.getRange(1, 1, 1, USR_COLS.length).setValues([USR_COLS]);
   h.getRange(1, 1, 1, USR_COLS.length).setFontWeight("bold").setBackground("#00475F").setFontColor("#FFFFFF");
@@ -3688,7 +3696,7 @@ function _usuarios_() {
   return h.getRange(2, 1, u - 1, USR_COLS.length).getValues().map(function (r, i) {
     return { fila: i + 2, usuario: String(r[0] || "").trim().toLowerCase(), nombre: r[1], correo: r[2], rol: r[3] || "Técnico",
              sedes: String(r[4] || "").split(/\s*[;,|]\s*/).filter(String), correoOk: _si_(r[5]), avisos: _si_(r[6]),
-             activo: _si_(r[7]), hash: r[8], sal: r[9], creado: r[10], ultimo: r[11], cambiar: _si_(r[12]) };
+             activo: _si_(r[7]), hash: r[8], sal: r[9], creado: r[10], ultimo: r[11], cambiar: _si_(r[12]), telefono: String(r[13] || "").replace(/\D/g, "") };
   }).filter(function (x) { return x.usuario; });
 }
 function _si_(v) { return /^(si|sí|true|1|x)$/i.test(String(v || "").trim()); }
@@ -3717,7 +3725,7 @@ function _claveValida_(c, usuario) {
 function _publico_(u) {
   return { usuario: u.usuario, nombre: u.nombre, correo: u.correo, rol: u.rol, sedes: u.sedes, gestionaCorreo: u.correoOk,
            avisos: u.avisos, activo: u.activo, ultimo: u.ultimo instanceof Date ? Utilities.formatDate(u.ultimo, _tz_(), "dd/MM/yyyy HH:mm") : "",
-           debeCambiar: u.cambiar, fila: u.fila };
+           debeCambiar: u.cambiar, telefono: u.telefono || "", fila: u.fila };
 }
 
 // ---------------------------------------------------------------------------
@@ -3913,7 +3921,8 @@ var RUTAS = {
   // v8.2
   apiExportarExcel: [apiExportarExcel_, P_LEER], apiAuditoria: [apiAuditoria_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
   apiAjustes: [apiAjustes_, P_ADMIN], apiGuardarAjustes: [apiGuardarAjustes_, P_ADMIN],
-  apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
+  apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiWhatsappEstado: [apiWhatsappEstado_, P_ADMIN], apiGuardarWhatsapp: [apiGuardarWhatsapp_, P_ADMIN], apiProbarWhatsapp: [apiProbarWhatsapp_, P_ADMIN],
+  apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
 
   // v8
   apiPrioritarias: [apiPrioritarias_, P_LEER], apiEvaluarRiesgo: [apiEvaluarRiesgo_, P_LEER], apiSugerirArea: [apiSugerirArea_, P_LEER, "codigo"],
@@ -4033,6 +4042,11 @@ function apiGuardarUsuario_(d) {
     if (d.correo && !_correoOk(d.correo)) return { ok: false, mensaje: "El correo no es válido." };
     var sedes = (d.sedes || []).join("; ") || (d.rol === "Administrador" ? "TODAS" : "");
     if (!sedes) return { ok: false, mensaje: "Asigna al menos una sede (o TODAS)." };
+    var telefono = "";
+    if (String(d.telefono || "").trim()) {
+      telefono = _waTelefono_(d.telefono);
+      if (!telefono) return { ok: false, mensaje: "El WhatsApp no es válido: escribe el celular con 10 dígitos (3001234567) o con el indicativo del país (573001234567)." };
+    }
     var avisoUsr = "";
     var existente = lista.filter(function (x) { return x.usuario === usuario; })[0];
     if (existente && !d.editar) return { ok: false, mensaje: "Ese usuario ya existe." };
@@ -4043,6 +4057,7 @@ function apiGuardarUsuario_(d) {
       if (!admins && (d.rol !== "Administrador" || d.activo === false)) return { ok: false, mensaje: "Debe quedar al menos un administrador activo." };
       h.getRange(existente.fila, 2, 1, 7).setValues([[d.nombre || "", d.correo || "", d.rol, sedes, d.gestionaCorreo ? "SI" : "NO",
         d.avisos ? "SI" : "NO", d.activo === false ? "NO" : "SI"]]);
+      h.getRange(existente.fila, USR_COLS.length).setValue(telefono);
       _traza("—", "Usuario actualizado", usuario + " · " + d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : ""));
       _auditar_("Usuario actualizado", usuario, d.rol + " · " + sedes + (d.activo === false ? " · INACTIVO" : "") + " · por " + (SESION ? SESION.usuario : "sistema"));
     } else {
@@ -4050,8 +4065,8 @@ function apiGuardarUsuario_(d) {
       if (claveNueva !== CLAVE_TEMPORAL && !_claveValida_(claveNueva, usuario)) return { ok: false, mensaje: "Contraseña temporal. " + _msgClave_() };
       var sal = Utilities.getUuid();
       h.appendRow([usuario, d.nombre || "", d.correo || "", d.rol, sedes, d.gestionaCorreo ? "SI" : "NO", d.avisos ? "SI" : "NO",
-        d.activo === false ? "NO" : "SI", _hash_(claveNueva, sal), sal, new Date(), "", "SI"]);
-      avisoUsr = _correoBienvenida_(usuario, d.nombre || usuario, d.correo, claveNueva, d.rol, sedes);
+        d.activo === false ? "NO" : "SI", _hash_(claveNueva, sal), sal, new Date(), "", "SI", telefono]);
+      avisoUsr = [_correoBienvenida_(usuario, d.nombre || usuario, d.correo, claveNueva, d.rol, sedes), _waBienvenida_(usuario, d.nombre, telefono, claveNueva, d.rol, sedes, false)].filter(String).join(" ");
       _traza("—", "Usuario creado", usuario + " · " + d.rol + " · " + sedes);
       _auditar_("Usuario creado", usuario, d.rol + " · " + sedes + " · por " + (SESION ? SESION.usuario : "sistema"));
     }
@@ -4072,7 +4087,7 @@ function apiRestablecerClave_(usuario, clave) {
   CacheService.getScriptCache().remove("int_" + u.usuario);
   _traza("—", "Contraseña restablecida", u.usuario);
   _auditar_("Contraseña restablecida por el administrador", u.usuario, "Debe cambiarla al ingresar");
-  var envio = _correoBienvenida_(u.usuario, u.nombre, u.correo, clave, u.rol, u.sedes.join("; "), true);
+  var envio = [_correoBienvenida_(u.usuario, u.nombre, u.correo, clave, u.rol, u.sedes.join("; "), true), _waBienvenida_(u.usuario, u.nombre, u.telefono, clave, u.rol, u.sedes.join("; "), true)].filter(String).join(" ");
   return { ok: true, mensaje: "Contraseña temporal asignada a " + u.usuario + " (vence en 72 horas). Deberá cambiarla al ingresar." + (envio ? " " + envio : "") };
 }
 function apiCambiarMiClave_(actual, nueva) {
@@ -4362,7 +4377,9 @@ var AJUSTES_BASE = { autoInstitucional: true, autoUsuarios: true, citasAuto: fal
                      // "inmediato" (una por una) o "manual". PQRS: solo si el área es inequívoca y se activa.
                      direccionFelicitaciones: "resumen", direccionAuto: false, avisoCierreArea: true,
                      // v8.2: respaldo diario en Excel dentro de Drive (y, si se indica, carpeta compartida con otra cuenta)
-                     respaldoDiario: true, respaldoCorreo: "" };
+                     respaldoDiario: true, respaldoCorreo: "",
+                     // v8.8: WhatsApp (API de WhatsApp Business de Meta). Las credenciales NO van aquí: están en propiedades del proyecto.
+                     waActivo: false, waAvisos: "prioritarias", waIncluirClave: true };
 function _ajustes_() {
   var a = {};
   try { a = JSON.parse(PropertiesService.getScriptProperties().getProperty("AJUSTES") || "{}"); } catch (e) {}
@@ -4402,6 +4419,7 @@ function apiGuardarAjustes_(a) {
   if (!/^https:\/\/[A-Za-z0-9.-]+(:\d+)?$/.test(actual.pushServidor)) return { ok: false, mensaje: "El servidor del push debe ser una dirección https (por defecto https://ntfy.sh)." };
   if (actual.webhookChat && !/^https:\/\/chat\.googleapis\.com\//.test(actual.webhookChat)) return { ok: false, mensaje: "El webhook debe ser una URL de Google Chat (https://chat.googleapis.com/…)." };
   if (!actual.desde && (actual.autoInstitucional || actual.autoUsuarios)) actual.desde = Date.now();
+  if (["no", "prioritarias", "todas"].indexOf(actual.waAvisos) === -1) actual.waAvisos = "prioritarias";
   actual.respaldoCorreo = String(actual.respaldoCorreo || "").trim();
   if (actual.respaldoCorreo && !_correoOk(actual.respaldoCorreo)) return { ok: false, mensaje: "El correo del respaldo no es válido." };
   if (actual.alias && _cuentaCorreo_().alias.map(function (x) { return String(x).toLowerCase(); }).indexOf(String(actual.alias).toLowerCase()) === -1)
@@ -4460,9 +4478,10 @@ function _avisoPush_(texto, prio) {
   } catch (e) { Logger.log("Push: " + e); return false; }
 }
 /** Google Chat y, si se indica la prioridad (1-5), también push. */
-function _avisoChat_(texto, prio) {
+function _avisoChat_(texto, prio, sede) {
   var a = _ajustes_();
   if (prio) { try { _avisoPush_(texto, prio); } catch (e) {} }
+  if (prio) { try { _waAvisar_(texto, prio, sede); } catch (e) { Logger.log("WhatsApp: " + e); } }
   if (!a.webhookChat) return false;
   try {
     UrlFetchApp.fetch(a.webhookChat, { method: "post", contentType: "application/json; charset=UTF-8", muteHttpExceptions: true,
@@ -4501,7 +4520,7 @@ function _avisoNuevoCaso_(fila, extra) {
   var a = _ajustes_();
   var lineaChat = _lineaChat_(etq, codigo, [remitente, f[C.CLASIF_INTERNA - 1], tipo, f[C.SEDE - 1], f[C.CANAL - 1]], fechasTxt);
   var prioPush = prioridad === "Crítica" ? 5 : prioridad === "Alta" ? 4 : (remitente ? 3 : 0);   // todo lo de EPS y entes llega al celular
-  if (a.chatModo !== "prioritarias" || prioridad === "Crítica" || prioridad === "Alta") _avisoChat_(lineaChat, prioPush);
+  if (a.chatModo !== "prioritarias" || prioridad === "Crítica" || prioridad === "Alta") _avisoChat_(lineaChat, prioPush, f[C.SEDE - 1]);
   else if (prioPush) _avisoPush_(lineaChat, prioPush);
   var destinos = _correosAviso_(f[C.SEDE - 1], extra && extra.avisar);
   if (!destinos.length) return;
@@ -4687,7 +4706,7 @@ function revisarAlertas() {
     var limite = _inicioHoras_(f) + c.meta * 3600000;
     _traza(cod, "Alerta de meta interna", (a.k < 1 ? "Mitad de la meta: " : "Superó ") + horas + " h " + queFalta + " · " + f[C.CLASIF_INTERNA - 1]);
     _avisoChat_(_lineaChat_(a.k < 1 ? "[ALERTA · MITAD DEL TÉRMINO]" : "[ALERTA]", cod,
-      [f[C.CLASIF_INTERNA - 1], (a.k < 1 ? "van " : "más de ") + horas + " h " + queFalta, f[C.SEDE - 1]], responder ? "Límite " + _fmtHora_(limite) : "Vence " + _fmt(f[C.FECHA_MAX - 1])), a.k < 1 ? 4 : 5);
+      [f[C.CLASIF_INTERNA - 1], (a.k < 1 ? "van " : "más de ") + horas + " h " + queFalta, f[C.SEDE - 1]], responder ? "Límite " + _fmtHora_(limite) : "Vence " + _fmt(f[C.FECHA_MAX - 1])), a.k < 1 ? 4 : 5, f[C.SEDE - 1]);
     var dest = _correosAviso_(f[C.SEDE - 1], []);
     if (f[C.CORREO_RESP - 1] && responder && _correoOk(f[C.CORREO_RESP - 1])) dest.push(String(f[C.CORREO_RESP - 1]).toLowerCase());
     if (dest.length) _enviar(dest.join(","), "[ALERTA PQRS] " + cod + " · " + f[C.CLASIF_INTERNA - 1] + " " + queFalta, cod,
@@ -5670,7 +5689,7 @@ function _avisosVencimiento_() {
     if (!r.ok) return;
     meta[cod] = ahora; enviados++;
     _traza(cod, "Aviso de vencimiento", cuando + " · enviado a " + dest.join(", "));
-    try { _avisoChat_(_lineaChat_("[" + cuando.toUpperCase() + "]", cod, [f[C.TIPO_PQRS - 1], f[C.SEDE - 1]], "Vence " + _fmt(max)), falta <= 2 ? 4 : 3); } catch (e) {}
+    try { _avisoChat_(_lineaChat_("[" + cuando.toUpperCase() + "]", cod, [f[C.TIPO_PQRS - 1], f[C.SEDE - 1]], "Vence " + _fmt(max)), falta <= 2 ? 4 : 3, f[C.SEDE - 1]); } catch (e) {}
   });
   Object.keys(meta).forEach(function (k) { if (ahora - meta[k] > 150 * 86400000) delete meta[k]; });
   props.setProperty("AVISOS_VENCER", JSON.stringify(meta));
@@ -5788,4 +5807,109 @@ function apiNps_() {
   res.porSede = por(4);
   res.porMotivo = por(6).filter(function (x) { return x.nombre !== "Sin dato"; });
   return res;
+}
+
+
+// =====================================================================================
+// v8.8 · WHATSAPP (API de WhatsApp Business · Cloud API de Meta)
+// =====================================================================================
+/*
+ * Envía por WhatsApp (a) el acceso de cada usuario nuevo o restablecido y (b) los avisos de PQRS a los técnicos de cada sede.
+ * Credenciales en propiedades del proyecto (nunca en la hoja ni en el repositorio): WA_TOKEN, WA_PHONE_ID, WA_PLANTILLA, WA_IDIOMA.
+ * Reglas: los avisos usan la misma línea que Google Chat y el push (solo radicado, tipo, prioridad, sede y fechas, sin datos personales).
+ * El mensaje de acceso lleva el usuario y, si «waIncluirClave» está activo, la contraseña temporal (72 horas, cambio obligatorio).
+ * Fuera de la ventana de 24 h, WhatsApp solo permite plantillas aprobadas: con WA_PLANTILLA el texto viaja como variable {{1}} (sin saltos de línea).
+ */
+var WA_VERSION = "v20.0";
+function _waConfig_() {
+  var p = PropertiesService.getScriptProperties();
+  return { token: String(p.getProperty("WA_TOKEN") || ""), phoneId: String(p.getProperty("WA_PHONE_ID") || ""),
+           plantilla: String(p.getProperty("WA_PLANTILLA") || ""), idioma: String(p.getProperty("WA_IDIOMA") || "es") };
+}
+function _waListo_() { var c = _waConfig_(); return !!(c.token && c.phoneId && _ajustes_().waActivo); }
+/** Celular colombiano de 10 dígitos (3xx…) o con indicativo (57…): devuelve solo dígitos con indicativo, o "" si no es válido. */
+function _waTelefono_(t) {
+  var d = String(t || "").replace(/\D/g, "");
+  if (/^3\d{9}$/.test(d)) d = "57" + d;
+  return /^\d{11,15}$/.test(d) && /^(57\d{10}|[1-9]\d{10,14})$/.test(d) ? d : "";
+}
+function _waEnviar_(telefono, texto) {
+  var c = _waConfig_(), to = _waTelefono_(telefono);
+  if (!c.token || !c.phoneId) return { ok: false, error: "WhatsApp no está configurado." };
+  if (!to) return { ok: false, error: "Número no válido." };
+  var cuerpo = { messaging_product: "whatsapp", to: to };
+  if (c.plantilla) {
+    cuerpo.type = "template";
+    cuerpo.template = { name: c.plantilla, language: { code: c.idioma || "es" },
+      components: [{ type: "body", parameters: [{ type: "text", text: String(texto).replace(/\s*\n+\s*/g, " | ").replace(/ {2,}/g, " ").substring(0, 1000) }] }] };
+  } else {
+    cuerpo.type = "text"; cuerpo.text = { body: String(texto).substring(0, 3500), preview_url: true };
+  }
+  try {
+    var r = UrlFetchApp.fetch("https://graph.facebook.com/" + WA_VERSION + "/" + c.phoneId + "/messages",
+      { method: "post", contentType: "application/json", headers: { Authorization: "Bearer " + c.token }, muteHttpExceptions: true, payload: JSON.stringify(cuerpo) });
+    var codigo = r.getResponseCode(), j = {};
+    try { j = JSON.parse(r.getContentText() || "{}"); } catch (e) {}
+    if (codigo >= 200 && codigo < 300) return { ok: true };
+    return { ok: false, error: (j.error && j.error.message ? String(j.error.message) : "código " + codigo).substring(0, 200) };
+  } catch (e) { return { ok: false, error: String(e.message || e).substring(0, 200) }; }
+}
+/** Mensaje de WhatsApp a partir de una línea de Google Chat: «<url|texto>» pasa a «texto: url». */
+function _waDesdeChat_(texto) { return String(texto || "").replace(/<([^|>]+)\|([^>]*)>/g, "$2: $1"); }
+/** Aviso a quienes reciben avisos (activos, con WhatsApp): administradores y técnicos de la sede. prio ≥ 4 = prioritaria. */
+function _waAvisar_(texto, prio, sede) {
+  if (!_waListo_()) return 0;
+  var modo = _ajustes_().waAvisos;
+  if (modo === "no" || (modo === "prioritarias" && (parseInt(prio, 10) || 0) < 4)) return 0;
+  var enviados = 0, vistos = {};
+  _usuarios_().forEach(function (u) {
+    if (enviados >= 15 || !u.activo || !u.avisos || !u.telefono || vistos[u.telefono]) return;
+    var todas = u.rol === "Administrador" || u.sedes.some(function (x) { return /^todas$/i.test(x); });
+    var propia = sede && u.sedes.map(_norm).indexOf(_norm(sede)) !== -1;
+    if (!(todas || propia)) return;
+    vistos[u.telefono] = true;
+    if (_waEnviar_(u.telefono, _waDesdeChat_(texto)).ok) enviados++;
+  });
+  if (enviados) _auditar_("Aviso por WhatsApp", "sistema", enviados + " destinatario(s)");
+  return enviados;
+}
+/** Acceso del usuario por WhatsApp. Devuelve el texto para mostrar al administrador ("" si no aplica). */
+function _waBienvenida_(usuario, nombre, telefono, clave, rol, sedes, reinicio) {
+  if (!telefono) return "";
+  if (!_waListo_()) return "No se envió por WhatsApp (no está activado o configurado).";
+  var url = _urlPortal_() || _urlBase_(), incluir = _ajustes_().waIncluirClave !== false;
+  var texto = "*Sistema de PQRS · SIAU MiRed IPS*\nHola " + String(nombre || usuario).split(" ")[0] + ", " + (reinicio ? "el administrador restableció tu acceso." : "ya tienes acceso a la plataforma.") +
+    "\n\nEnlace: " + url + "\nUsuario: " + usuario + "\n" +
+    (incluir ? "Contraseña temporal: " + clave + "\nVence en 72 horas y deberás cambiarla al ingresar (mínimo 10 caracteres)." : "La contraseña temporal te la entrega el administrador.") +
+    "\n\nEs personal e intransferible: no la compartas.";
+  var r = _waEnviar_(telefono, texto);
+  _auditar_("Acceso enviado por WhatsApp", usuario, r.ok ? "Enviado" : "Error: " + r.error);
+  return r.ok ? "Acceso enviado por WhatsApp." : "No se pudo enviar por WhatsApp (" + r.error + ").";
+}
+function apiWhatsappEstado_() {
+  var c = _waConfig_();
+  return { ok: true, configurado: !!(c.token && c.phoneId), phoneId: c.phoneId ? "…" + c.phoneId.slice(-4) : "", tokenGuardado: !!c.token, plantilla: c.plantilla, idioma: c.idioma, activo: !!_ajustes_().waActivo };
+}
+function apiGuardarWhatsapp_(d) {
+  d = d || {};
+  var p = PropertiesService.getScriptProperties();
+  var phoneId = String(d.phoneId || "").trim(), token = String(d.token || "").trim(), plantilla = String(d.plantilla || "").trim(), idioma = String(d.idioma || "es").trim() || "es";
+  if (phoneId && !/^\d{8,20}$/.test(phoneId)) return { ok: false, mensaje: "El «ID del número de teléfono» son solo dígitos (lo muestra Meta en WhatsApp ▸ Configuración de la API)." };
+  if (token && !/^[A-Za-z0-9_\-]{20,600}$/.test(token)) return { ok: false, mensaje: "El token no parece válido: es una cadena larga de letras y números, sin espacios." };
+  if (plantilla && !/^[a-z0-9_]{1,512}$/.test(plantilla)) return { ok: false, mensaje: "El nombre de la plantilla va en minúsculas, números y guion bajo (como lo aprobó Meta)." };
+  if (!/^[a-z]{2}(_[A-Z]{2})?$/.test(idioma)) return { ok: false, mensaje: "El idioma es un código como «es» o «es_CO»." };
+  if (phoneId) p.setProperty("WA_PHONE_ID", phoneId);
+  if (token) p.setProperty("WA_TOKEN", token);        // el token solo se reemplaza si se escribe uno nuevo
+  p.setProperty("WA_PLANTILLA", plantilla); p.setProperty("WA_IDIOMA", idioma);
+  _auditar_("Configuración de WhatsApp", SESION ? SESION.usuario : "sistema", "Datos guardados" + (token ? " (token nuevo)" : ""));
+  return apiWhatsappEstado_();
+}
+function apiProbarWhatsapp_(telefono) {
+  var c = _waConfig_();
+  if (!c.token || !c.phoneId) return { ok: false, mensaje: "Primero guarda el token y el ID del número de teléfono." };
+  var to = _waTelefono_(telefono);
+  if (!to) return { ok: false, mensaje: "Escribe un celular válido (3001234567 o 573001234567)." };
+  var r = _waEnviar_(to, "Prueba del Sistema de PQRS · SIAU MiRed IPS: si lees esto, WhatsApp quedó conectado.");
+  _auditar_("Prueba de WhatsApp", SESION ? SESION.usuario : "sistema", r.ok ? "Enviada" : "Error: " + r.error);
+  return r.ok ? { ok: true, mensaje: "Mensaje de prueba enviado." } : { ok: false, mensaje: "WhatsApp respondió: " + r.error };
 }

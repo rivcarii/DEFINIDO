@@ -91,7 +91,8 @@ require("fs").mkdirSync(CAP, { recursive: true });
     if (await p.locator("#usrLista .usr").count()) errores.push(w + " los usuarios siguen en tarjetas: deben verse como lista");
     if (w >= 1366 && !(await p.locator("#usrLista .ufila.cab").isVisible())) errores.push(w + " la lista de usuarios no muestra su encabezado de columnas");
     await desb("usuarios"); await p.screenshot({ path: CAP + `z_${w}_usuarios.png`, fullPage: true });
-    await p.click("#btnNuevoUsr"); await p.waitForSelector("#u_sedes", { timeout: 5000 }); await p.waitForTimeout(300);
+    await p.click("#btnNuevoUsr"); await p.waitForSelector("#u_sedes", { timeout: 5000 });
+    if (!(await p.$("#u_telefono"))) errores.push(w + " el formulario de usuario no pide el WhatsApp"); await p.waitForTimeout(300);
     await desb("modal usuario"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_usuario_nuevo.png` });
     await p.keyboard.press("Escape");
     // v8.6 · directorio de áreas: explicación visible y botón Guardar siempre a la vista, con contador de cambios
@@ -108,6 +109,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
     else { await p.fill("#aj_pushTema", ""); await p.click("#btnGenerarPush"); if (!/^pqrs-miredips-[a-z2-9]{14}$/.test(await p.inputValue("#aj_pushTema"))) errores.push(w + " el generador del tema del push no funcionó"); }
     await p.click("#btnRespaldarAhora"); await p.waitForFunction(() => /Respaldo guardado en Drive/.test((document.getElementById("respAviso") || {}).textContent || ""), null, { timeout: 15000 })
       .catch(() => errores.push(w + " el respaldo ahora no respondió"));
+    if (!(await p.$("#btnGuardarWa")) || (await p.getAttribute("#wa_token", "type")) !== "password") errores.push(w + " falta la configuración de WhatsApp (o el token no está oculto)");
     await p.click("#btnDiagnostico"); await p.waitForSelector("#diagCuerpo .dg", { timeout: 8000 }).catch(() => errores.push(w + " sin diagnóstico"));
     await desb("config"); if (w === 1366) await p.screenshot({ path: CAP + `z_${w}_config.png`, fullPage: true });
     // técnico

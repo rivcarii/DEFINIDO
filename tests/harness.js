@@ -97,6 +97,11 @@ function crear(hojas, gmail) {
         const blob = { setName(n) { blob.nombre = n; return blob; }, getName: () => blob.nombre, getBytes: () => bytes };
         return { getResponseCode: () => (process.env.XLSX_FALLA ? 500 : 200), getBlob: () => blob };
       }
+      if (/graph\.facebook\.com/.test(url)) {   // WhatsApp Cloud API
+        const j = JSON.parse(op.payload), falla = this.waFalla;
+        this.llamadas.push({ url, headers: op.headers, texto: (j.text && j.text.body) || "", json: j, whatsapp: true });
+        return { getResponseCode: () => (falla ? 400 : 200), getContentText: () => (falla ? JSON.stringify({ error: { message: "Token vencido" } }) : "{}") };
+      }
       const j = JSON.parse(op.payload); this.llamadas.push({ url, texto: j.text || j.message || "", json: j }); return {}; } },
     DriveApp: (() => { const carpetas = {}; const archivosPorId = {};
       const mk = n => { const c = { nombre: n, archivos: [], vistas: [], getUrl: () => "https://drive.google.com/drive/folders/" + encodeURIComponent(n),

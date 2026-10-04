@@ -3908,6 +3908,7 @@ html[data-tema="oscuro"] .modal-fondo,html[data-tema="oscuro"] .velo{background:
   main{max-width:900px;padding-left:20px!important;padding-right:20px!important}
   .lateral{width:min(380px,50vw)!important}
 }
+.wa-caja{margin-top:18px;padding:14px 16px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--teal-wash-2)}.wa-caja h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:14px;color:var(--teal-dark)}.wa-caja .hint{margin-bottom:10px}
 .bloque-excel{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 @media(max-width:700px){#splash .sp-sistema{--d:120px}}
 @media(prefers-reduced-motion:reduce){html::after{animation:none}#splash .sp-mascota{animation:none}}
@@ -4408,6 +4409,26 @@ html[data-tema="oscuro"] .modal-fondo,html[data-tema="oscuro"] .velo{background:
           <div><label for="aj_avisarA">Correos que reciben todos los avisos</label><input id="aj_avisarA" placeholder="lider.siau@miredips.org; calidad@miredips.org"></div>
           <div class="full"><label for="aj_alias">Cuenta que envía las notificaciones</label><select id="aj_alias"></select>
             <div class="hint" id="ajCuenta"></div></div>
+        </div>
+        <div class="wa-caja">
+          <h4><svg class="ic s"><use href="#i-enviar"/></svg>WhatsApp (accesos de usuarios y avisos a los técnicos)</h4>
+          <p class="hint">Usa la API oficial de WhatsApp Business (Meta). Cuando creas o restableces un usuario con número de WhatsApp, recibe su enlace, usuario y contraseña temporal; los avisos de PQRS llegan a los técnicos de cada sede <b>sin nombres, documentos ni descripción</b>: solo radicado, tipo, prioridad, sede, fechas y enlace. Guía paso a paso en <b>docs/DESPLIEGUE.md</b> (sección 6e).</p>
+          <div class="grid">
+            <div class="full" style="display:flex;gap:18px;flex-wrap:wrap">
+              <label class="interruptor"><input type="checkbox" id="aj_waActivo"><i></i>Enviar por WhatsApp</label>
+              <label class="interruptor"><input type="checkbox" id="aj_waIncluirClave"><i></i>Incluir la contraseña temporal en el mensaje de acceso</label>
+            </div>
+            <div><label for="aj_waAvisos">Avisos de PQRS por WhatsApp</label><select id="aj_waAvisos"><option value="prioritarias">Solo prioridad alta y crítica, y vencimientos cercanos</option><option value="todas">Todas las PQRS nuevas y alertas</option><option value="no">Ninguno (solo el acceso de usuarios)</option></select></div>
+            <div><label for="wa_phoneId">ID del número de teléfono (Meta)</label><input id="wa_phoneId" inputmode="numeric" autocomplete="off" placeholder="p. ej. 123456789012345"><div class="hint" id="waPhoneEstado"></div></div>
+            <div class="full"><label for="wa_token">Token de acceso permanente</label><input id="wa_token" type="password" autocomplete="new-password" spellcheck="false" placeholder="Pégalo aquí (no se vuelve a mostrar)"><div class="hint" id="waTokenEstado"></div></div>
+            <div><label for="wa_plantilla">Plantilla aprobada (opcional)</label><input id="wa_plantilla" autocomplete="off" placeholder="aviso_pqrs"><div class="hint">Con una variable {{1}}. Sin plantilla solo llegan mensajes dentro de las 24 h posteriores a que la persona te escribe.</div></div>
+            <div><label for="wa_idioma">Idioma de la plantilla</label><input id="wa_idioma" placeholder="es"></div>
+            <div><label for="wa_prueba">Enviar prueba a</label><input id="wa_prueba" type="tel" inputmode="tel" placeholder="3001234567"></div>
+          </div>
+          <div class="acciones">
+            <button class="b sec" id="btnGuardarWa" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar conexión</button>
+            <button class="b sec" id="btnProbarWa" type="button"><svg class="ic s"><use href="#i-enviar"/></svg>Enviar mensaje de prueba</button>
+          </div>
         </div>
         <div class="acciones">
           <button class="b pri" id="btnGuardarAjustes" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar automatización</button>
@@ -6920,7 +6941,7 @@ function pintarUsuarios(){
   var cab = '<div class="ufila cab"><span>Usuario</span><span>Rol</span><span>Sedes</span><span>Permisos y avisos</span><span>Activo</span><span></span></div>';
   $("usrLista").innerHTML = lista.length ? cab + lista.map(function(u){
     var todas = u.sedes.some(function(x){ return /^todas$/i.test(x); }) || u.rol === "Administrador";
-    var etiquetas = (u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.debeCambiar?'<span class="aten">Contraseña temporal</span>':'');
+    var etiquetas = (u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.telefono?'<span>WhatsApp</span>':'')+(u.debeCambiar?'<span class="aten">Contraseña temporal</span>':'');
     return '<div class="ufila'+(u.activo?"":" inactivo")+'">'+
       '<div class="u-id"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span><div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span><span class="u-ult">'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</span></div></div>'+
       '<div class="u-rol" data-l="Rol"><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
@@ -6939,7 +6960,7 @@ function pintarUsuarios(){
   $("usrLista").querySelectorAll("[data-activo]").forEach(function(c){
     c.addEventListener("change", function(){
       var u = APP.usr.usuarios.filter(function(x){ return x.usuario === c.dataset.activo; })[0];
-      guardarUsuario({ usuario:u.usuario, editar:true, nombre:u.nombre, correo:u.correo, rol:u.rol, sedes:u.sedes, gestionaCorreo:u.gestionaCorreo, avisos:u.avisos, activo:c.checked },
+      guardarUsuario({ usuario:u.usuario, editar:true, nombre:u.nombre, correo:u.correo, rol:u.rol, sedes:u.sedes, gestionaCorreo:u.gestionaCorreo, avisos:u.avisos, telefono:u.telefono, activo:c.checked },
         c.checked ? "Usuario activado." : "Usuario inactivado: ya no puede ingresar.");
     });
   });
@@ -6961,6 +6982,8 @@ function formUsuario(usuario){
     '<div><label>Nombre completo</label><input id="u_nombre" value="'+esc(u.nombre||"")+'"></div>'+
     '<div><label>Usuario</label><input id="u_usuario" value="'+esc(u.usuario)+'"'+(usuario?" disabled":"")+' placeholder="p. ej. mgomez"></div>'+
     '<div><label>Correo (avisos)</label><input id="u_correo" type="email" value="'+esc(u.correo||"")+'"></div>'+
+    '<div><label>WhatsApp (acceso y avisos)</label><input id="u_telefono" type="tel" inputmode="tel" autocomplete="off" value="'+esc(u.telefono||"")+'" placeholder="3001234567">'+
+      '<div class="hint">Celular de 10 dígitos o con indicativo (57…). Recibe su acceso y los avisos de su sede si WhatsApp está activado en Configuración.</div></div>'+
     '<div><label>Rol</label><select id="u_rol">'+APP.usr.roles.map(function(x){ return '<option'+(x===u.rol?" selected":"")+'>'+x+'</option>'; }).join("")+'</select>'+
       '<div class="hint">Administrador: direcciona a las áreas, responde al usuario, gestiona el correo y los accesos. Técnico (SIAU de sede): radica y consulta las PQRS de sus sedes. Consulta: solo ve.</div></div>'+
     (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal (opcional)","new-password")+
@@ -6978,7 +7001,7 @@ function formUsuario(usuario){
   $("btnCerrarModal").addEventListener("click", cerrarModal);
   $("btnGuardarUsr").addEventListener("click", function(){
     var sedes = $("u_todas").checked ? ["TODAS"] : Array.prototype.map.call($("u_sedes").querySelectorAll("input:checked"), function(i){ return i.value; });
-    var d = { usuario: usuario || val("u_usuario"), editar: !!usuario, nombre: val("u_nombre"), correo: val("u_correo"), rol: val("u_rol"), sedes: sedes,
+    var d = { usuario: usuario || val("u_usuario"), editar: !!usuario, nombre: val("u_nombre"), correo: val("u_correo"), telefono: val("u_telefono"), rol: val("u_rol"), sedes: sedes,
               gestionaCorreo: $("u_correoOk").checked, avisos: $("u_avisos").checked, activo: $("u_activo").checked, clave: $("u_clave") ? $("u_clave").value : "" };
     var fin = ocupado("btnGuardarUsr","Guardando…");
     srv("apiGuardarUsuario", d).then(function(r){
@@ -7003,10 +7026,18 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario"];
+var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
+  srvSilencioso("apiWhatsappEstado").then(pintarWa).catch(function(){});
+}
+function pintarWa(r){
+  if(!r || r.ok === false) return;
+  $("wa_phoneId").value = ""; $("wa_token").value = "";
+  $("wa_plantilla").value = r.plantilla || ""; $("wa_idioma").value = r.idioma || "es";
+  $("waPhoneEstado").textContent = r.phoneId ? "Guardado: " + r.phoneId : "Aún no guardado.";
+  $("waTokenEstado").innerHTML = r.tokenGuardado ? '<span class="chip v">Token guardado</span> Déjalo vacío para conservarlo o pega uno nuevo para cambiarlo.' : "Meta ▸ tu app ▸ WhatsApp ▸ Configuración de la API (token de un usuario del sistema, permanente).";
 }
 function pintarAjustes(r){
   if(!r.ok){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
@@ -7016,6 +7047,7 @@ function pintarAjustes(r){
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
   $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
   $("aj_respaldoCorreo").value = r.ajustes.respaldoCorreo || "";
+  $("aj_waAvisos").value = r.ajustes.waAvisos || "prioritarias";
   var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
   $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
     (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");
@@ -7074,10 +7106,21 @@ $("btnNuevaCategoria").addEventListener("click", function(){ APP.nuevaCat = true
 $("btnGuardarAjustes").addEventListener("click", function(){
   var a = {}; AJ_BOOL.forEach(function(k){ a[k] = $("aj_"+k).checked; });
   a.pushTema = val("aj_pushTema"); a.pushServidor = val("aj_pushServidor"); a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
-  a.direccionFelicitaciones = val("aj_direccionFelicitaciones");
+  a.direccionFelicitaciones = val("aj_direccionFelicitaciones"); a.waAvisos = val("aj_waAvisos");
   var fin = ocupado("btnGuardarAjustes","Guardando…");
   srv("apiGuardarAjustes", a).then(function(r){ fin(); if(r.ok===false){ aviso("autoAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("autoAviso","Automatización guardada.","ok"); })
     .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnGuardarWa").addEventListener("click", function(){
+  var fin = ocupado("btnGuardarWa","Guardando…");
+  srv("apiGuardarWhatsapp", { phoneId: val("wa_phoneId"), token: val("wa_token"), plantilla: val("wa_plantilla"), idioma: val("wa_idioma") }).then(function(r){
+    fin(); if(r.ok === false){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
+    pintarWa(r); aviso("autoAviso", "Conexión de WhatsApp guardada. Activa «Enviar por WhatsApp», guarda la automatización y envía un mensaje de prueba.", "ok");
+  }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnProbarWa").addEventListener("click", function(){
+  var fin = ocupado("btnProbarWa","Enviando…");
+  srv("apiProbarWhatsapp", val("wa_prueba")).then(function(r){ fin(); aviso("autoAviso", esc(r.mensaje), r.ok ? "ok" : "err"); }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
 });
 $("btnGenerarPush").addEventListener("click", function(){
   var abc = "abcdefghijkmnpqrstuvwxyz23456789", v = new Uint8Array(14), t = "";

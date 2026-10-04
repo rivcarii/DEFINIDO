@@ -495,6 +495,26 @@
           <div class="full"><label for="aj_alias">Cuenta que envía las notificaciones</label><select id="aj_alias"></select>
             <div class="hint" id="ajCuenta"></div></div>
         </div>
+        <div class="wa-caja">
+          <h4><svg class="ic s"><use href="#i-enviar"/></svg>WhatsApp (accesos de usuarios y avisos a los técnicos)</h4>
+          <p class="hint">Usa la API oficial de WhatsApp Business (Meta). Cuando creas o restableces un usuario con número de WhatsApp, recibe su enlace, usuario y contraseña temporal; los avisos de PQRS llegan a los técnicos de cada sede <b>sin nombres, documentos ni descripción</b>: solo radicado, tipo, prioridad, sede, fechas y enlace. Guía paso a paso en <b>docs/DESPLIEGUE.md</b> (sección 6e).</p>
+          <div class="grid">
+            <div class="full" style="display:flex;gap:18px;flex-wrap:wrap">
+              <label class="interruptor"><input type="checkbox" id="aj_waActivo"><i></i>Enviar por WhatsApp</label>
+              <label class="interruptor"><input type="checkbox" id="aj_waIncluirClave"><i></i>Incluir la contraseña temporal en el mensaje de acceso</label>
+            </div>
+            <div><label for="aj_waAvisos">Avisos de PQRS por WhatsApp</label><select id="aj_waAvisos"><option value="prioritarias">Solo prioridad alta y crítica, y vencimientos cercanos</option><option value="todas">Todas las PQRS nuevas y alertas</option><option value="no">Ninguno (solo el acceso de usuarios)</option></select></div>
+            <div><label for="wa_phoneId">ID del número de teléfono (Meta)</label><input id="wa_phoneId" inputmode="numeric" autocomplete="off" placeholder="p. ej. 123456789012345"><div class="hint" id="waPhoneEstado"></div></div>
+            <div class="full"><label for="wa_token">Token de acceso permanente</label><input id="wa_token" type="password" autocomplete="new-password" spellcheck="false" placeholder="Pégalo aquí (no se vuelve a mostrar)"><div class="hint" id="waTokenEstado"></div></div>
+            <div><label for="wa_plantilla">Plantilla aprobada (opcional)</label><input id="wa_plantilla" autocomplete="off" placeholder="aviso_pqrs"><div class="hint">Con una variable {{1}}. Sin plantilla solo llegan mensajes dentro de las 24 h posteriores a que la persona te escribe.</div></div>
+            <div><label for="wa_idioma">Idioma de la plantilla</label><input id="wa_idioma" placeholder="es"></div>
+            <div><label for="wa_prueba">Enviar prueba a</label><input id="wa_prueba" type="tel" inputmode="tel" placeholder="3001234567"></div>
+          </div>
+          <div class="acciones">
+            <button class="b sec" id="btnGuardarWa" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar conexión</button>
+            <button class="b sec" id="btnProbarWa" type="button"><svg class="ic s"><use href="#i-enviar"/></svg>Enviar mensaje de prueba</button>
+          </div>
+        </div>
         <div class="acciones">
           <button class="b pri" id="btnGuardarAjustes" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar automatización</button>
           <button class="b sec" id="btnProbarAviso" type="button"><svg class="ic s"><use href="#i-campana"/></svg>Enviar aviso de prueba</button>

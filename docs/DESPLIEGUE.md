@@ -104,6 +104,19 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 3. Entra como administrador ▸ **Configuración ▸ Diagnóstico** y corrige lo que salga en rojo en «Seguridad ·» (acceso general del consolidado «Restringido», editores, administradores, usuarios sin uso).
 4. Activa la verificación en dos pasos en la cuenta SIAU de Google y lee `docs/SEGURIDAD.md` con el equipo.
 
+## 6e. WhatsApp (accesos de usuarios y avisos a los técnicos)
+
+Usa la **API oficial de WhatsApp Business (Cloud API de Meta)**. Es gratuito conectarla; Meta cobra por los mensajes de plantilla fuera de la ventana de 24 h (consulta los precios vigentes en Meta). Necesitas una cuenta de Facebook Business y un número de celular que **no** esté registrado en WhatsApp normal (o el número de prueba que Meta regala).
+
+1. Entra a **developers.facebook.com ▸ Mis apps ▸ Crear app** (tipo *Empresa*) y agrega el producto **WhatsApp**.
+2. En **WhatsApp ▸ Configuración de la API** copia el **Identificador del número de teléfono** (solo dígitos). Con el número de prueba, agrega abajo los celulares que recibirán mensajes (máximo 5); para escribirle a todos los técnicos registra tu número real y verifica la empresa en *Business Settings ▸ Centro de seguridad*.
+3. **Token permanente:** *Business Settings ▸ Usuarios ▸ Usuarios del sistema ▸ Agregar* (rol Administrador) ▸ *Asignar activos* (tu app) ▸ *Generar token* con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`. Cópialo: no se vuelve a mostrar.
+4. **Plantilla** (necesaria para escribir sin que la persona te haya escrito antes): *WhatsApp Manager ▸ Plantillas de mensajes ▸ Crear*: categoría **Utilidad**, idioma **Español**, nombre `aviso_pqrs`, texto `Aviso del Sistema de PQRS SIAU: {{1}}`, con un ejemplo en la variable. Meta la aprueba en minutos u horas.
+5. En la plataforma: **Configuración ▸ Automatización ▸ WhatsApp**: pega el ID y el token, escribe `aviso_pqrs` como plantilla, **Guardar conexión**, activa **Enviar por WhatsApp**, **Guardar automatización** y **Enviar mensaje de prueba** a tu celular.
+6. En **Usuarios y sedes ▸ editar** escribe el WhatsApp de cada persona (10 dígitos o con 57). Al crear o restablecer un usuario con WhatsApp, recibe su enlace, usuario y contraseña temporal.
+
+Notas: el token se guarda en las propiedades del proyecto de Apps Script (nunca en la hoja ni en GitHub). Los avisos de PQRS solo llevan radicado, tipo, prioridad, sede, fechas y enlace. Si apagas **Incluir la contraseña temporal**, el mensaje de acceso solo trae el enlace y el usuario. Sin plantilla, WhatsApp solo entrega el mensaje si la persona te escribió en las últimas 24 horas (sirve para pruebas).
+
 ## 7. Problemas típicos
 
 | Síntoma | Solución |
