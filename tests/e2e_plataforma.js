@@ -65,6 +65,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
       .catch(() => errores.push(w + " el acuse en segundo plano no se completó"));
     await desb("radicado");
     await irA("tablero"); await p.waitForSelector("#gMesTipo", { timeout: 8000 }); await p.waitForTimeout(1200); await desb("tablero");
+    if (!(await p.waitForSelector("#npsCard .nps", { timeout: 6000 }).catch(() => null))) errores.push(w + " el tablero no muestra la tarjeta de satisfacción (NPS)");
     if (await p.$eval("#bloqueExcel", e => e.hidden)) errores.push(w + " el administrador no ve «Exportar a Excel»");
     else {
       const [descarga] = await Promise.all([p.waitForEvent("download", { timeout: 15000 }).catch(() => null), p.click("#btnExportarExcel")]);

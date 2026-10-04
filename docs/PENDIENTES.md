@@ -44,3 +44,8 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 
 ## Enlace de ingreso (v8.5)
 Los correos (bienvenida, avisos, resúmenes), el push y la sección «Usuarios y sedes» usan el **portal de GitHub Pages** (`URL_PORTAL_DEFECTO`, o la propiedad `URL_PORTAL`). El `/exec` de Apps Script sigue siendo la API que usa el portal (`portal/config.js`). El administrador puede cambiar el enlace desde Usuarios y sedes ▸ Cambiar enlace.
+
+## v8.6
+- **Aviso de vencimiento:** `_avisosVencimiento_` (desde `rutinaDiaria`): una vez por caso a los 5 días o menos de la fecha máxima, al área (si no ha respondido) y a los avisos de la sede. Ajuste opcional `diasAvisoVencimiento` (0 = apagado). Requiere el disparador diario (`instalarDisparadores`).
+- **NPS:** hoja oculta `Encuestas`; tarjeta en el Tablero. Pendiente: pregunta abierta de «por qué» (hoy solo puntaje) y la consulta pública de radicado (River: «aún no»).
+- **App (PWA):** solo el portal de GitHub Pages es instalable (Apps Script va en un iframe). Sin notificaciones push propias: los avisos siguen por correo, Google Chat y ntfy. Para offline real haría falta guardar datos locales (no se hace por privacidad).

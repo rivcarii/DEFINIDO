@@ -86,7 +86,7 @@ function crear(hojas, gmail) {
     LockService: { getScriptLock: () => ({ tryLock: () => true, waitLock() {}, releaseLock() {} }) },
     ScriptApp: { getProjectTriggers: () => [], getService: () => ({ getUrl: () => "" }), getOAuthToken: () => "token" },
     GmailApp: gmail || {},
-    HtmlService: {},
+    HtmlService: { createHtmlOutput: h => ({ __html: String(h), setTitle() { return this; } }) },
     ContentService: { MimeType: { JSON: "json" }, createTextOutput: t => ({ contenido: t, setMimeType() { return this; }, getContent() { return t; } }) },
     FormApp: {},
     CacheService: (() => { const m = {}; const c = { get: k => (k in m ? m[k] : null), put: (k, v) => { m[k] = String(v); }, remove: k => { delete m[k]; } }; return { getScriptCache: () => c }; })(),

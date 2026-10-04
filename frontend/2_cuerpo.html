@@ -78,6 +78,8 @@
       <div id="accAviso"></div>
       <div id="accCampos"></div>
       <button class="b pri" id="btnAcceso" type="button">Ingresar</button>
+      <button class="b sec instalar-app" id="btnInstalarAcceso" type="button" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
+      <p class="hint instalar-ios" id="instalarIos" hidden>En iPhone o iPad: toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b> para instalar la app.</p>
     </div>
   </div>
 </div>
@@ -129,6 +131,7 @@
   <div class="panel-flot menu-perfil" id="menuPerfil" hidden>
     <div class="cab"><span class="avatar" id="avatar2">?</span><div><b id="perfilNombre"></b><span id="perfilRol"></span></div></div>
     <button type="button" id="btnEscritorio"><svg class="ic s"><use href="#i-campana"/></svg>Activar avisos del escritorio</button>
+    <button type="button" id="btnInstalarMenu" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
     <button type="button" id="btnMiClave"><svg class="ic s"><use href="#i-candado"/></svg>Cambiar mi contraseña</button>
     <button type="button" class="peligro" id="btnSalir"><svg class="ic s"><use href="#i-salir"/></svg>Cerrar sesión</button>
   </div>
@@ -341,6 +344,7 @@
       <div id="bloqueExcel" hidden><button class="b pri" id="btnExportarExcel" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Exportar a Excel</button></div>
     </div>
     <div id="tableroCuerpo"></div>
+    <div id="npsCard"></div>
   </section>
 
   <!-- ===================== RESPONSABLES ===================== -->

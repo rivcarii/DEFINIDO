@@ -339,6 +339,7 @@ var etiquetasBarras = {
 if(window.Chart) Chart.register(etiquetasBarras);
 
 function cargarTablero(){
+  if(typeof cargarNps === "function") cargarNps();
   $("tableroCuerpo").innerHTML = '<div class="sk-tarjetas"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>'+
     '<div class="bi-grid"><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div></div>';
   var anio = $("dAnio").value;

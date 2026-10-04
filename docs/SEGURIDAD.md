@@ -1,6 +1,6 @@
 # Política de seguridad de la información · Sistema de PQRS (MiRed Barranquilla IPS S.A.S.)
 
-Versión 8.5. Aplica a la plataforma (Apps Script + Google Sheets), al portal publicado en GitHub Pages, a los correos que envía y a los respaldos en Drive.
+Versión 8.6. Aplica a la plataforma (Apps Script + Google Sheets), al portal publicado en GitHub Pages, a los correos que envía y a los respaldos en Drive.
 Marco: Ley 1581 de 2012 (protección de datos personales), Decreto 1377 de 2013 (compilado en el Decreto 1074 de 2015) y reserva de la historia clínica (Ley 23 de 1981, Resolución 1995 de 1999).
 
 ## 1. Qué datos se protegen
@@ -27,6 +27,8 @@ Regla de oro: **los avisos fuera de la plataforma** (correo a técnicos, Google 
 | **Auditoría** | Hoja oculta `Auditoria` (visible al administrador en *Usuarios y sedes*): ingresos correctos y fallidos, bloqueos, cierres de sesión, acciones denegadas, contraseñas cambiadas o restablecidas, usuarios creados o modificados, exportaciones. Sin contraseñas ni datos de los casos. |
 | **Inyección de fórmulas** | Todo texto externo que empiece por `=` `+` `-` `@` se guarda como texto (`_seguroCelda_`). Una descripción como `=IMPORTXML(…)` no se ejecuta ni sale a Excel como fórmula. |
 | **Correos** | No se escribe automáticamente a EPS ni a entes de control; solo el administrador les responde. Los correos internos llevan advertencia de confidencialidad. |
+| **Encuesta NPS (enlace público)** | Cada número del correo es un enlace firmado (hash con el secreto `NPS_SECRETO`, propiedad del proyecto): sin la firma no se registra nada. Abrir el enlace solo pide confirmar (los antivirus de correo abren los enlaces) y se admite un voto por radicado. La hoja oculta `Encuestas` guarda puntaje, tipo, sede, servicio y motivo: sin nombres, documentos ni correos. No se envía a EPS/entes ni en felicitaciones. |
+| **App instalable (PWA)** | El service worker solo guarda la «cáscara» del portal y nunca intercepta las llamadas a Apps Script (otro dominio); la CSP del portal lo permite con `manifest-src` y `worker-src` `'self'`. |
 | **Exportaciones** | Solo el administrador exporta. El Excel nunca incluye la hoja `Usuarios`. El respaldo diario se guarda en la carpeta «PQRS · Respaldos (Excel)» y se conservan 14 días. |
 | **Diagnóstico de seguridad** | *Configuración ▸ Diagnóstico* revisa: acceso general del consolidado, editores externos, carpeta de respaldos compartida, número de administradores, contraseñas temporales sin cambiar, usuarios sin ingresar en 90 días y fortaleza del tema del push. |
 

@@ -442,3 +442,43 @@ assert(val(rm.codigo, 29) === "Trato digno, respetuoso y humanizado", "el motivo
 assert(G._urlPortal_() === "https://rivcarii.github.io/DEFINIDO/portal/" && /^https:\/\/rivcarii\.github\.io\/DEFINIDO\/portal\/\?pqrs=SIAU-1$/.test(G._urlPlataforma_("SIAU-1")), "los enlaces de la plataforma apuntan al portal");
 assert(/href="https:\/\/rivcarii\.github\.io\/DEFINIDO\/portal\/"[^>]*>[^<]*Ingresar a la plataforma/.test(enviados().filter(e => e.para === "nueva@miredips.org").pop().html.replace(/\s+/g, " ")) || /rivcarii\.github\.io\/DEFINIDO\/portal\//.test(enviados().filter(e => e.para === "nueva@miredips.org").pop().html), "el correo de bienvenida lleva el botón del portal");
 assert(G.apiGuardarEnlace_("https://pqrs.miredips.org/").ok && G._urlPortal_() === "https://pqrs.miredips.org/" && G.apiGuardarEnlace_("").ok && G._urlPortal_() === "https://rivcarii.github.io/DEFINIDO/portal/", "el administrador puede cambiar el enlace del portal y volver al predeterminado");
+
+// ---- v8.6: aviso 5 días antes del vencimiento y encuesta NPS ----
+console.log("---- v8.6 ----");
+const diaMas = n => new Date(Date.now() + n * 86400000);
+const nuevoCaso = (extra) => G.apiRadicar_(Object.assign({ descripcion: "Demora en la entrega de medicamentos (texto privado del caso).", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23",
+  tipoPqrs: "QUEJA", sede: "C. LA PLAYA", servicio: "Farmacia", correo: "usuaria.nps@correo.com" }, extra || {}));
+const v4 = nuevoCaso(), v6 = nuevoCaso(), vCerr = nuevoCaso(), vFel = nuevoCaso({ tipoPqrs: "FELICITACION" });
+cons.poner(fila(v4.codigo), 34, diaMas(4)); cons.poner(fila(v4.codigo), 39, "farmacia@miredips.org");
+cons.poner(fila(v6.codigo), 34, diaMas(6)); cons.poner(fila(vCerr.codigo), 34, diaMas(3)); cons.poner(fila(vCerr.codigo), 37, "Respondida - Cerrada");
+cons.poner(fila(vFel.codigo), 34, diaMas(2));
+const envAntes = enviados().length;
+const av = G._avisosVencimiento_();
+const avMail = enviados().slice(envAntes).filter(e => /\[VENCE EN/.test(e.asunto));
+assert(avMail.some(e => new RegExp(v4.codigo).test(e.asunto) && /VENCE EN 4 DÍAS/.test(e.asunto) && /farmacia@miredips\.org/.test(e.para)), "5 días antes: avisa al área responsable (faltan 4 días)");
+assert(!avMail.some(e => new RegExp(v6.codigo).test(e.asunto)), "no avisa si faltan más de 5 días");
+assert(!avMail.some(e => new RegExp(vCerr.codigo + "|" + vFel.codigo).test(e.asunto)), "no avisa casos cerrados ni felicitaciones");
+assert(avMail.every(e => !/texto privado|usuaria\.nps/.test(e.html)), "el aviso de vencimiento no lleva la descripción ni el correo del usuario");
+const envMedio = enviados().length; G._avisosVencimiento_();
+assert(enviados().length === envMedio, "el aviso de vencimiento se envía una sola vez por caso");
+cons.poner(fila(v6.codigo), 34, diaMas(5)); G._avisosVencimiento_();
+assert(enviados().slice(envMedio).some(e => new RegExp(v6.codigo).test(e.asunto) && /VENCE EN 5 DÍAS/.test(e.asunto)), "al llegar a 5 días faltantes sale el aviso");
+
+const rNps = G.apiResponderUsuario_(v4.codigo, "Ya entregamos su medicamento. Gracias por avisarnos.", true);
+const mailNps = enviados().filter(e => e.para === "usuaria.nps@correo.com").pop();
+const enlNps = (mailNps.html.match(/\?nps=[^"&]+&amp;k=[a-f0-9]+&amp;p=9/) || [""])[0].replace(/&amp;/g, "&");
+assert(mailNps && /recomiende MiRed IPS/.test(mailNps.html) && enlNps, "la respuesta final al usuario trae la encuesta NPS con enlaces firmados");
+const kNps = (enlNps.match(/k=([a-f0-9]+)/) || [])[1];
+let pg = G._paginaNps_({ nps: v4.codigo, k: kNps, p: "9" });
+assert(/Confirma/.test(pg.__html) && G.__hojaEncuestas === undefined && (G._hojaNps_().hoja ? G._hojaNps_().hoja.getLastRow() : G._hojaNps_().getLastRow()) <= 1, "abrir el enlace no registra nada: pide confirmar (los antivirus de correo abren los enlaces)");
+pg = G._paginaNps_({ nps: v4.codigo, k: kNps, p: "9", ok: "1" });
+assert(/Gracias por su opinión/.test(pg.__html), "confirmar registra el puntaje");
+assert(/Ya registramos/.test(G._paginaNps_({ nps: v4.codigo, k: kNps, p: "2", ok: "1" }).__html), "solo un voto por radicado");
+assert(/no es válido/.test(G._paginaNps_({ nps: v4.codigo, k: "0000", p: "9", ok: "1" }).__html), "una firma falsa no registra");
+assert(/no es válido/.test(G._paginaNps_({ nps: v6.codigo, k: G._npsFirma_(v4.codigo), p: "9", ok: "1" }).__html), "la firma de un radicado no sirve para otro");
+assert(/no es válido/.test(G._paginaNps_({ nps: vFel.codigo, k: G._npsFirma_(vFel.codigo), p: "9", ok: "1" }).__html), "las felicitaciones no tienen encuesta");
+G._paginaNps_({ nps: v6.codigo, k: G._npsFirma_(v6.codigo), p: "3", ok: "1" });
+const npsRes = G.apiNps_();
+assert(npsRes.total === 2 && npsRes.promotores === 1 && npsRes.detractores === 1 && npsRes.nps === 0, "NPS = % promotores − % detractores: " + JSON.stringify(npsRes).substring(0, 120));
+assert(npsRes.porSede.length === 1 && npsRes.porMes.length === 1, "NPS por sede y por mes");
+assert(G.NPS_COLS.join("|") === "FECHA|RADICADO|PUNTAJE|TIPO|SEDE|SERVICIO|MOTIVO ESPECÍFICO", "la hoja Encuestas no guarda nombres, documentos ni correos");

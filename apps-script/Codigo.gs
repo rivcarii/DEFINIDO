@@ -89,6 +89,7 @@ function _faviconUrl_() {
   return /^https:\/\//.test(p) ? p : FAVICON_DEFECTO;
 }
 function doGet(e) {
+  if (e && e.parameter && e.parameter.nps) return _paginaNps_(e.parameter);   // v8.6: encuesta de satisfacción (enlace del correo de respuesta)
   var salida = HtmlService.createTemplateFromFile("Index").evaluate()
     .setTitle("Sistema PQRS · MiRed IPS")
     .addMetaTag("viewport", "width=device-width, initial-scale=1")
@@ -1173,6 +1174,7 @@ function apiResponderUsuario_(codigo, textoFinal, cerrar) {
       ? "Queremos contarle que su mensaje, radicado el " + base.fechaRadicacion + ", fue compartido con nuestro equipo."
       : "Damos respuesta a su <b>" + (f[C.TIPO_PQRS - 1] || "solicitud") + "</b> radicada el " + base.fechaRadicacion + ".",
     respuesta: textoFinal,
+    extraBloques: (!_esFeli(f[C.TIPO_PQRS - 1]) && !_esInstitucional_(f)) ? [_bloqueNps_(codigo)] : [],
   });
   var r = _enviar(correoUsr, (_esFeli(f[C.TIPO_PQRS - 1]) ? "Gracias por su felicitación – " : "Respuesta a su PQRS ") + codigo, textoFinal, html);
   if (!r.ok) return { ok: false, mensaje: "No se pudo enviar: " + r.error };
@@ -1946,6 +1948,7 @@ function rutinaDiaria() {
   try { if (_ajustes_().respaldoDiario) _respaldoExcel_(); } catch (e) { Logger.log("Respaldo: " + e); try { _traza("—", "Respaldo en Drive falló", String(e.message || e)); } catch (x) {} }
   try { if (_ajustes_().direccionFelicitaciones === "resumen") apiDireccionarFelicitaciones_(); } catch (e) { Logger.log("Felicitaciones: " + e); }
   try { _hojaFestivos_(); } catch (e) {}
+  try { _avisosVencimiento_(); } catch (e) { Logger.log("Aviso de vencimiento: " + e); try { _traza("—", "Aviso de vencimiento falló", String(e.message || e)); } catch (x) {} }
   var d = apiDashboard_();
   if (!d.vencidas && !d.porVencer && !d.porRevisar) return;
   var resp = apiResponsables_();
@@ -2317,7 +2320,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "8.5.1 · enlace del portal";
+var VERSION_CODIGO = "8.6 · vencimiento, NPS y app";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3824,7 +3827,7 @@ var RUTAS = {
   apiPrioritarias: [apiPrioritarias_, P_LEER], apiEvaluarRiesgo: [apiEvaluarRiesgo_, P_LEER], apiSugerirArea: [apiSugerirArea_, P_LEER, "codigo"],
   apiIdentificarPrioritarias: [apiIdentificarPrioritarias_, P_RADICAR], apiFijarRiesgo: [apiFijarRiesgo_, P_RADICAR, "codigo"],
   apiRedactarRespuesta: [apiRedactarRespuesta_, P_GESTION, "codigo"], apiDireccionarFelicitaciones: [apiDireccionarFelicitaciones_, P_GESTION],
-  apiFormularioQR: [apiFormularioQR_, P_ADMIN], apiFichaFormulario: [apiFichaFormulario_, P_RADICAR], apiCrearFormulario: [apiCrearFormulario_, P_ADMIN], apiDiagnostico: [apiDiagnostico_, P_ADMIN],
+  apiFormularioQR: [apiFormularioQR_, P_ADMIN], apiFichaFormulario: [apiFichaFormulario_, P_RADICAR], apiNps: [apiNps_, P_LEER], apiCrearFormulario: [apiCrearFormulario_, P_ADMIN], apiDiagnostico: [apiDiagnostico_, P_ADMIN],
 };
 
 /*
@@ -4900,6 +4903,7 @@ function _plantilla(o) {
   if (!feli) bloques.push({ titulo: o.interno ? "Descripción de la PQRS" : "Su mensaje", html: _parrafos_(o.descripcion, PB), color: "#94A3AB" });
   bloques.push({ titulo: "Indicaciones del SIAU", html: _parrafos_(o.gestion, PB), color: "#B98A00" });
   bloques.push({ titulo: feli && !o.interno ? "Mensaje de la institución" : "Respuesta de la institución", html: _parrafos_(o.respuesta, PB), color: feli ? "#009C4D" : "#006081" });
+  (o.extraBloques || []).forEach(function (b) { if (b) bloques.push(b); });
   return _correoDiseno_({
     variante: variante,
     etiqueta: o.reconocimiento ? "Reconocimiento · Uso interno" : (o.interno ? "Solicitud interna · Confidencial" : (feli ? "Felicitación" : "Atención al usuario")),
@@ -5521,4 +5525,175 @@ function diagnosticoPlataforma() {   // menú de la hoja
   var r = apiDiagnostico_();
   SpreadsheetApp.getUi().alert("Diagnóstico: " + r.bien + " de " + r.total + " en orden\n\n" + r.items.map(function (x) {
     return (x.ok ? "✔ " : "✖ ") + x.titulo + ": " + x.detalle + (x.solucion ? "\n    → " + x.solucion : ""); }).join("\n"));
+}
+
+
+// =====================================================================================
+// v8.6 · AVISO 5 DÍAS ANTES DEL VENCIMIENTO Y ENCUESTA DE SATISFACCIÓN (NPS)
+// =====================================================================================
+/*
+ * Aviso de vencimiento: una vez por caso, cuando faltan DIAS_AVISO_VENCER días (o menos) para la fecha máxima
+ * y el usuario aún no tiene respuesta. Va al área responsable (si no ha respondido) y a quienes reciben avisos de la sede.
+ * No lleva nombres, documentos ni descripción (regla de confidencialidad de los avisos internos).
+ * Ajuste opcional «diasAvisoVencimiento» (0 = apagado).
+ */
+var DIAS_AVISO_VENCER = 5;
+function _avisosVencimiento_() {
+  var dias = Number(_ajustes_().diasAvisoVencimiento);
+  if (isNaN(dias)) dias = DIAS_AVISO_VENCER;
+  if (dias <= 0) return { enviados: 0 };
+  var props = PropertiesService.getScriptProperties(), meta = {};
+  try { meta = JSON.parse(props.getProperty("AVISOS_VENCER") || "{}"); } catch (e) {}
+  var hoy = _soloFecha_(new Date()), ahora = Date.now(), pend = [];
+  _datos_().forEach(function (f) {
+    var cod = f[C.CODIGO - 1];
+    if (!cod || meta[cod] || _esFeli(f[C.TIPO_PQRS - 1])) return;
+    var est = _norm(f[C.ESTADO - 1]);
+    if (est.indexOf("cerrada") !== -1 || est.indexOf("respondida") !== -1 || f[C.FECHA_RTA_USUARIO - 1]) return;
+    var max = f[C.FECHA_MAX - 1];
+    if (!(max instanceof Date)) return;
+    var falta = Math.round((_soloFecha_(max).getTime() - hoy.getTime()) / 86400000);
+    if (falta < 0 || falta > dias) return;
+    pend.push({ f: f, falta: falta });
+  });
+  pend.sort(function (a, b) { return a.falta - b.falta; });
+  var enviados = 0;
+  pend.slice(0, 30).forEach(function (x) {    // tope por corrida: si hay muchos, el resto sale al día siguiente
+    var f = x.f, cod = f[C.CODIGO - 1], falta = x.falta, max = f[C.FECHA_MAX - 1];
+    var areaPend = _correoOk(f[C.CORREO_RESP - 1]) && !f[C.FECHA_RTA_AREA - 1];
+    var dest = _correosAviso_(f[C.SEDE - 1], areaPend ? [String(f[C.CORREO_RESP - 1])] : []);
+    if (!dest.length) return;
+    var cuando = falta === 0 ? "vence hoy" : (falta === 1 ? "vence mañana" : "vence en " + falta + " días");
+    var que = areaPend ? "El área responsable aún no ha enviado su respuesta."
+      : (f[C.CORREO_RESP - 1] ? "El área ya respondió: falta enviar la respuesta final al usuario." : "El caso todavía no está direccionado a un área.");
+    var html = _correoHilo_({ interno: "AVISO · " + cuando.toUpperCase(), kicker: f[C.TIPO_PQRS - 1], codigo: cod, prioridad: falta <= 2 ? "Alta" : "",
+      limite: { titulo: "Vence", valor: _fmt(max), nota: "Faltan " + falta + (falta === 1 ? " día." : " días.") },
+      titulo: "Este caso " + cuando,
+      mensaje: que + "\n\nPara que el SIAU alcance a responder dentro del término, envíe cuanto antes la información o la respuesta." +
+        (areaPend ? "" : "\n\nSi ya está resuelto, regístrelo en la plataforma para cerrar el aviso."),
+      fechas: { recepcion: _fmt(f[C.FECHA_RECEPCION - 1]), radicacion: _fmt(f[C.FECHA_RADICACION - 1]), max: _fmt(max) },
+      detalles: [["Sede", f[C.SEDE - 1]], ["Servicio", f[C.SERVICIO - 1]], ["Área", f[C.RESPONSABLE - 1] || "Sin asignar"]],
+      boton: { texto: "Abrir el caso", url: _urlPlataforma_(cod) } });
+    var r = _enviar(dest.join(","), "[VENCE EN " + falta + (falta === 1 ? " DÍA" : " DÍAS") + "] " + cod + " · " + (f[C.TIPO_PQRS - 1] || "PQRS"), "PQRS " + cod + " " + cuando, html);
+    if (!r.ok) return;
+    meta[cod] = ahora; enviados++;
+    _traza(cod, "Aviso de vencimiento", cuando + " · enviado a " + dest.join(", "));
+    try { _avisoChat_(_lineaChat_("[" + cuando.toUpperCase() + "]", cod, [f[C.TIPO_PQRS - 1], f[C.SEDE - 1]], "Vence " + _fmt(max)), falta <= 2 ? 4 : 3); } catch (e) {}
+  });
+  Object.keys(meta).forEach(function (k) { if (ahora - meta[k] > 150 * 86400000) delete meta[k]; });
+  props.setProperty("AVISOS_VENCER", JSON.stringify(meta));
+  return { enviados: enviados };
+}
+
+/*
+ * Encuesta NPS (0 a 10): «¿Qué tan probable es que recomiende MiRed IPS a un familiar o amigo?».
+ * Sale en el correo de respuesta final al usuario (no a EPS/entes ni en felicitaciones). Cada número es un enlace firmado
+ * (NPS_SECRETO) al /exec de Apps Script: abre una pantalla que pide CONFIRMAR, porque los antivirus de correo abren los enlaces
+ * y registrarían puntajes falsos. Un solo voto por radicado. La hoja «Encuestas» no guarda nombres ni documentos.
+ */
+var NPS_COLS = ["FECHA", "RADICADO", "PUNTAJE", "TIPO", "SEDE", "SERVICIO", "MOTIVO ESPECÍFICO"];
+function _hojaNps_() {
+  var ss = _ss_(), h = ss.getSheetByName("Encuestas");
+  if (h) return h;
+  h = ss.insertSheet("Encuestas");
+  h.getRange(1, 1, 1, NPS_COLS.length).setValues([NPS_COLS]);
+  try { h.getRange(1, 1, 1, NPS_COLS.length).setFontWeight("bold").setBackground("#00475F").setFontColor("#FFFFFF"); h.setFrozenRows(1); h.hideSheet(); } catch (e) {}
+  return h;
+}
+function _npsFirma_(codigo) {
+  var props = PropertiesService.getScriptProperties(), sec = props.getProperty("NPS_SECRETO");
+  if (!sec) { sec = Utilities.getUuid() + Utilities.getUuid(); props.setProperty("NPS_SECRETO", sec); }
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, sec + "|" + codigo, Utilities.Charset.UTF_8)
+    .map(function (b) { return ("0" + (b & 255).toString(16)).slice(-2); }).join("").substring(0, 24);
+}
+function _npsEnlace_(codigo, puntaje, confirmar) {
+  var u = _urlBase_();
+  if (!u) return "";
+  return u + "?nps=" + encodeURIComponent(codigo) + "&k=" + _npsFirma_(codigo) + (puntaje === undefined || puntaje === null ? "" : "&p=" + puntaje) + (confirmar ? "&ok=1" : "");
+}
+/** Bloque del correo de respuesta: escala 0–10 con un enlace por número. */
+function _bloqueNps_(codigo) {
+  if (!_urlBase_()) return null;
+  var celdas = "";
+  for (var i = 0; i <= 10; i++) {
+    var col = i <= 6 ? "#E20A31" : (i <= 8 ? "#F29D00" : "#009C4D");
+    celdas += '<td align="center" style="padding:0 2px 6px;"><a href="' + _html_(_npsEnlace_(codigo, i)) + '" style="display:block;background:' + col +
+      ';color:#ffffff;text-decoration:none;border-radius:8px;font-family:' + FT + ';font-weight:900;font-size:14px;line-height:34px;">' + i + '</a></td>';
+  }
+  var html = '<p style="margin:0 0 10px 0;font-family:' + FF + ';font-size:13.5px;line-height:1.6;color:#2B3A42;">En una escala de 0 a 10, <b>¿qué tan probable es que recomiende MiRed IPS a un familiar o amigo?</b></p>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 4px;"><tr>' + celdas + '</tr></table>' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 12px;"><tr>' +
+    '<td align="left" style="font-family:' + FF + ';font-size:11px;color:#6B7F89;">0 · Nada probable</td><td align="right" style="font-family:' + FF + ';font-size:11px;color:#6B7F89;">10 · Muy probable</td></tr></table>';
+  return { titulo: "Cuéntenos cómo fue su experiencia", html: html, color: "#006081" };
+}
+function _npsRegistrar_(codigo, puntaje, firma) {
+  if (!/^SIAU-\d{4}-\d{2}-\d{4}$/.test(codigo) || !/^\d{1,2}$/.test(String(puntaje)) || Number(puntaje) > 10 || firma !== _npsFirma_(codigo))
+    return { ok: false, motivo: "invalido" };
+  var fila = _filaDe(codigo);
+  if (fila < 0) return { ok: false, motivo: "invalido" };
+  var f = _h(CFG.HOJA_DATOS).getRange(fila, 1, 1, CFG.NCOL).getValues()[0];
+  if (_esFeli(f[C.TIPO_PQRS - 1]) || _esInstitucional_(f)) return { ok: false, motivo: "invalido" };
+  var lock = LockService.getScriptLock(); lock.waitLock(20000);
+  try {
+    var h = _hojaNps_(), n = h.getLastRow();
+    if (n > 1 && h.getRange(2, 2, n - 1, 1).getValues().some(function (r) { return r[0] === codigo; })) return { ok: false, motivo: "repetido" };
+    h.appendRow([new Date(), codigo, Number(puntaje), _seguroCelda_(String(f[C.TIPO_PQRS - 1] || "")), _seguroCelda_(String(f[C.SEDE - 1] || "")),
+      _seguroCelda_(String(f[C.SERVICIO - 1] || "")), _seguroCelda_(String(f[C.TIPOLOGIA - 1] || ""))]);
+    _traza(codigo, "Encuesta de satisfacción", "Puntaje " + puntaje + " de 10");
+    return { ok: true, puntaje: Number(puntaje) };
+  } finally { lock.releaseLock(); }
+}
+function _paginaNps_(q) {
+  var codigo = String(q.nps || "").trim(), firma = String(q.k || ""), p = q.p === undefined ? null : String(q.p);
+  var u = _urlBase_();
+  var marco = function (titulo, cuerpo) {
+    return HtmlService.createHtmlOutput('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">' +
+      '<title>Encuesta de satisfacción · MiRed IPS</title></head><body style="margin:0;background:#EDF2F4;font-family:' + FF + ';">' +
+      '<div style="max-width:520px;margin:0 auto;padding:28px 16px;"><div style="background:#fff;border-radius:18px;overflow:hidden;border:1px solid #DDE6EA;">' +
+      '<div style="background:#00475F;padding:20px 24px;"><img src="data:image/png;base64,' + LOGO_SIAU_B_BASE64 + '" alt="SIAU · MiRed IPS" style="height:44px;display:block;"></div>' +
+      '<div style="height:4px;background:linear-gradient(90deg,#006081 60%,#E20A31 60% 75%,#FEDC00 75% 88%,#009C4D 88%);"></div>' +
+      '<div style="padding:26px 24px 28px;"><h1 style="margin:0 0 10px;font-family:' + FT + ';font-weight:900;font-size:22px;color:#00475F;">' + _html_(titulo) + '</h1>' + cuerpo +
+      '</div></div><p style="text-align:center;font-size:11px;color:#8398A3;margin:14px 0 0;">Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</p></div></body></html>')
+      .setTitle("Encuesta de satisfacción · MiRed IPS");
+  };
+  var parr = function (t) { return '<p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#2B3A42;">' + t + '</p>'; };
+  if (firma !== _npsFirma_(codigo) || !/^SIAU-\d{4}-\d{2}-\d{4}$/.test(codigo)) return marco("Este enlace no es válido", parr("Si recibió un correo con la encuesta, ábralo de nuevo desde allí."));
+  if (p === null || !/^\d{1,2}$/.test(p) || Number(p) > 10) return marco("Gracias por su tiempo", parr("Vuelva al correo y elija un número del 0 al 10."));
+  if (q.ok !== "1") {
+    var col = Number(p) <= 6 ? "#E20A31" : (Number(p) <= 8 ? "#F29D00" : "#009C4D");
+    return marco("¿Confirma su calificación?", parr("Usted calificó con") +
+      '<div style="text-align:center;margin:6px 0 18px;"><span style="display:inline-block;background:' + col + ';color:#fff;border-radius:16px;font-family:' + FT + ';font-weight:900;font-size:44px;padding:10px 30px;">' + Number(p) + '</span></div>' +
+      '<a target="_top" href="' + _html_(_npsEnlace_(codigo, Number(p), true)) + '" style="display:block;text-align:center;background:#006081;color:#fff;text-decoration:none;border-radius:12px;padding:14px;font-weight:700;font-size:16px;">Confirmar y enviar</a>' +
+      parr('<span style="display:block;text-align:center;margin-top:14px;font-size:13px;color:#6B7F89;">¿Se equivocó? Vuelva al correo y elija otro número.</span>'));
+  }
+  var r = _npsRegistrar_(codigo, p, firma);
+  if (r.ok) {
+    var msg = r.puntaje >= 9 ? "Nos alegra mucho. Compartiremos su opinión con el equipo que le atendió."
+      : (r.puntaje >= 7 ? "Gracias por su opinión. Seguiremos trabajando para mejorar su experiencia." : "Lamentamos que su experiencia no haya sido la mejor. Su opinión nos ayuda a mejorar y la revisaremos con el equipo.");
+    return marco("¡Gracias por su opinión!", parr(msg) + parr("Si desea contarnos más, escríbanos a <b>" + _html_(_param(3) || "siau@miredips.org") + "</b>."));
+  }
+  if (r.motivo === "repetido") return marco("Ya registramos su opinión", parr("Solo se puede responder una vez por solicitud. ¡Gracias!"));
+  return marco("Este enlace no es válido", parr("Si recibió un correo con la encuesta, ábralo de nuevo desde allí."));
+}
+/** Resultado del NPS para el tablero: respeta las sedes del usuario. NPS = % promotores (9–10) − % detractores (0–6). */
+function apiNps_() {
+  var h = _hojaNps_(), n = h.getLastRow(), tz = _tz_();
+  var filas = n > 1 ? h.getRange(2, 1, n - 1, NPS_COLS.length).getValues() : [];
+  var calc = function (arr) {
+    var t = arr.length, pro = 0, pas = 0, det = 0;
+    arr.forEach(function (r) { var p = Number(r[2]); if (p >= 9) pro++; else if (p >= 7) pas++; else det++; });
+    return { total: t, promotores: pro, pasivos: pas, detractores: det, nps: t ? Math.round((pro - det) * 100 / t) : null };
+  };
+  var visibles = filas.filter(function (r) { return r[1] && _sedeVisible_(r[4]); });
+  var por = function (idx, formato) {
+    var g = {};
+    visibles.forEach(function (r) { var k = formato ? formato(r[idx]) : String(r[idx] || "Sin dato"); (g[k] = g[k] || []).push(r); });
+    return Object.keys(g).sort().map(function (k) { var c = calc(g[k]); c.nombre = k; return c; });
+  };
+  var res = calc(visibles);
+  res.ok = true;
+  res.porMes = por(0, function (d) { return d instanceof Date ? Utilities.formatDate(d, tz, "yyyy-MM") : String(d).substring(0, 7); }).slice(-12);
+  res.porSede = por(4);
+  res.porMotivo = por(6).filter(function (x) { return x.nombre !== "Sin dato"; });
+  return res;
 }

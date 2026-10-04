@@ -452,3 +452,23 @@ else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || "");
 </script>
 </body>
 </html>
+
+<script>
+/* v8.6 · App instalable (solo cuando la interfaz corre como portal): botón «Instalar la app» y ayuda para iPhone. */
+(function(){
+  function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; }
+  function pintar(){
+    var puede = !!window.__instalarApp && !standalone();
+    ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.hidden = !puede; });
+    var ios = document.getElementById("instalarIos");
+    if(ios) ios.hidden = !(window.PQRS_API && /iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone());
+  }
+  function instalar(){
+    var e = window.__instalarApp; if(!e) return;
+    e.prompt(); e.userChoice.then(function(){ window.__instalarApp = null; pintar(); });
+  }
+  ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.addEventListener("click", instalar); });
+  window.addEventListener("pqrs-instalable", pintar);
+  document.addEventListener("DOMContentLoaded", pintar);
+})();
+</script>

@@ -1189,6 +1189,18 @@ table.tb tr[data-cod]:hover td{background:var(--teal-wash-2)}
 .lateral,#menu{scrollbar-width:none;-ms-overflow-style:none}
 .lateral::-webkit-scrollbar,#menu::-webkit-scrollbar{display:none;width:0;height:0}
 .lateral{overflow-y:auto;overflow-x:hidden}
+/* NPS (tablero) */
+.nps{margin-top:16px}.nps h3{margin:0}.nps .sub{margin:2px 0 0;font-size:12.5px;color:var(--ink-3)}
+.nps-cab{display:flex;justify-content:space-between;align-items:flex-start;gap:14px}
+.nps-gran{font-family:var(--display);font-weight:900;font-size:clamp(38px,5vw,56px);line-height:1}
+.nps-barra{display:flex;height:12px;border-radius:99px;overflow:hidden;margin:14px 0 8px;background:var(--surface-3)}.nps-barra i{display:block;height:100%}
+.nps-leyenda{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--ink-2)}.nps-leyenda b{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px}
+.nps-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px;margin-top:16px}
+.nps-cols h4{margin:0 0 6px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3)}
+.nps-fila{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:10px;align-items:baseline;padding:5px 0;border-bottom:1px solid var(--line);font-size:13px}
+.nps-n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.nps-v{font-weight:800}.nps-c{color:var(--ink-3);font-size:11.5px}
+.nps-meses{display:flex;align-items:flex-end;gap:6px;height:64px;padding-top:4px}.nps-mes{display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10px;color:var(--ink-3)}.nps-mes i{display:block;width:14px;border-radius:4px 4px 0 0}
+.instalar-app{width:100%;margin-top:10px}.instalar-ios{margin:10px 2px 0;font-size:12.5px;color:var(--ink-3);text-align:center}
 .acceso-pie{position:relative;z-index:2}
 .acceso-pie .vigilado img{height:clamp(24px,4vh,34px)}
 .acceso-form{min-height:0;overflow:auto;padding:clamp(16px,3vh,48px) clamp(20px,3vw,56px)}
@@ -3661,6 +3673,8 @@ document.addEventListener("DOMContentLoaded", function(){
       <div id="accAviso"></div>
       <div id="accCampos"></div>
       <button class="b pri" id="btnAcceso" type="button">Ingresar</button>
+      <button class="b sec instalar-app" id="btnInstalarAcceso" type="button" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
+      <p class="hint instalar-ios" id="instalarIos" hidden>En iPhone o iPad: toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b> para instalar la app.</p>
     </div>
   </div>
 </div>
@@ -3712,6 +3726,7 @@ document.addEventListener("DOMContentLoaded", function(){
   <div class="panel-flot menu-perfil" id="menuPerfil" hidden>
     <div class="cab"><span class="avatar" id="avatar2">?</span><div><b id="perfilNombre"></b><span id="perfilRol"></span></div></div>
     <button type="button" id="btnEscritorio"><svg class="ic s"><use href="#i-campana"/></svg>Activar avisos del escritorio</button>
+    <button type="button" id="btnInstalarMenu" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
     <button type="button" id="btnMiClave"><svg class="ic s"><use href="#i-candado"/></svg>Cambiar mi contraseña</button>
     <button type="button" class="peligro" id="btnSalir"><svg class="ic s"><use href="#i-salir"/></svg>Cerrar sesión</button>
   </div>
@@ -3924,6 +3939,7 @@ document.addEventListener("DOMContentLoaded", function(){
       <div id="bloqueExcel" hidden><button class="b pri" id="btnExportarExcel" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Exportar a Excel</button></div>
     </div>
     <div id="tableroCuerpo"></div>
+    <div id="npsCard"></div>
   </section>
 
   <!-- ===================== RESPONSABLES ===================== -->
@@ -5458,6 +5474,7 @@ var etiquetasBarras = {
 if(window.Chart) Chart.register(etiquetasBarras);
 
 function cargarTablero(){
+  if(typeof cargarNps === "function") cargarNps();
   $("tableroCuerpo").innerHTML = '<div class="sk-tarjetas"><div class="sk"></div><div class="sk"></div><div class="sk"></div><div class="sk"></div></div>'+
     '<div class="bi-grid"><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div><div class="sk" style="height:300px"></div></div>';
   var anio = $("dAnio").value;
@@ -6218,6 +6235,33 @@ function alarmaVisual(suave){
   setTimeout(function(){ document.body.classList.remove("alarma", "alarma-suave"); }, suave ? 1600 : 3200);
 }
 </script>
+
+<script>
+/* v8.6 · Satisfacción de los usuarios (NPS): sale en el correo de respuesta final; aquí se ve el resultado. */
+function cargarNps(){
+  var cont = $("npsCard"); if(!cont) return;
+  srvSilencioso("apiNps").then(function(r){
+    if(!r || r.ok === false){ cont.innerHTML = ""; return; }
+    var color = function(n){ return n === null ? "var(--ink-3)" : n >= 50 ? "#009C4D" : n >= 0 ? "#F29D00" : "#E20A31"; };
+    var etiqueta = function(n){ return n === null ? "—" : (n > 0 ? "+" : "") + n; };
+    if(!r.total){
+      cont.innerHTML = '<div class="card nps"><h3>Satisfacción de los usuarios (NPS)</h3><p class="sub">Aún no hay respuestas. La pregunta «¿qué tan probable es que recomiende MiRed IPS?» (0 a 10) llega en el correo de respuesta final a cada usuario.</p></div>';
+      return;
+    }
+    var pc = function(n){ return Math.round(n * 100 / r.total); };
+    var fila = function(x){ return '<div class="nps-fila"><span class="nps-n">'+esc(x.nombre)+'</span><span class="nps-v" style="color:'+color(x.nps)+'">'+etiqueta(x.nps)+'</span><span class="nps-c">'+x.total+' resp.</span></div>'; };
+    var meses = (r.porMes||[]).map(function(m){ var h = m.nps === null ? 4 : Math.max(6, Math.round((m.nps + 100) * 0.26)); return '<div class="nps-mes" title="'+esc(m.nombre)+': '+etiqueta(m.nps)+' ('+m.total+')"><i style="height:'+h+'px;background:'+color(m.nps)+'"></i><span>'+esc(String(m.nombre).substring(5))+'</span></div>'; }).join("");
+    cont.innerHTML = '<div class="card nps"><div class="nps-cab"><div><h3>Satisfacción de los usuarios (NPS)</h3><p class="sub">Promotores (9–10) menos detractores (0–6), sobre '+r.total+' respuestas.</p></div>'+
+      '<div class="nps-gran" style="color:'+color(r.nps)+'">'+etiqueta(r.nps)+'</div></div>'+
+      '<div class="nps-barra" role="img" aria-label="Detractores '+pc(r.detractores)+'%, pasivos '+pc(r.pasivos)+'%, promotores '+pc(r.promotores)+'%">'+
+        '<i style="width:'+pc(r.detractores)+'%;background:#E20A31"></i><i style="width:'+pc(r.pasivos)+'%;background:#F29D00"></i><i style="width:'+pc(r.promotores)+'%;background:#009C4D"></i></div>'+
+      '<div class="nps-leyenda"><span><b style="background:#E20A31"></b>Detractores '+pc(r.detractores)+'%</span><span><b style="background:#F29D00"></b>Pasivos '+pc(r.pasivos)+'%</span><span><b style="background:#009C4D"></b>Promotores '+pc(r.promotores)+'%</span></div>'+
+      '<div class="nps-cols"><div><h4>Por sede</h4>'+(r.porSede||[]).map(fila).join("")+'</div>'+
+      ((r.porMotivo||[]).length ? '<div><h4>Por motivo específico</h4>'+r.porMotivo.map(fila).join("")+'</div>' : '')+
+      '<div><h4>Por mes</h4><div class="nps-meses">'+meses+'</div></div></div></div>';
+  }).catch(function(){ cont.innerHTML = ""; });
+}
+</script>
 <script>
 /* ============================ ACCESO ============================ */
 function guardarToken(t, recordar){
@@ -6672,3 +6716,23 @@ else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || "");
 </script>
 </body>
 </html>
+
+<script>
+/* v8.6 · App instalable (solo cuando la interfaz corre como portal): botón «Instalar la app» y ayuda para iPhone. */
+(function(){
+  function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; }
+  function pintar(){
+    var puede = !!window.__instalarApp && !standalone();
+    ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.hidden = !puede; });
+    var ios = document.getElementById("instalarIos");
+    if(ios) ios.hidden = !(window.PQRS_API && /iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone());
+  }
+  function instalar(){
+    var e = window.__instalarApp; if(!e) return;
+    e.prompt(); e.userChoice.then(function(){ window.__instalarApp = null; pintar(); });
+  }
+  ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.addEventListener("click", instalar); });
+  window.addEventListener("pqrs-instalable", pintar);
+  document.addEventListener("DOMContentLoaded", pintar);
+})();
+</script>
