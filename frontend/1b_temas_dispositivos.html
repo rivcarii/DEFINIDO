@@ -1,0 +1,177 @@
+<style>
+/* ===========================================================================
+   v8.7 · FONDO, TEMAS (claro · oscuro · monocromático · cálido), AJUSTES POR DISPOSITIVO Y ANIMACIONES DE CARGA
+   Los temas solo cambian variables (--ground, --surface, --ink, --teal…) y unos pocos fondos que eran blancos fijos.
+   El atributo data-tema lo pone el script del <head>; data-so = ios | android | escritorio; data-form = movil | tablet | escritorio.
+   =========================================================================== */
+:root{
+  --fondo-a:rgba(15,127,166,.13); --fondo-b:rgba(0,156,77,.10); --fondo-c:rgba(254,220,0,.10);
+  --blanco:#FFFFFF; --panel:rgba(255,255,255,.84); --panel-borde:rgba(255,255,255,.78); --campo:#FFFFFF;
+  --sobre-teal:#FFFFFF; --lateral-a:#004B64; --lateral-b:#00384B; --lateral-c:#002E3E;
+  --sombra-color:12,40,56; --foco:rgba(0,96,129,.35);
+}
+/* --- Fondo propio: cubre SIEMPRE toda la pantalla (antes el degradado se cortaba y quedaba una franja blanca, sobre todo en iPhone) --- */
+html{background:var(--ground);min-height:100%;-webkit-text-size-adjust:100%;text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+html::before{content:"";position:fixed;inset:0;z-index:-2;pointer-events:none;
+  background:radial-gradient(900px 620px at 0% 0%,var(--fondo-a),transparent 62%),radial-gradient(760px 560px at 100% 100%,var(--fondo-b),transparent 62%),radial-gradient(520px 380px at 88% 6%,var(--fondo-c),transparent 62%),var(--ground)}
+html::after{content:"";position:fixed;inset:-10%;z-index:-1;pointer-events:none;opacity:.9;
+  background:radial-gradient(40vmax 40vmax at 20% 30%,var(--fondo-a),transparent 60%),radial-gradient(34vmax 34vmax at 80% 70%,var(--fondo-b),transparent 60%);
+  animation:deriva 38s ease-in-out infinite alternate;will-change:transform}
+@keyframes deriva{from{transform:translate3d(-2%,-1%,0) scale(1)}to{transform:translate3d(3%,2%,0) scale(1.06)}}
+body{min-height:100vh;min-height:100dvh}
+.app,.acceso{min-height:100vh;min-height:100dvh}
+
+/* --- Variables por tema --- */
+html[data-tema="oscuro"]{
+  color-scheme:dark;
+  --ground:#0A1319; --surface:#111D25; --surface-2:#16252E; --surface-3:#1D2F39;
+  --ink:#E8F0F4; --ink-2:#B1C2CB; --ink-3:#8A9CA7;
+  --line:rgba(255,255,255,.09); --line-2:rgba(255,255,255,.17);
+  --teal:#2A91BA; --teal-2:#4DB1D8; --teal-dark:#9ADAF1; --teal-wash:rgba(42,145,186,.18); --teal-wash-2:rgba(42,145,186,.10);
+  --ok:#5FD39A; --ok-wash:rgba(0,156,77,.18); --warn:#F5B84B; --warn-wash:rgba(242,157,0,.17);
+  --bad:#FF7088; --bad-wash:rgba(226,10,49,.20); --star:#5FD39A; --star-wash:rgba(0,156,77,.18);
+  --fill:rgba(160,180,195,.16); --fill-2:rgba(160,180,195,.10);
+  --vidrio:rgba(17,29,37,.72); --vidrio-borde:rgba(255,255,255,.10); --brillo:inset 0 1px 0 rgba(255,255,255,.06);
+  --sh-1:0 1px 2px rgba(0,0,0,.4); --sh-2:0 1px 2px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.35); --sh-3:0 30px 80px rgba(0,0,0,.6),0 8px 24px rgba(0,0,0,.4);
+  --fondo-a:rgba(42,145,186,.16); --fondo-b:rgba(0,156,77,.08); --fondo-c:rgba(254,220,0,.04);
+  --blanco:#16252E; --panel:rgba(22,37,46,.9); --panel-borde:rgba(255,255,255,.10); --campo:#0F1A21;
+  --lateral-a:#0D2A38; --lateral-b:#0A1F2A; --lateral-c:#08171F; --foco:rgba(77,177,216,.5); --sombra-color:0,0,0;
+}
+html[data-tema="mono"]{
+  --ground:#ECECEC; --surface:#FFFFFF; --surface-2:#F4F4F4; --surface-3:#E6E6E6;
+  --ink:#111111; --ink-2:#464646; --ink-3:#7A7A7A;
+  --line:rgba(0,0,0,.12); --line-2:rgba(0,0,0,.22);
+  --teal:#2A2A2A; --teal-2:#555555; --teal-dark:#000000; --teal-wash:rgba(0,0,0,.07); --teal-wash-2:rgba(0,0,0,.04);
+  --ok:#2E2E2E; --ok-wash:#E4E4E4; --warn:#555555; --warn-wash:#EAEAEA; --bad:#000000; --bad-wash:#DADADA; --star:#2E2E2E; --star-wash:#E4E4E4;
+  --rojo:#111; --amarillo:#BBB; --verde:#666;
+  --t-queja:#111111; --t-reclamo:#4D4D4D; --t-sugerencia:#737373; --t-felicitacion:#999999; --t-peticion:#333333; --t-tutela:#666666; --t-denuncia:#222222;
+  --fondo-a:rgba(0,0,0,.05); --fondo-b:rgba(0,0,0,.04); --fondo-c:rgba(0,0,0,.02);
+  --lateral-a:#2B2B2B; --lateral-b:#1F1F1F; --lateral-c:#161616; --foco:rgba(0,0,0,.4);
+}
+html[data-tema="calido"]{
+  --ground:#F6EFE6; --surface:#FFFCF7; --surface-2:#FBF5EC; --surface-3:#F0E6D8;
+  --ink:#2D2118; --ink-2:#6A5848; --ink-3:#9A8774;
+  --line:rgba(120,80,40,.14); --line-2:rgba(120,80,40,.24);
+  --teal:#B5541C; --teal-2:#D26A2A; --teal-dark:#7C3412; --teal-wash:rgba(181,84,28,.11); --teal-wash-2:rgba(181,84,28,.06);
+  --ok:#2F7A3E; --ok-wash:#E2F0DD; --warn:#8A5A00; --warn-wash:#FBEBCB; --bad:#B01E2E; --bad-wash:#F8DCD8; --star:#2F7A3E; --star-wash:#E2F0DD;
+  --fill:rgba(140,100,60,.12); --fill-2:rgba(140,100,60,.08);
+  --vidrio:rgba(255,250,242,.7); --vidrio-borde:rgba(255,248,235,.85);
+  --fondo-a:rgba(210,106,42,.14); --fondo-b:rgba(242,157,0,.10); --fondo-c:rgba(226,10,49,.05);
+  --blanco:#FFFCF7; --panel:rgba(255,251,245,.88); --panel-borde:rgba(255,248,235,.85); --campo:#FFFDF9;
+  --lateral-a:#8A3F14; --lateral-b:#6E310F; --lateral-c:#552609; --foco:rgba(181,84,28,.4); --sombra-color:90,50,20;
+}
+::selection{background:var(--teal-wash)}
+:focus-visible{outline-color:var(--foco)}
+
+/* --- Superficies que eran blancas fijas: ahora siguen al tema --- */
+.lat-marca,.lat-usuario{background:var(--panel);color:var(--ink)}
+.top,.tabbar,.modal-cab,.panel-flot,.centro,.toast,.form-card,.barra-guardar,.campana{background:var(--panel);color:var(--ink);border-color:var(--panel-borde)}
+.msg,.seg button,.anio,.etapas button.on,.tabs-acc button.on,.ficha-qr{background:var(--blanco)}
+input:where(:not([type=checkbox]):not([type=radio])),select,textarea{color:var(--ink)}
+input:where(:not([type=checkbox]):not([type=radio])):focus,select:focus,textarea:focus,.buscar-global input:focus{background:var(--campo)}
+.interruptor i::after{background:#fff}
+html[data-tema="oscuro"] .card,html[data-tema="oscuro"] .bi-card,html[data-tema="oscuro"] .ulista,html[data-tema="oscuro"] .resp-tabla,html[data-tema="oscuro"] .resp-fila{background:var(--surface)}
+html[data-tema="oscuro"] .ufila.cab,html[data-tema="oscuro"] .resp-fila.cab{background:var(--surface-2)}
+html[data-tema="oscuro"] input:where(:not([type=checkbox]):not([type=radio])),html[data-tema="oscuro"] select,html[data-tema="oscuro"] textarea{background:var(--campo);border-color:var(--line-2);color:var(--ink)}
+html[data-tema="oscuro"] .acceso-form,html[data-tema="oscuro"] .acceso{background:var(--ground)}
+html[data-tema="oscuro"] .form-card{background:var(--surface);border-color:var(--line)}
+html[data-tema="oscuro"] .form-card h2,html[data-tema="oscuro"] .form-card label{color:var(--ink)}
+html[data-tema="oscuro"] .aviso.info,html[data-tema="oscuro"] .banda-sug,html[data-tema="oscuro"] .dir-guia{background:var(--teal-wash-2);border-color:var(--line)}
+html[data-tema="oscuro"] .ficha-qr,html[data-tema="oscuro"] .qr-lienzo{background:#fff}
+html[data-tema="oscuro"] .modal-cab,html[data-tema="oscuro"] .modal>div{background:var(--surface)}
+html[data-tema="oscuro"] [style*="background:#fff"],html[data-tema="oscuro"] [style*="background:#FFF"]{background:var(--surface)!important}
+html[data-tema="oscuro"] .b.pri{color:#fff}
+.nivel.vnna,.fila .nivel.vnna{color:#fff!important}   /* el texto de la etiqueta roja sólida nunca debe heredar el gris de la fila */
+/* etiquetas de colores claros (nivel, prioridad, rol, entidad…): en oscuro pasan a fondo translúcido con texto aclarado */
+html[data-tema="oscuro"] :is(.ent,.nivel:not(.vnna),.prio,.rol,.ico,.bola){background:color-mix(in srgb,currentColor 20%,transparent)!important;color:color-mix(in srgb,currentColor 40%,#fff)!important}
+/* monocromático: todo lo que traía color propio se ve en grises */
+html[data-tema="calido"] .hero-saludo{background:linear-gradient(135deg,#6E310F,#B5541C 62%,#D26A2A)}
+html[data-tema="mono"] img:not(.mono-no),html[data-tema="mono"] canvas,html[data-tema="mono"] .avatar,html[data-tema="mono"] .chip,html[data-tema="mono"] .badge,
+html[data-tema="mono"] .nivel,html[data-tema="mono"] .rol,html[data-tema="mono"] .pr-card,html[data-tema="mono"] .pr-k,html[data-tema="mono"] .banda-riesgo,
+html[data-tema="mono"] .hero-saludo,html[data-tema="mono"] .ico,html[data-tema="mono"] .estado-c,html[data-tema="mono"] .sem,html[data-tema="mono"] .nps-barra,html[data-tema="mono"] .nps-gran,html[data-tema="mono"] .solar,html[data-tema="mono"] .sk-orbita{filter:grayscale(1)}
+
+/* --- Selector de tema --- */
+.temas{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.temas-tit{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3);margin-right:2px}
+.temas button{display:inline-flex;align-items:center;gap:7px;border:1px solid var(--line-2);background:var(--blanco);color:var(--ink-2);border-radius:99px;padding:5px 11px 5px 6px;font:600 12px var(--sans);cursor:pointer;
+  transition:transform .16s var(--ease),border-color .18s,box-shadow .18s,background .18s}
+.temas button i{width:16px;height:16px;border-radius:50%;display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.18)}
+.temas button[data-tema="claro"] i{background:linear-gradient(135deg,#fff 50%,#006081 50%)}
+.temas button[data-tema="oscuro"] i{background:linear-gradient(135deg,#16252E 50%,#2A91BA 50%)}
+.temas button[data-tema="mono"] i{background:linear-gradient(135deg,#F2F2F2 50%,#2A2A2A 50%)}
+.temas button[data-tema="calido"] i{background:linear-gradient(135deg,#FBF5EC 50%,#B5541C 50%)}
+.temas button:hover{transform:translateY(-1px)}
+.temas button[aria-pressed="true"]{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-wash);color:var(--ink)}
+.temas.mini{position:absolute;top:14px;right:16px;z-index:5}.temas.mini button{padding:3px;gap:0}.temas.mini button span,.temas.mini .temas-tit{display:none}
+.menu-perfil .temas{padding:8px 10px 10px;border-top:1px solid var(--line);margin-top:4px}
+.menu-perfil .temas-tit{flex-basis:100%}
+.acceso-form{position:relative}
+
+/* --- Animaciones de carga: el «sistema solar» de las siglas P · Q · R · S --- */
+.solar{--d:64px;position:relative;width:var(--d);height:var(--d);flex:none;display:inline-block}
+.solar .nucleo{position:absolute;inset:34%;border-radius:50%;background:radial-gradient(circle at 35% 30%,#7fd0ee,var(--teal) 60%,#00475F);box-shadow:0 0 0 0 rgba(0,128,170,.45);animation:latido 1.6s ease-in-out infinite}
+.solar b{position:absolute;inset:0;border-radius:50%;border:1px dashed rgba(120,150,165,.35);animation:giro var(--t,3s) linear infinite}
+.solar b::after{content:"";position:absolute;left:50%;top:0;width:22%;height:22%;margin:-11% 0 0 -11%;border-radius:50%;background:var(--c);box-shadow:0 0 10px var(--c)}
+.solar b:nth-of-type(1){inset:6%;--c:#7B4FB8;--t:2.4s}.solar b:nth-of-type(2){inset:-4%;--c:#E20A31;--t:3.4s;animation-direction:reverse}
+.solar b:nth-of-type(3){inset:-14%;--c:#F29D00;--t:4.6s}
+@keyframes giro{to{transform:rotate(360deg)}}
+@keyframes latido{0%,100%{transform:scale(.9);box-shadow:0 0 0 0 rgba(0,128,170,.4)}50%{transform:scale(1.08);box-shadow:0 0 0 12px rgba(0,128,170,0)}}
+.solar.s{--d:26px}.solar.s b{border:0}.solar.s b::after{box-shadow:none}
+/* aviso flotante cuando una consulta tarda (aparece pasados ~0,5 s) */
+#cargaPill{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom,0px));transform:translate(-50%,24px);z-index:92;display:flex;align-items:center;gap:12px;padding:8px 18px 8px 12px;border-radius:99px;
+  background:var(--panel);border:1px solid var(--panel-borde);box-shadow:var(--sh-3);-webkit-backdrop-filter:blur(16px) saturate(1.6);backdrop-filter:blur(16px) saturate(1.6);
+  font:700 13px var(--sans);color:var(--ink);opacity:0;pointer-events:none;transition:opacity .25s var(--ease),transform .35s var(--ease)}
+#cargaPill.on{opacity:1;transform:translate(-50%,0)}
+#cargaPill .solar{margin:5px}
+/* pantalla de inicio (splash) */
+#splash{position:fixed;inset:0;z-index:200;display:grid;place-items:center;align-content:center;gap:22px;text-align:center;
+  background:radial-gradient(900px 600px at 20% 10%,#0A7096,transparent 60%),radial-gradient(700px 500px at 90% 100%,rgba(0,156,77,.35),transparent 60%),linear-gradient(160deg,#005A78,#00475F 55%,#00323F);color:#fff;
+  transition:opacity .55s var(--ease),transform .55s var(--ease),visibility .55s}
+#splash.fuera{opacity:0;transform:scale(1.04);visibility:hidden;pointer-events:none}
+#splash .sp-sistema{--d:150px;margin:20px}
+#splash .solar b{border-color:rgba(255,255,255,.25)}
+#splash .nucleo{display:none}
+#splash .sp-mascota{position:absolute;inset:25%;border-radius:50%;overflow:hidden;background:rgba(255,255,255,.12);box-shadow:0 10px 30px rgba(0,0,0,.35);animation:flota 3.2s ease-in-out infinite}
+#splash .sp-mascota img{width:100%;height:100%;object-fit:cover;object-position:50% 8%;display:block}
+@keyframes flota{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+#splash h1{font:900 clamp(22px,4vw,30px)/1.1 var(--display);margin:0;letter-spacing:-.01em}
+#splash p{margin:0;font-size:14px;color:rgba(255,255,255,.78)}
+#splash .sp-barra{width:min(220px,60vw);height:4px;border-radius:99px;background:rgba(255,255,255,.18);overflow:hidden;margin:0 auto}
+#splash .sp-barra i{display:block;height:100%;width:40%;border-radius:99px;background:linear-gradient(90deg,#FEDC00,#009C4D);animation:barrido 1.2s var(--ease) infinite}
+#splash .sp-franja{position:absolute;left:0;right:0;bottom:0;height:5px;display:flex}.sp-franja i{flex:1}.sp-franja i:nth-child(1){flex:6;background:#006081}.sp-franja i:nth-child(2){background:#E20A31}.sp-franja i:nth-child(3){background:#FEDC00}.sp-franja i:nth-child(4){background:#009C4D}
+/* cargando una vista: las tarjetas «respiran» */
+.sk{background:linear-gradient(90deg,var(--surface-3) 0%,var(--surface-2) 40%,var(--surface-3) 80%);background-size:320px 100%}
+/* pantalla de «sin conexión con el servidor» (portal) */
+.sin-conexion{margin:0 0 14px;padding:14px 16px;border-radius:16px;background:var(--bad-wash);border:1px solid var(--line-2);color:var(--ink);font-size:13.5px;line-height:1.5}
+.sin-conexion b{display:block;font-size:14.5px;margin-bottom:4px}
+.sin-conexion .acc{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.sin-conexion input{flex:1;min-width:200px}
+
+/* --- Ajustes por dispositivo --- */
+html[data-so="ios"] input,html[data-so="ios"] select,html[data-so="ios"] textarea{font-size:16px}   /* evita el zoom automático de Safari al escribir */
+html[data-so="ios"] .b{border-radius:999px;font-weight:600}
+html[data-so="ios"] .tabbar{padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8)}
+html[data-so="ios"] *{-webkit-touch-callout:none}html[data-so="ios"] input,html[data-so="ios"] textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
+html[data-so="ios"] body{-webkit-overflow-scrolling:touch}
+html[data-so="android"] .b{border-radius:14px;font-weight:700;position:relative;overflow:hidden}
+html[data-so="android"] .b::after{content:"";position:absolute;inset:0;background:radial-gradient(circle,rgba(255,255,255,.45) 0%,transparent 60%) center/0 0 no-repeat;opacity:0;transition:background-size .35s var(--ease),opacity .45s}
+html[data-so="android"] .b:active::after{background-size:240% 240%;opacity:1;transition:none}
+html[data-so="android"] .tabbar button,html[data-so="android"] .b{min-height:44px;touch-action:manipulation}
+html[data-so="android"] .tabbar button.on{border-radius:20px}
+html[data-so="android"] .card,html[data-so="android"] .bi-card{border-radius:18px}
+html[data-so="android"] body,html[data-so="android"] input,html[data-so="android"] select,html[data-so="android"] textarea{font-family:var(--sans)}
+/* app instalada (sin barra del navegador): respeta la muesca y la barra de estado */
+html[data-app="instalada"] body{padding-top:env(safe-area-inset-top,0px)}
+html[data-app="instalada"] .top{margin-top:calc(12px + env(safe-area-inset-top,0px))}
+/* teléfonos y tabletas */
+html[data-form="movil"] .cab-vista{flex-wrap:wrap;gap:10px}
+html[data-form="movil"] .card,html[data-form="movil"] .bi-card{border-radius:18px}
+html[data-form="movil"] .temas.mini{top:10px;right:12px}
+html[data-form="movil"] .barra-guardar{bottom:calc(86px + env(safe-area-inset-bottom,0px))}   /* por encima de la barra de pestañas */
+html[data-form="movil"] #cargaPill{bottom:calc(92px + env(safe-area-inset-bottom,0px))}
+html[data-form="tablet"] .bi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+html[data-form="tablet"] .b,html[data-form="tablet"] .tabbar button{min-height:42px}
+html[data-form="tablet"] .dir-pasos{grid-template-columns:1fr}
+@media(max-width:700px){#splash .sp-sistema{--d:120px}}
+@media(prefers-reduced-motion:reduce){html::after{animation:none}#splash .sp-mascota{animation:none}}
+</style>

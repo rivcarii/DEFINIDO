@@ -30,6 +30,18 @@ require("fs").mkdirSync(CAP, { recursive: true });
       catch (e) { await p.screenshot({ path: CAP + "z_fallo_" + w + ".png" }); console.log(JSON.stringify(await p.evaluate(() => ({ app: document.getElementById("app").hidden, acc: document.getElementById("acceso").hidden, aviso: document.getElementById("accAviso").textContent, arr: document.getElementById("arranque").hidden, rect: document.querySelector("#v-inicio .hero") && JSON.stringify(document.querySelector("#v-inicio .hero").getBoundingClientRect()) })))); console.log(errores.join("\n")); throw e; } await p.waitForSelector("#meses .mes", { timeout: 15000 }); await p.waitForTimeout(900);
     };
     await entrar("siau.admin");
+
+    // v8.7 · temas, fondo sin franja blanca, pantalla de inicio y aviso de carga
+    for (const t of ["oscuro", "mono", "calido", "claro"]) {
+      await p.click("#btnPerfil"); await p.click('#menuPerfil .temas button[data-tema="' + t + '"]'); await p.waitForTimeout(250);
+      const r = await p.evaluate(() => ({ t: document.documentElement.dataset.tema, g: localStorage.getItem("pqrs_tema"), bg: getComputedStyle(document.body).backgroundColor, ground: getComputedStyle(document.documentElement).getPropertyValue("--ground").trim(),
+        cabeza: document.querySelector("html").scrollHeight >= innerHeight }));
+      if (r.t !== t || r.g !== t) errores.push(w + " el tema " + t + " no se aplicó o no se guardó: " + JSON.stringify(r));
+      if (!(await p.evaluate(() => !document.getElementById("splash") || document.getElementById("splash").hidden))) errores.push(w + " la pantalla de inicio sigue cubriendo la aplicación");
+      await p.keyboard.press("Escape"); await p.evaluate(() => { const m = document.getElementById("menuPerfil"); if (m) m.hidden = true; });
+    }
+    if (!(await p.evaluate(() => document.documentElement.dataset.so && document.documentElement.dataset.form))) errores.push(w + " el dispositivo no se detectó (data-so / data-form)");
+    if (!(await p.evaluate(() => /::before/.test("") || getComputedStyle(document.documentElement, "::before").position === "fixed"))) errores.push(w + " el fondo no es fijo: puede quedar una franja blanca");
     await desb("inicio"); await p.screenshot({ path: CAP + `z_${w}_inicio.png`, fullPage: true });
     const irA = async (v) => {
       if (w <= 1000) { await p.click("#btnMenu"); await p.waitForTimeout(300); }

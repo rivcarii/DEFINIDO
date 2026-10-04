@@ -449,7 +449,7 @@ $("btnProcesarAhora").addEventListener("click", function(){
 pintarSonido();
 if(TOKEN) cargarApp();
 else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || ""); }).catch(function(e){
-  $("acceso").hidden = false; aviso("accAviso", "No pude conectar con la plataforma: " + msgErr(e), "err");
+  if(window.mostrarSinConexion) window.mostrarSinConexion(e); else { $("acceso").hidden = false; aviso("accAviso", "No pude conectar con la plataforma: " + msgErr(e), "err"); }
 });
 </script>
 </body>

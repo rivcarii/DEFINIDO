@@ -41,6 +41,8 @@ fs.writeFileSync(path.join(R, "portal", "manifest.webmanifest"), JSON.stringify(
     { src: "icon-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
   ],
 }, null, 2) + "\n");
+// 404.html (raíz del repositorio) lleva a la plataforma cuando una dirección del sitio ya no existe
+fs.copyFileSync(path.join(R, "404.html"), path.join(R, "portal", "404.html"));   // si el sitio se publica solo con la carpeta portal/, este es su 404
 const version = crypto.createHash("sha256").update(h).digest("hex").slice(0, 10);
 fs.writeFileSync(path.join(R, "portal", "sw.js"), `/* Generado por tools/construir_portal.mjs · no editar a mano */
 var VERSION = "pqrs-${version}";
@@ -53,7 +55,9 @@ self.addEventListener("fetch", function (e) {
   var r = e.request, u = new URL(r.url);
   if (r.method !== "GET" || u.origin !== self.location.origin) return;     // Apps Script y las fuentes van directo a la red
   e.respondWith(fetch(r).then(function (res) {
-    if (res && res.ok) { var copia = res.clone(); caches.open(VERSION).then(function (c) { c.put(r, copia); }); }
+    if (res && res.ok) { var copia = res.clone(); caches.open(VERSION).then(function (c) { c.put(r, copia); }); return res; }
+    /* 404 o error del hosting en una página: se abre la última versión guardada de la app en lugar de mostrar el error */
+    if (r.mode === "navigate" && res && res.status >= 400) return caches.match("index.html").then(function (x) { return x || res; });
     return res;
   }).catch(function () { return caches.match(r).then(function (x) { return x || caches.match("index.html"); }); }));
 });

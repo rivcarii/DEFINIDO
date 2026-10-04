@@ -1,5 +1,12 @@
 <body>
 <div id="carga"></div>
+<div id="cargaPill" role="status" aria-live="polite"><span class="solar s"><span class="nucleo"></span><b></b><b></b></span><span id="cargaTexto">Cargando…</span></div>
+<div id="splash" role="status" aria-live="polite">
+  <div class="solar sp-sistema"><span class="nucleo"></span><b></b><b></b><b></b><div class="sp-mascota"><img id="splashMascota" alt=""></div></div>
+  <div><h1>Sistema de PQRS</h1><p id="splashTexto">Preparando todo para ti…</p></div>
+  <div class="sp-barra"><i></i></div>
+  <div class="sp-franja"><i></i><i></i><i></i><i></i></div>
+</div>
 
 <!-- Iconos de línea (símbolos, sin emojis) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -72,9 +79,19 @@
     <div class="acceso-pie"><div class="vigilado"><img id="ssAcceso" alt="Vigilado Supersalud" src=""><img id="alcAcceso" alt="Alcaldía de Barranquilla" src=""></div>Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
   </div>
   <div class="acceso-form">
+    <div class="temas mini" role="group" aria-label="Apariencia"><span class="temas-tit">Apariencia</span>
+      <button type="button" data-tema="claro" aria-pressed="false"><i></i><span>Claro</span></button>
+      <button type="button" data-tema="oscuro" aria-pressed="false"><i></i><span>Oscuro</span></button>
+      <button type="button" data-tema="mono" aria-pressed="false"><i></i><span>Mono</span></button>
+      <button type="button" data-tema="calido" aria-pressed="false"><i></i><span>Cálido</span></button></div>
     <div class="form-card" id="formAcceso">
       <h2 id="accTitulo">Ingresar</h2>
       <p class="sub" id="accSub">Usa el usuario y la contraseña que te asignó el administrador.</p>
+      <div class="sin-conexion" id="sinConexion" hidden>
+        <b id="sinConexionTit">No pudimos conectar con la plataforma</b><span id="sinConexionTxt"></span>
+        <div class="acc"><button class="b pri mini" id="btnReintentar" type="button">Reintentar</button></div>
+        <div class="acc" id="sinConexionDir" hidden><input id="sinConexionUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Dirección de la plataforma"><button class="b sec mini" id="btnCambiarServidor" type="button">Usar esta dirección</button></div>
+      </div>
       <div id="accAviso"></div>
       <div id="accCampos"></div>
       <button class="b pri" id="btnAcceso" type="button">Ingresar</button>
@@ -131,6 +148,11 @@
   <div class="panel-flot menu-perfil" id="menuPerfil" hidden>
     <div class="cab"><span class="avatar" id="avatar2">?</span><div><b id="perfilNombre"></b><span id="perfilRol"></span></div></div>
     <button type="button" id="btnEscritorio"><svg class="ic s"><use href="#i-campana"/></svg>Activar avisos del escritorio</button>
+<div class="temas" role="group" aria-label="Apariencia"><span class="temas-tit">Apariencia</span>
+    <button type="button" data-tema="claro" aria-pressed="false"><i></i><span>Claro</span></button>
+    <button type="button" data-tema="oscuro" aria-pressed="false"><i></i><span>Oscuro</span></button>
+    <button type="button" data-tema="mono" aria-pressed="false"><i></i><span>Mono</span></button>
+    <button type="button" data-tema="calido" aria-pressed="false"><i></i><span>Cálido</span></button></div>
     <button type="button" id="btnInstalarMenu" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
     <button type="button" id="btnMiClave"><svg class="ic s"><use href="#i-candado"/></svg>Cambiar mi contraseña</button>
     <button type="button" class="peligro" id="btnSalir"><svg class="ic s"><use href="#i-salir"/></svg>Cerrar sesión</button>

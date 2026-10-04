@@ -17,7 +17,10 @@
       var args = Array.prototype.slice.call(arguments), ok = this._ok || function(){}, mal = this._mal || function(){};
       if(!API){ mal(new Error("Esta página no tiene configurada la dirección de la plataforma (URL que termina en /exec). Pídesela al administrador.")); return; }
       fetch(API, { method:"POST", redirect:"follow", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ fn:fn, args:args }) })
-        .then(function(r){ if(!r.ok) throw new Error("La plataforma respondió con el código "+r.status+"."); return r.json(); })
+        .then(function(r){
+          if(!r.ok) throw new Error(r.status === 404 ? "La dirección de la plataforma ya no existe (error 404): se publicó otra versión con una dirección distinta." : "La plataforma respondió con el código "+r.status+".");
+          return r.json().catch(function(){ throw new Error("La plataforma no respondió como se esperaba: puede estar en mantenimiento o la dirección cambió."); });
+        })
         .then(function(j){ if(j && j.__error) mal(new Error(j.__error)); else ok(j ? j.r : null); })
         .catch(function(e){ mal(e && e.message && /fetch|network/i.test(e.message) ? new Error("Sin conexión con la plataforma. Revisa tu internet e inténtalo de nuevo.") : e); });
     };
@@ -80,7 +83,7 @@ function aviso(cont, texto, tipo){
 
 /* Llamadas al servidor con indicador de carga global. */
 var enVuelo = 0;
-function carga(delta){ enVuelo=Math.max(0,enVuelo+delta); $("carga").classList.toggle("on", enVuelo>0); }
+function carga(delta){ enVuelo=Math.max(0,enVuelo+delta); $("carga").classList.toggle("on", enVuelo>0); if(window.pillCarga) window.pillCarga(enVuelo>0); }
 /* Toda llamada pasa por api(token, función, argumentos): el servidor valida sesión, rol y sede. */
 var TOKEN = null;
 try { TOKEN = sessionStorage.getItem("pqrs_token") || localStorage.getItem("pqrs_token"); } catch(e) {}
