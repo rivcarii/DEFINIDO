@@ -17,6 +17,8 @@ const csp = "default-src 'none'; script-src 'self' 'unsafe-inline' https://cdnjs
 h = h.replace(marca, '<meta http-equiv="Content-Security-Policy" content="' + csp + '">\n<meta name="referrer" content="no-referrer">\n' +
   '<meta name="robots" content="noindex,nofollow">\n<meta name="theme-color" content="#006081">\n' +
   // App instalable (PWA): manifiesto, íconos y modo pantalla completa en iPhone
+  '<meta property="og:type" content="website"><meta property="og:title" content="Sistema de PQRS · SIAU MiRed IPS"><meta property="og:description" content="Radicación y gestión de peticiones, quejas, reclamos y sugerencias">' +
+  '<meta property="og:image" content="https://rivcarii.github.io/DEFINIDO/portal/og.png"><meta name="twitter:card" content="summary_large_image">\n' +
   '<link rel="manifest" href="manifest.webmanifest">\n<link rel="apple-touch-icon" href="apple-touch-icon.png">\n' +
   '<meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes">' +
   '<meta name="apple-mobile-web-app-title" content="PQRS SIAU"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">\n' +
@@ -29,8 +31,11 @@ fs.writeFileSync(path.join(R, "portal", "index.html"), h);
 
 // Manifiesto, íconos y service worker. El service worker guarda solo la «cáscara» de la app (nunca las llamadas a Apps Script,
 // que van a otro dominio) y busca primero en la red, así las actualizaciones llegan solas.
-const iconos = ["icon-192.png", "icon-512.png", "icon-maskable-512.png"];
+const iconos = ["icon-192.png", "icon-512.png", "icon-maskable-512.png", "og.png"];
 iconos.forEach((f) => fs.copyFileSync(path.join(R, "assets", "pwa", f), path.join(R, "portal", f)));
+// favicon e ícono de iPhone con la mascota y las PQRS como planetas
+fs.copyFileSync(path.join(R, "assets", "pwa", "apple-touch-icon.png"), path.join(R, "portal", "apple-touch-icon.png"));
+fs.copyFileSync(path.join(R, "assets", "pwa", "favicon.png"), path.join(R, "portal", "favicon.png"));
 fs.writeFileSync(path.join(R, "portal", "manifest.webmanifest"), JSON.stringify({
   name: "Sistema de PQRS · SIAU MiRed IPS", short_name: "PQRS SIAU", description: "Radicación y gestión de PQRS de MiRed Barranquilla IPS",
   lang: "es-CO", start_url: "./", scope: "./", display: "standalone", orientation: "any",

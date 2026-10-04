@@ -2320,7 +2320,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "8.7.1 · móvil y tema oscuro";
+var VERSION_CODIGO = "8.7.2 · menú móvil e imagen de la app";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();

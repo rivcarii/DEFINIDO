@@ -204,6 +204,33 @@ html[data-tema="oscuro"] .kmini .ico,html[data-tema="oscuro"] .accion .ico{filte
 html[data-tema="oscuro"] .acceso-pie,html[data-tema="oscuro"] .acceso-marca{color:#fff}
 html[data-tema="oscuro"] .modal-fondo,html[data-tema="oscuro"] .velo{background:rgba(0,0,0,.6)}
 
+
+/* ===== v8.7.2 · menú lateral y proporciones en teléfonos ===== */
+.orb i,.solar b::after{background-image:radial-gradient(circle at 32% 26%,rgba(255,255,255,.60),rgba(255,255,255,0) 46%),radial-gradient(circle at 72% 80%,rgba(0,0,0,.30),rgba(0,0,0,0) 62%)}
+.orb i{box-shadow:inset -3px -4px 8px rgba(0,0,0,.22),0 8px 18px rgba(0,20,30,.30)}
+@media(max-width:1000px){
+  .lateral{z-index:96!important;left:max(8px,env(safe-area-inset-left,0px))!important;top:max(8px,env(safe-area-inset-top,0px))!important;bottom:max(8px,env(safe-area-inset-bottom,0px))!important;
+    width:min(400px,calc(100vw - 16px))!important;padding-top:18px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .velo-lat{z-index:90!important}
+  html:has(.lateral.abierto) .top,html:has(.lateral.abierto) .tabbar,html:has(.lateral.abierto) .barra-guardar,html:has(.lateral.abierto) #cargaPill{opacity:0;pointer-events:none}
+  .lat-marca{padding:2px 6px 10px}.lat-marca .lockup{flex-wrap:nowrap;justify-content:flex-start;gap:12px}
+  .lat-marca .lockup .lk-mired{height:30px}.lat-marca .lockup .lk-calidad{height:36px}
+  #menu button{padding:12px 14px;font-size:16px}
+  /* más pantalla para el contenido */
+  main{padding-left:max(10px,env(safe-area-inset-left,0px))!important;padding-right:max(10px,env(safe-area-inset-right,0px))!important;padding-top:14px!important}
+  .top{margin-left:max(8px,env(safe-area-inset-left,0px))!important;margin-right:max(8px,env(safe-area-inset-right,0px))!important;top:max(8px,env(safe-area-inset-top,0px))!important}
+  .tabbar{left:max(10px,env(safe-area-inset-left,0px))!important;right:max(10px,env(safe-area-inset-right,0px))!important}
+  .card,.bi-card,.filtros{padding:14px}
+}
+@media(max-width:430px){
+  main{padding-left:max(8px,env(safe-area-inset-left,0px))!important;padding-right:max(8px,env(safe-area-inset-right,0px))!important}
+  h2.vista{font-size:25px}
+  .hero-saludo{padding:18px}
+}
+@media(min-width:701px) and (max-width:1000px){
+  main{max-width:900px;padding-left:20px!important;padding-right:20px!important}
+  .lateral{width:min(380px,50vw)!important}
+}
 @media(max-width:700px){#splash .sp-sistema{--d:120px}}
 @media(prefers-reduced-motion:reduce){html::after{animation:none}#splash .sp-mascota{animation:none}}
 </style>
