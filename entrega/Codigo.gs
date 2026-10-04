@@ -1439,6 +1439,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     r.getRange(1, 1, rows.length, 2).setValues(rows);
     r.getRange(1, 1).setFontWeight("bold");
     r.setColumnWidth(1, 320);
+    _hojasMatrices_(tmp, filas);
     SpreadsheetApp.flush();
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
       { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
@@ -1449,6 +1450,88 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
   }
 }
 
+/** Tabla de conteos cruzados (filas × columnas) con totales. fmtFila opcional para agrupar (p. ej. por mes). */
+function _matriz_(filas, colFila, colCol, fmtFila) {
+  var sin = function (v) { var t = _limpiarSimbolo_(String(v === null || v === undefined ? "" : v)).trim(); return t || "Sin dato"; };
+  var cols = _conteo_(filas, colCol).map(function (x) { return sin(x[0]); });
+  var mapa = {};
+  filas.forEach(function (f) {
+    var r = fmtFila ? fmtFila(f) : sin(f[colFila - 1]), c = sin(f[colCol - 1]);
+    mapa[r] = mapa[r] || {}; mapa[r][c] = (mapa[r][c] || 0) + 1;
+  });
+  var out = [[""].concat(cols).concat(["TOTAL"])], tot = cols.map(function () { return 0; }), gran = 0;
+  Object.keys(mapa).sort().forEach(function (r) {
+    var fila = [r], t = 0;
+    cols.forEach(function (c, j) { var v = mapa[r][c] || 0; fila.push(v); t += v; tot[j] += v; });
+    fila.push(t); gran += t; out.push(fila);
+  });
+  out.push(["TOTAL"].concat(tot).concat([gran]));
+  return out;
+}
+function _estiloEncabezado_(h, fila, ncol) {
+  try { h.getRange(fila, 1, 1, ncol).setFontWeight("bold").setBackground("#006081").setFontColor("#FFFFFF"); } catch (e) {}
+}
+/** Hojas de indicadores (sin ningún dato personal): por sede, mes, servicio, motivo específico y nivel de riesgo, cada una cruzada con el tipo de PQRS. */
+function _hojasMatrices_(tmp, filas) {
+  var tz = _tz_();
+  var mes = function (f) { var d = f[C.FECHA_RADICACION - 1]; return d instanceof Date && !isNaN(d.getTime()) ? Utilities.formatDate(d, tz, "yyyy-MM") : "Sin fecha"; };
+  [["Por sede", "SEDE × TIPO DE PQRS", C.SEDE, null], ["Por mes", "MES DE RADICACIÓN × TIPO DE PQRS", C.FECHA_RADICACION, mes],
+   ["Por servicio", "SERVICIO × TIPO DE PQRS", C.SERVICIO, null], ["Por motivo", "MOTIVO ESPECÍFICO (DERECHO VULNERADO) × TIPO DE PQRS", C.TIPOLOGIA, null],
+   ["Por riesgo", "NIVEL DE RIESGO × TIPO DE PQRS", C.NIVEL_RIESGO, null]].forEach(function (d) {
+    var h = tmp.insertSheet(d[0]), m = _matriz_(filas, d[2], C.TIPO_PQRS, d[3]), nc = m[0].length;
+    h.getRange(1, 1).setValue(d[1]).setFontWeight("bold");
+    h.getRange(3, 1, m.length, nc).setValues(m);
+    _estiloEncabezado_(h, 3, nc);
+    try { h.getRange(3 + m.length - 1, 1, 1, nc).setFontWeight("bold"); h.getRange(3, nc, m.length, 1).setFontWeight("bold"); } catch (e) {}
+    h.setColumnWidth(1, 260);
+    try { h.setFrozenRows(3); } catch (e) {}
+  });
+}
+/**
+ * Plantilla del técnico: SOLO indicadores. No incluye radicados, nombres, documentos, contacto ni el texto de los casos;
+ * y solo cuenta las PQRS de las sedes asignadas a quien la descarga (las filas ya vienen recortadas por _filasExcel_).
+ */
+function _construirXlsxIndicadores_(nombre, filas, descripcionFiltro) {
+  var tmp = SpreadsheetApp.create(nombre), id = tmp.getId();
+  try {
+    var r = tmp.getSheets()[0]; r.setName("Resumen");
+    var n = filas.length, norm = _norm, abiertas = 0, cerradas = 0, venc = 0, porVenc = 0, aTiempo = 0, fuera = 0;
+    filas.forEach(function (f) {
+      var est = norm(f[C.ESTADO - 1]), sem = norm(_limpiarSimbolo_(f[C.SEMAFORO - 1])), op = String(f[C.OPORTUNIDAD - 1] || "");
+      if (est.indexOf("cerrada") !== -1 || est.indexOf("respondida") !== -1) cerradas++; else abiertas++;
+      if (sem.indexOf("vencida") === 0) venc++; else if (sem.indexOf("por vencer") === 0) porVenc++;
+      if (op === "A tiempo") aTiempo++; else if (op === "Fuera de término") fuera++;
+    });
+    var sedes = SESION && !SESION.todas ? (SESION.sedes || []).join(", ") : "Todas las sedes";
+    var pct = function (x) { return n ? Math.round(x * 1000 / n) / 10 + " %" : "—"; };
+    var rows = [["INDICADORES DE PQRS · MiRed Barranquilla IPS", ""], ["Generado", _fmtHora_(Date.now())], ["Filtro", descripcionFiltro || "Todo el período"],
+      ["Sedes incluidas", sedes || "Las asignadas a tu usuario"], ["Contenido", "Solo conteos. No incluye datos de las personas ni el contenido de las PQRS."], ["", ""],
+      ["INDICADOR", "VALOR"], ["Total de PQRS", n], ["Abiertas", abiertas], ["Cerradas o respondidas", cerradas], ["Vencidas", venc], ["Por vencer", porVenc],
+      ["Respondidas a tiempo", aTiempo], ["Respondidas fuera de término", fuera],
+      ["Oportunidad de respuesta", (aTiempo + fuera) ? Math.round(aTiempo * 1000 / (aTiempo + fuera)) / 10 + " %" : "—"], ["", ""]];
+    var cabezas = [7];
+    [["POR TIPO DE PQRS", C.TIPO_PQRS], ["POR ESTADO", C.ESTADO], ["POR SEMÁFORO", C.SEMAFORO], ["POR CANAL", C.CANAL]].forEach(function (b) {
+      cabezas.push(rows.length + 1);
+      rows.push([b[0], "CANTIDAD", "% DEL TOTAL"]);
+      _conteo_(filas, b[1]).forEach(function (x) { rows.push([_limpiarSimbolo_(x[0]) || x[0], x[1], pct(x[1])]); });
+      rows.push(["", "", ""]);
+    });
+    var nc = 3;
+    rows = rows.map(function (f) { while (f.length < nc) f.push(""); return f; });
+    r.getRange(1, 1, rows.length, nc).setValues(rows);
+    r.getRange(1, 1).setFontWeight("bold");
+    cabezas.forEach(function (fila) { _estiloEncabezado_(r, fila, nc); });
+    r.setColumnWidth(1, 330); r.setColumnWidth(2, 120); r.setColumnWidth(3, 120);
+    _hojasMatrices_(tmp, filas);
+    SpreadsheetApp.flush();
+    var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
+      { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
+    if (resp.getResponseCode() !== 200) throw new Error("Google no pudo generar el Excel (código " + resp.getResponseCode() + ").");
+    return resp.getBlob().setName(nombre + ".xlsx");
+  } finally {
+    try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { Logger.log("Temporal: " + e); }
+  }
+}
 function _descripcionFiltro_(f) {
   f = f || {};
   var meses = ["", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
@@ -1461,17 +1544,26 @@ function _descripcionFiltro_(f) {
 }
 
 /** Botón «Exportar a Excel»: guarda el archivo en Drive y, si no es muy grande, lo entrega para descargarlo. */
+/**
+ * Excel del tablero. Dos plantillas:
+ *  · «admin»: el consolidado completo (todas las columnas, con datos de las personas) + los indicadores. Solo el administrador.
+ *  · «tecnico»: SOLO indicadores (conteos por tipo, sede, mes, servicio, motivo y riesgo) de las sedes del usuario;
+ *    sin radicados, nombres, documentos, contacto ni descripciones. Lo pueden descargar técnicos y consulta (y el administrador, para compartirla).
+ */
 function apiExportarExcel_(filtros) {
   filtros = filtros || {};
-  var tz = _tz_(), filas = _filasExcel_(filtros);
+  var esAdmin = !SESION || SESION.rol === "Administrador";
+  var plantilla = (esAdmin && filtros.plantilla !== "tecnico") ? "admin" : "tecnico";
+  var tz = _tz_(), filas = _filasExcel_(filtros);   // _filasExcel_ ya recorta a las sedes asignadas
   var etiqueta = (filtros.anio ? filtros.anio + (parseInt(filtros.mes, 10) ? "-" + ("0" + parseInt(filtros.mes, 10)).slice(-2) : "") : "historico");
-  var nombre = "Consolidado_PQRS_" + etiqueta + (filtros.sede ? "_" + String(filtros.sede).replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ]+/g, "-") : "") +
+  var nombre = (plantilla === "admin" ? "Consolidado_PQRS_" : "Indicadores_PQRS_") + etiqueta + (filtros.sede ? "_" + String(filtros.sede).replace(/[^A-Za-z0-9ÁÉÍÓÚÑáéíóúñ]+/g, "-") : "") +
     "_" + Utilities.formatDate(new Date(), tz, "yyyyMMdd_HHmm");
-  var blob = _construirXlsx_(nombre, filas, _descripcionFiltro_(filtros));
+  var blob = plantilla === "admin" ? _construirXlsx_(nombre, filas, _descripcionFiltro_(filtros)) : _construirXlsxIndicadores_(nombre, filas, _descripcionFiltro_(filtros));
   var carpeta = _carpetaRespaldos_(), archivo = carpeta.createFile(blob), bytes = blob.getBytes();
-  _traza("—", "Exportación a Excel", filas.length + " PQRS · " + _descripcionFiltro_(filtros) + " · guardado en Drive");
-  _auditar_("Exportación a Excel", SESION ? SESION.usuario : "sistema", filas.length + " PQRS · " + _descripcionFiltro_(filtros));
-  var out = { ok: true, nombre: nombre + ".xlsx", filas: filas.length, tam: bytes.length, url: archivo.getUrl(), carpeta: carpeta.getUrl() };
+  var detalle = (plantilla === "admin" ? "consolidado completo" : "indicadores sin datos de casos") + " · " + filas.length + " PQRS · " + _descripcionFiltro_(filtros);
+  _traza("—", "Exportación a Excel", detalle + " · guardado en Drive");
+  _auditar_("Exportación a Excel", SESION ? SESION.usuario : "sistema", detalle);
+  var out = { ok: true, plantilla: plantilla, nombre: nombre + ".xlsx", filas: filas.length, tam: bytes.length, url: archivo.getUrl(), carpeta: carpeta.getUrl() };
   if (bytes.length <= MAX_ENTREGA_XLSX) out.base64 = Utilities.base64Encode(bytes);
   else out.mensaje = "El archivo pesa " + Math.round(bytes.length / 1048576) + " MB: descárgalo desde Drive o exporta por año o por mes.";
   return out;
@@ -2320,7 +2412,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "8.7.2 · menú móvil e imagen de la app";
+var VERSION_CODIGO = "8.7.3 · Excel por plantilla";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3819,7 +3911,7 @@ var RUTAS = {
   apiUsuarios: [apiUsuarios_, P_ADMIN], apiGuardarUsuario: [apiGuardarUsuario_, P_ADMIN], apiRestablecerClave: [apiRestablecerClave_, P_ADMIN],
   apiGuardarEnlace: [apiGuardarEnlace_, P_ADMIN],
   // v8.2
-  apiExportarExcel: [apiExportarExcel_, P_ADMIN], apiAuditoria: [apiAuditoria_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
+  apiExportarExcel: [apiExportarExcel_, P_LEER], apiAuditoria: [apiAuditoria_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
   apiAjustes: [apiAjustes_, P_ADMIN], apiGuardarAjustes: [apiGuardarAjustes_, P_ADMIN],
   apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
 

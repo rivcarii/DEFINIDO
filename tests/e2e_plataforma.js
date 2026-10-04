@@ -82,7 +82,7 @@ require("fs").mkdirSync(CAP, { recursive: true });
     else {
       const [descarga] = await Promise.all([p.waitForEvent("download", { timeout: 15000 }).catch(() => null), p.click("#btnExportarExcel")]);
       if (!descarga || !/^Consolidado_PQRS_.*\.xlsx$/.test(descarga.suggestedFilename())) errores.push(w + " no se descargó el Excel del tablero");
-      await p.waitForFunction(() => /Excel listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
+      await p.waitForFunction(() => /Consolidado listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
     }
     await irA("usuarios"); await p.waitForSelector("#usrLista .ufila:not(.cab)", { timeout: 8000 }); await p.waitForTimeout(300);
     if (!/github\.io\/DEFINIDO\/portal\//.test(await p.textContent("#enlaceActual").catch(() => ""))) errores.push(w + " el enlace de ingreso para los técnicos no es el del portal de GitHub");
@@ -136,11 +136,16 @@ require("fs").mkdirSync(CAP, { recursive: true });
     const visibles = await p.$$eval('#menu button[data-v]', els => els.filter(e => !e.hidden).map(e => e.dataset.v));
     if (visibles.includes("usuarios") || visibles.includes("correo")) errores.push(w + " técnico ve módulos de administración: " + visibles);
     await desb("inicio técnico"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_inicio_tecnico.png`, fullPage: true });
+    // v8.7.3 · el técnico descarga solo indicadores (sin datos de casos); el consolidado completo es del administrador
+    await irA("tablero"); await p.waitForSelector("#gMesTipo", { timeout: 8000 });
+    if (await p.isVisible("#btnExportarExcel") || !(await p.isVisible("#btnExportarIndicadores"))) errores.push(w + " el técnico debe ver solo el botón de indicadores en el tablero");
+    const [desc] = await Promise.all([p.waitForEvent("download", { timeout: 20000 }).catch(() => null), p.click("#btnExportarIndicadores")]);
+    if (!desc || !/^Indicadores_PQRS_.*\.xlsx$/.test(desc.suggestedFilename())) errores.push(w + " el técnico no pudo descargar el Excel de indicadores");
     await irA("bandeja"); await p.click('#etapas button[data-e="todas"]'); await p.waitForSelector("#listaBandeja .fila", { timeout: 8000 });
     const sedes = await p.$$eval("#listaBandeja .fila .med b", els => els.map(e => e.textContent));
     if (sedes.some(t => !/Camino La Playa|Camino Luz Chinita/.test(t))) errores.push(w + " el técnico ve sedes ajenas");
     if (!visibles.includes("radicar")) errores.push(w + " el técnico no ve Radicar");
-    if (!(await p.$eval("#bloqueExcel", e => e.hidden))) errores.push(w + " el técnico ve el botón de exportar a Excel");
+    if (await p.isVisible("#btnExportarExcel")) errores.push(w + " el técnico ve el botón del consolidado completo");
     await p.click("#listaBandeja .fila"); await p.waitForSelector(".det-head .cod", { timeout: 8000 }); await p.waitForTimeout(300);
     if (!/Seguimiento de la gestión/.test(await p.textContent("#detalleCuerpo")) || (await p.$("#btnEnviarArea"))) errores.push(w + " el técnico ve acciones de gestión");
     if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_detalle_tecnico.png`, fullPage: w === 390 });

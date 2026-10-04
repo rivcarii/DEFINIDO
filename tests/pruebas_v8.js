@@ -258,7 +258,7 @@ assert(+sigue.codigo.split("-")[3] === tope + 41, "si alguien escribe a mano un 
 const ex = G.apiExportarExcel_({ anio: 2026, mes: 9 });
 const libro = G.__exportaciones[G.__exportaciones.length - 1];
 assert(ex.ok && ex.filas > 0 && ex.base64 && /^Consolidado_PQRS_2026-09_/.test(ex.nombre) && /\.xlsx$/.test(ex.nombre), "exporta el consolidado de un mes a .xlsx: " + ex.nombre + " · " + ex.filas + " filas");
-assert(Object.keys(libro.hojas).filter(k => k !== "Hoja 1").sort().join() === "Consolidado,Resumen", "el Excel solo lleva Consolidado y Resumen (nunca la hoja Usuarios)");
+assert(Object.keys(libro.hojas).filter(k => k !== "Hoja 1").sort().join() === "Consolidado,Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "el Excel del administrador lleva Consolidado, Resumen e indicadores (nunca la hoja Usuarios)");
 assert(libro.hojas.Consolidado.celda(1, 1) === "CÓDIGO DE RADICACIÓN" && libro.hojas.Consolidado.getLastRow() === ex.filas + 1, "encabezados y filas completos en el libro exportado");
 assert(libro.hojas.Resumen.d.some(f => f[0] === "POR TIPO") && libro.hojas.Resumen.d.some(f => f[0] === "POR SEDE"), "hoja Resumen con totales por tipo y sede");
 assert(G.DriveApp.__temporales[libro.id] === true, "el libro temporal se manda a la papelera");
@@ -270,7 +270,7 @@ G.SESION = { usuario: "t", nombre: "T", rol: "Técnico", todas: false, sedes: ["
 const soloSede = G.apiExportarExcel_({});
 G.SESION = null;
 assert(soloSede.filas > 0 && soloSede.filas < sinFiltro.filas, "la exportación respeta las sedes asignadas: " + soloSede.filas + " de " + sinFiltro.filas);
-assert(G.RUTAS.apiExportarExcel[1] === "admin" && G.RUTAS.apiRespaldarAhora[1] === "admin", "solo el administrador exporta y respalda");
+assert(G.RUTAS.apiExportarExcel[1] === "leer" && G.RUTAS.apiRespaldarAhora[1] === "admin", "el respaldo es del administrador; el Excel lo piden todos pero cada rol recibe su plantilla");
 
 // Respaldo diario
 const hoyTxt = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
@@ -395,6 +395,7 @@ assert(String(G._trazaDe(inj.codigo).map(t => t.detalle).join(" ")).indexOf("'="
 G.apiRegistrarRespuestaArea_(inj.codigo, "=HYPERLINK(\"http://x\",\"clic\")", "");
 assert(cons.celda(fila(inj.codigo), 42).indexOf("'=HYPERLINK") === 0, "la respuesta del área (viene de un correo) también se guarda como texto");
 cons.poner(fila(inj.codigo), 30, "=1+1");   // lo que devolvería Sheets al leer un texto que empieza por «=»
+G.SESION = null;   // vuelve a ser «sistema» (administrador) tras las pruebas con técnico
 const exInj = G.apiExportarExcel_({});
 const libroInj = G.__exportaciones[G.__exportaciones.length - 1];
 const ultimaXlsx = libroInj.hojas.Consolidado.getLastRow();
@@ -482,3 +483,27 @@ const npsRes = G.apiNps_();
 assert(npsRes.total === 2 && npsRes.promotores === 1 && npsRes.detractores === 1 && npsRes.nps === 0, "NPS = % promotores − % detractores: " + JSON.stringify(npsRes).substring(0, 120));
 assert(npsRes.porSede.length === 1 && npsRes.porMes.length === 1, "NPS por sede y por mes");
 assert(G.NPS_COLS.join("|") === "FECHA|RADICADO|PUNTAJE|TIPO|SEDE|SERVICIO|MOTIVO ESPECÍFICO", "la hoja Encuestas no guarda nombres, documentos ni correos");
+
+// ---- v8.7.3: plantillas de Excel (administrador / técnico) ----
+console.log("---- plantillas de Excel ----");
+G.SESION = null;
+const exAdm = G.apiExportarExcel_({});
+const libAdm = G.__exportaciones[G.__exportaciones.length - 1];
+assert(exAdm.plantilla === "admin" && libAdm.hojas.Consolidado && libAdm.hojas["Por sede"] && libAdm.hojas["Por motivo"], "plantilla del administrador: consolidado completo + indicadores");
+const exAdmInd = G.apiExportarExcel_({ plantilla: "tecnico" });
+const libAdmInd = G.__exportaciones[G.__exportaciones.length - 1];
+assert(exAdmInd.plantilla === "tecnico" && !libAdmInd.hojas.Consolidado, "el administrador también puede descargar la plantilla de indicadores");
+G.SESION = { usuario: "tecnico.playa", rol: "Técnico", todas: false, sedes: ["C. LA PLAYA"], sedesNorm: [G._norm("C. LA PLAYA")] };
+const exTec = G.apiExportarExcel_({ plantilla: "admin" });   // un técnico no puede pedir la del administrador
+const libTec = G.__exportaciones[G.__exportaciones.length - 1];
+assert(exTec.plantilla === "tecnico" && !libTec.hojas.Consolidado, "un técnico solo recibe indicadores aunque pida la plantilla del administrador");
+const hojasTec = Object.keys(libTec.hojas).filter(k => k !== "Hoja 1").sort().join();
+assert(hojasTec === "Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "plantilla del técnico: solo hojas de indicadores: " + hojasTec);
+const todoTec = JSON.stringify(Object.keys(libTec.hojas).map(k => libTec.hojas[k].d || []));
+assert(!/SIAU-20\d\d-\d\d-\d{4}/.test(todoTec) && !/@correo\.com|@gmail\.com|Marelys|Rosa Villalba|Pedro/.test(todoTec), "el Excel del técnico no trae radicados, nombres ni correos");
+const sedesTec = (libTec.hojas["Por sede"].d || []).slice(2).map(f => f[0]).filter(x => x && x !== "TOTAL");
+assert(sedesTec.length >= 1 && sedesTec.every(x => /PLAYA/i.test(x)), "el técnico solo ve conteos de sus sedes: " + sedesTec.join(","));
+assert(libTec.hojas.Resumen.d.some(f => f[0] === "Total de PQRS" && f[1] === exTec.filas) && libTec.hojas.Resumen.d.some(f => /no incluye datos de las personas/i.test(String(f[1]))), "el resumen del técnico trae el total y la advertencia de que no hay datos personales");
+G.SESION = { usuario: "consulta", rol: "Consulta", todas: true, sedes: [], sedesNorm: [] };
+assert(G.apiExportarExcel_({}).plantilla === "tecnico", "consulta también descarga solo indicadores");
+G.SESION = null;

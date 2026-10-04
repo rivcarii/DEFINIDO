@@ -359,15 +359,17 @@ function descargarXlsx(nombre, b64){
   try { href = URL.createObjectURL(new Blob([u8], { type:tipo })); } catch(e){ href = "data:"+tipo+";base64,"+b64; }
   var a = document.createElement("a"); a.href = href; a.download = nombre; document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
-$("btnExportarExcel").addEventListener("click", function(){
-  var fin = ocupado("btnExportarExcel","Generando Excel…");
-  srv("apiExportarExcel", { anio:$("dAnio").value, mes:$("dMes").value, sede:$("dSede").value, servicio:$("dServicio").value }).then(function(r){
+function exportarExcel(btnId, plantilla, txt){
+  var fin = ocupado(btnId, "Generando Excel…");
+  srv("apiExportarExcel", { anio:$("dAnio").value, mes:$("dMes").value, sede:$("dSede").value, servicio:$("dServicio").value, plantilla:plantilla }).then(function(r){
     fin();
     if(r.ok===false){ toast({ tipo:"err", titulo:"No se pudo exportar", texto:r.mensaje||"", dur:9000 }); return; }
     if(r.base64) descargarXlsx(r.nombre, r.base64);
-    toast({ tipo:"area", titulo:"Excel listo · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive.", dur:9000 });
+    toast({ tipo:"area", titulo:(r.plantilla==="admin" ? "Consolidado listo" : "Indicadores listos")+" · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive.", dur:9000 });
   }).catch(function(e){ fin(); toast({ tipo:"err", titulo:"No se pudo exportar", texto:String(e && e.message || e), dur:9000 }); });
-});
+}
+$("btnExportarExcel").addEventListener("click", function(){ exportarExcel("btnExportarExcel", "admin"); });
+$("btnExportarIndicadores").addEventListener("click", function(){ exportarExcel("btnExportarIndicadores", "tecnico"); });
 
 function llenarSlicer(id, valores, todos){
   var sel = $(id), actual = sel.value;

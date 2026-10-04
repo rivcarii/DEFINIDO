@@ -203,7 +203,11 @@ function arrancar(d){
   $("leyendaTipos").innerHTML = TIPOS_ORDEN.map(tipoTag).join("");
   $("arranque").hidden = true;
   ver("inicio");
-  if($("bloqueExcel")) $("bloqueExcel").hidden = !(d.sesion && d.sesion.puede && d.sesion.puede.admin);
+  if($("bloqueExcel")){   /* administradores: consolidado completo + indicadores; técnicos y consulta: solo indicadores (sin datos de casos) */
+    var esAdm = !!(d.sesion && d.sesion.puede && d.sesion.puede.admin);
+    $("btnExportarExcel").hidden = !esAdm;
+    $("txtIndicadores").textContent = esAdm ? "Indicadores sin datos de casos (Excel)" : "Descargar indicadores (Excel)";
+  }
   if(d.migracion && d.migracion.hecho) toast({ tipo:"area", titulo:"Consolidado actualizado", texto:d.migracion.mensaje, dur:12000 });
   else if(d.migracion && d.migracion.mensaje) toast({ tipo:"err", titulo:"Revisión pendiente", texto:d.migracion.mensaje, dur:12000 });
   srvSilencioso("apiPlantillas").then(function(pl){ APP.plantillas = pl || []; });

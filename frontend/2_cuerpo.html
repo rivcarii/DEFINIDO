@@ -363,7 +363,10 @@
       <div><label for="dSede">Sede</label><select id="dSede"><option value="">Todas</option></select></div>
       <div><label for="dServicio">Servicio</label><select id="dServicio"><option value="">Todos</option></select></div>
       <div><button class="b sec" id="btnRefrescarTablero" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
-      <div id="bloqueExcel" hidden><button class="b pri" id="btnExportarExcel" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Exportar a Excel</button></div>
+      <div id="bloqueExcel" class="bloque-excel">
+        <button class="b pri" id="btnExportarExcel" type="button" hidden title="Todas las columnas, con datos de las personas (solo administradores)"><svg class="ic s"><use href="#i-descargar"/></svg>Consolidado completo (Excel)</button>
+        <button class="b sec" id="btnExportarIndicadores" type="button" title="Solo conteos por tipo, sede, mes, servicio y motivo: sin datos de las personas ni de los casos"><svg class="ic s"><use href="#i-descargar"/></svg><span id="txtIndicadores">Indicadores (Excel)</span></button>
+      </div>
     </div>
     <div id="tableroCuerpo"></div>
     <div id="npsCard"></div>
