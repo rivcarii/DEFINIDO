@@ -2414,7 +2414,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "9.1.1 · Excel profesional";
+var VERSION_CODIGO = "9.1.2 · Excel profesional";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3771,9 +3771,9 @@ function apiAuditoria_(filtros) {
 /** ¿Ya hay usuarios? Si no, la pantalla de acceso ofrece crear el primer administrador. */
 function estadoAcceso() {
   try {
-    return { hayUsuarios: _usuarios_().length > 0, institucion: "MiRed Barranquilla IPS S.A.S.", logo: LOGO_BASE64 };
+    return { hayUsuarios: _usuarios_().length > 0, institucion: "MiRed Barranquilla IPS S.A.S.", logo: LOGO_BASE64, version: VERSION_CODIGO };
   } catch (e) {
-    return { hayUsuarios: true, institucion: "MiRed Barranquilla IPS S.A.S.", logo: LOGO_BASE64, error: _explicarError_(e) };
+    return { hayUsuarios: true, institucion: "MiRed Barranquilla IPS S.A.S.", logo: LOGO_BASE64, version: VERSION_CODIGO, error: _explicarError_(e) };
   }
 }
 /**

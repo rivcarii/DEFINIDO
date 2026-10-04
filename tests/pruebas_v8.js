@@ -572,3 +572,4 @@ const libTP = G.__exportaciones[G.__exportaciones.length - 1];
 assert(libTP.hojas.Panel && libTP.hojas.Panel.graficos.length === 5 && !libTP.hojas.Consolidado, "el técnico recibe el mismo panel con gráficos, sin el consolidado");
 assert(/no incluyen datos de las personas/.test(libTP.hojas.Panel.celda(64, 2)) && /C\. LA PLAYA/.test(libTP.hojas.Panel.celda(6, 2)), "el panel del técnico aclara que no hay datos personales y muestra sus sedes");
 G.SESION = null;
+assert(G.estadoAcceso().version === G.VERSION_CODIGO && /^9\.1\.2/.test(G.estadoAcceso().version), "estadoAcceso informa la versión del servidor para el ingreso");

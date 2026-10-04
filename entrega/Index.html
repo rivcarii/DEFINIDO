@@ -6715,7 +6715,19 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
+var FRONT_VERSION = "9.1.2";
+function pintarVersion(estado){
+  var el = $("accVersion");
+  if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
+    var b = $("btnAcceso"); if(b && b.parentNode) b.parentNode.appendChild(el); }
+  var sv = estado && estado.version ? String(estado.version).split(" ")[0] : "";
+  var ok = sv && sv === FRONT_VERSION;
+  el.innerHTML = "Pantalla " + esc(FRONT_VERSION) + " · Servidor " + (sv ? esc(sv) : "<b>desactualizado (publica el Codigo.gs nuevo)</b>") +
+    (sv && !ok ? " · <b>no coinciden</b>" : "");
+  el.style.color = ok ? "" : "#E20A31";
+}
 function mostrarAcceso(estado, mensaje){
+  pintarVersion(estado);
   $("app").hidden = true; $("acceso").hidden = false;
   if(estado && estado.logo && !window.IMG_MIRED_B) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
   if(window.IMG_MASCOTA && $("mascotaAcceso") && !$("mascotaAcceso").getAttribute("src")) $("mascotaAcceso").src = IMG_MASCOTA;
