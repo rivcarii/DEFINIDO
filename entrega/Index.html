@@ -3749,7 +3749,7 @@ html[data-tema="oscuro"] [style*="background:#fff"],html[data-tema="oscuro"] [st
 html[data-tema="oscuro"] .b.pri{color:#fff}
 .nivel.vnna,.fila .nivel.vnna{color:#fff!important}   /* el texto de la etiqueta roja sólida nunca debe heredar el gris de la fila */
 /* etiquetas de colores claros (nivel, prioridad, rol, entidad…): en oscuro pasan a fondo translúcido con texto aclarado */
-html[data-tema="oscuro"] :is(.ent,.nivel:not(.vnna),.prio,.rol,.ico,.bola){background:color-mix(in srgb,currentColor 20%,transparent)!important;color:color-mix(in srgb,currentColor 40%,#fff)!important}
+html[data-tema="oscuro"] :is(.ent,.nivel:not(.vnna),.prio,.rol,.ico:not(.accion .ico),.bola){background:color-mix(in srgb,currentColor 20%,transparent)!important;color:color-mix(in srgb,currentColor 40%,#fff)!important}
 /* monocromático: todo lo que traía color propio se ve en grises */
 html[data-tema="calido"] .hero-saludo{background:linear-gradient(135deg,#6E310F,#B5541C 62%,#D26A2A)}
 html[data-tema="mono"] img:not(.mono-no),html[data-tema="mono"] canvas,html[data-tema="mono"] .avatar,html[data-tema="mono"] .chip,html[data-tema="mono"] .badge,
@@ -3898,6 +3898,47 @@ html[data-tema="oscuro"] .modal-fondo,html[data-tema="oscuro"] .velo{background:
 }
 .wa-caja{margin-top:18px;padding:14px 16px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--teal-wash-2)}.wa-caja h4{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:14px;color:var(--teal-dark)}.wa-caja .hint{margin-bottom:10px}
 .bloque-excel{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+
+/* ===========================================================================
+   v8.9 · PULIDO VISUAL
+   =========================================================================== */
+/* avisos emergentes: compactos, máximo 3 y sin tapar el contenido */
+#toasts{gap:8px;width:min(330px,calc(100vw - 20px))}
+.toast{padding:9px 11px 11px;border-radius:16px;gap:9px}
+.toast .bola{width:30px;height:30px;border-radius:10px}
+.toast b{font-size:13px;line-height:1.25}
+.toast p{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin:2px 0 0;font-size:12px;line-height:1.35}
+.toast .ir{margin-top:4px;font-size:12px}
+html[data-form="movil"] #toasts{bottom:calc(98px + env(safe-area-inset-bottom,0px))}
+/* inicio: 8 indicadores en una cuadrícula pareja (4 × 2) y tarjetas del encabezado centradas */
+.acciones-hoy{grid-template-columns:repeat(4,minmax(0,1fr))}
+@media(max-width:1100px){.acciones-hoy{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:700px){.acciones-hoy{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.hero .kmini{justify-content:flex-start;padding-top:28px}
+/* lectura: textos largos con ancho cómodo y mejor contraste */
+.cab-vista .sub,main>section>p.sub,main>section>.cab-vista+p{max-width:76ch;color:var(--ink-2)}
+.card p,.card .hint{max-width:84ch}
+.hint{color:var(--ink-3)}
+/* títulos de sección con acento de marca */
+.card h3:not(.sin-acento),.bi-card h3{position:relative}
+.sec-tit,.card .sec{position:relative}
+/* botones principales con brillo suave */
+.b.pri{background-image:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,0) 60%)}
+.b.sec:hover{background:var(--teal-wash)}
+/* menú: el icono se desplaza un poco al pasar el cursor */
+#menu button .ic{transition:transform .2s var(--ease)}
+#menu button:hover .ic{transform:translateX(2px)}
+#menu button.on:hover .ic{transform:none}
+/* filas y tarjetas de lista: elevación al pasar */
+.fila,.mail,.pr-card{transition:transform .2s var(--ease),box-shadow .2s var(--ease),background .18s var(--ease)}
+.fila:hover,.mail:hover,.pr-card:hover{transform:translateY(-1px);box-shadow:var(--sh-2)}
+/* barras de desplazamiento finas */
+*{scrollbar-width:thin;scrollbar-color:var(--line-2) transparent}
+::-webkit-scrollbar{width:9px;height:9px}::-webkit-scrollbar-thumb{background:var(--line-2);border-radius:99px;border:2px solid transparent;background-clip:content-box}::-webkit-scrollbar-thumb:hover{background-color:var(--ink-3)}::-webkit-scrollbar-track{background:transparent}
+html{scroll-behavior:smooth}
+/* estados vacíos */
+.vacio{display:grid;place-items:center;gap:8px;text-align:center;color:var(--ink-3);padding:28px 16px}
+.vacio .ic{width:34px;height:34px;opacity:.55}
 @media(max-width:700px){#splash .sp-sistema{--d:120px}}
 @media(prefers-reduced-motion:reduce){html::after{animation:none}#splash .sp-mascota{animation:none}}
 </style>
@@ -4745,7 +4786,7 @@ function toast(o){
   var t = setTimeout(quitar, dur);
   el.querySelector(".x").addEventListener("click", function(){ clearTimeout(t); quitar(); });
   if(o.accion && o.alPulsar) el.querySelector(".ir").addEventListener("click", function(){ clearTimeout(t); quitar(); o.alPulsar(); });
-  while($("toasts").children.length > 4) $("toasts").removeChild($("toasts").firstChild);
+  while($("toasts").children.length > 3) $("toasts").removeChild($("toasts").firstChild);
 }
 function notificar(n){
   n.hora = new Date(); n.nueva = true;

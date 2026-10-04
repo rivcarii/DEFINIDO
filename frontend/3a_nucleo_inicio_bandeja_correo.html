@@ -259,7 +259,7 @@ function toast(o){
   var t = setTimeout(quitar, dur);
   el.querySelector(".x").addEventListener("click", function(){ clearTimeout(t); quitar(); });
   if(o.accion && o.alPulsar) el.querySelector(".ir").addEventListener("click", function(){ clearTimeout(t); quitar(); o.alPulsar(); });
-  while($("toasts").children.length > 4) $("toasts").removeChild($("toasts").firstChild);
+  while($("toasts").children.length > 3) $("toasts").removeChild($("toasts").firstChild);
 }
 function notificar(n){
   n.hora = new Date(); n.nueva = true;
