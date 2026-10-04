@@ -572,4 +572,10 @@ const libTP = G.__exportaciones[G.__exportaciones.length - 1];
 assert(libTP.hojas.Panel && libTP.hojas.Panel.graficos.length === 5 && !libTP.hojas.Consolidado, "el técnico recibe el mismo panel con gráficos, sin el consolidado");
 assert(/no incluyen datos de las personas/.test(libTP.hojas.Panel.celda(64, 2)) && /C\. LA PLAYA/.test(libTP.hojas.Panel.celda(6, 2)), "el panel del técnico aclara que no hay datos personales y muestra sus sedes");
 G.SESION = null;
-assert(G.estadoAcceso().version === G.VERSION_CODIGO && /^9\.1\.2/.test(G.estadoAcceso().version), "estadoAcceso informa la versión del servidor para el ingreso");
+assert(G.estadoAcceso().version === G.VERSION_CODIGO && /^9\.1\.3/.test(G.estadoAcceso().version), "estadoAcceso informa la versión del servidor para el ingreso");
+(function () {
+  var xml = '<?xml version="1.0"?><c:chartSpace xmlns:c="x"><c:chart><c:plotArea><c:barChart><c:ser><c:idx val="0"/><c:dLbls><c:showVal val="0"/></c:dLbls><c:cat></c:cat><c:val></c:val></c:ser><c:ser><c:idx val="1"/><c:cat></c:cat><c:val></c:val></c:ser><c:gapWidth val="5"/></c:barChart></c:plotArea></c:chart></c:chartSpace>';
+  var r = G._xlEtiquetasXml_(xml);
+  assert((r.match(/<c:showVal val="1"\/>/g) || []).length === 2 && !/showVal val="0"/.test(r), "cada serie del gráfico lleva etiquetas de datos");
+  assert(/<c:dLbls>.*<\/c:dLbls><c:cat>/.test(r) && /formatCode="#,##0;;;"/.test(r), "las etiquetas van antes de las categorías y ocultan ceros");
+})();

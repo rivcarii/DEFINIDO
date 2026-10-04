@@ -1412,6 +1412,37 @@ function _conteo_(filas, col) {
 }
 
 /** Arma el .xlsx (hojas «Consolidado» y «Resumen») y devuelve el blob. */
+/**
+ * Gráficos compatibles con Excel y con etiquetas de datos. Google exporta los gráficos como gráficos nativos de Excel
+ * pero sin etiquetas: se abre el .xlsx, se agrega «mostrar valor» a cada serie de cada gráfico (los ceros se ocultan)
+ * y se vuelve a empaquetar. Si algo falla, se entrega el archivo original.
+ */
+function _xlEtiquetasXml_(xml) {
+  var m = /<(\w+):chartSpace/.exec(xml), c = m ? m[1] : "c";
+  var et = "<" + c + ":dLbls><" + c + ":numFmt formatCode=\"#,##0;;;\" sourceLinked=\"0\"/><" + c + ":showLegendKey val=\"0\"/><" + c + ":showVal val=\"1\"/><" +
+    c + ":showCatName val=\"0\"/><" + c + ":showSerName val=\"0\"/><" + c + ":showPercent val=\"0\"/><" + c + ":showBubbleSize val=\"0\"/></" + c + ":dLbls>";
+  var serRe = new RegExp("<" + c + ":ser>[\\s\\S]*?</" + c + ":ser>", "g");
+  var dRe = new RegExp("<" + c + ":dLbls>[\\s\\S]*?</" + c + ":dLbls>|<" + c + ":dLbls\\s*/>", "g");
+  return xml.replace(serRe, function (ser) {
+    ser = ser.replace(dRe, "");
+    var i = ser.indexOf("<" + c + ":cat>"); if (i < 0) i = ser.indexOf("<" + c + ":val>");
+    return i < 0 ? ser : ser.slice(0, i) + et + ser.slice(i);
+  });
+}
+function _xlEtiquetas_(blob) {
+  try {
+    var partes = Utilities.unzip(blob), hubo = false;
+    partes.forEach(function (p, i) {
+      if (!/xl\/charts\/chart[^\/]*\.xml$/.test(p.getName())) return;
+      var xml = p.getDataAsString("UTF-8"), nuevo = _xlEtiquetasXml_(xml);
+      if (nuevo !== xml) { partes[i] = Utilities.newBlob(nuevo, "application/xml", p.getName()); hubo = true; }
+    });
+    if (!hubo) return blob;
+    return Utilities.zip(partes, blob.getName()).setContentType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  } catch (e) {
+    return blob;
+  }
+}
 function _construirXlsx_(nombre, filas, descripcionFiltro) {
   var encabezados = _h(CFG.HOJA_DATOS).getRange(CFG.FILA_DATOS - 1, 1, 1, CFG.NCOL).getValues()[0].map(function (x) { return String(x || ""); });
   var tmp = SpreadsheetApp.create(nombre), id = tmp.getId();
@@ -1447,7 +1478,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
       { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
     if (resp.getResponseCode() !== 200) throw new Error("Google no pudo generar el Excel (código " + resp.getResponseCode() + ").");
-    return resp.getBlob().setName(nombre + ".xlsx");
+    return _xlEtiquetas_(resp.getBlob()).setName(nombre + ".xlsx");
   } finally {
     try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { Logger.log("Temporal: " + e); }
   }
@@ -1529,7 +1560,7 @@ function _construirXlsxIndicadores_(nombre, filas, descripcionFiltro) {
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
       { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
     if (resp.getResponseCode() !== 200) throw new Error("Google no pudo generar el Excel (código " + resp.getResponseCode() + ").");
-    return resp.getBlob().setName(nombre + ".xlsx");
+    return _xlEtiquetas_(resp.getBlob()).setName(nombre + ".xlsx");
   } finally {
     try { DriveApp.getFileById(id).setTrashed(true); } catch (e) { Logger.log("Temporal: " + e); }
   }
@@ -2414,7 +2445,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "9.1.2 · Excel profesional";
+var VERSION_CODIGO = "9.1.3 · Excel profesional";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
