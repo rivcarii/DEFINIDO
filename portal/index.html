@@ -3740,7 +3740,8 @@ html[data-tema="calido"]{
 :focus-visible{outline-color:var(--foco)}
 
 /* --- Superficies que eran blancas fijas: ahora siguen al tema --- */
-.lat-marca,.lat-usuario{background:var(--panel);color:var(--ink)}
+.lat-usuario{background:var(--panel);color:var(--ink)}
+.lat-marca{background:transparent!important;box-shadow:none!important;color:var(--ink)}
 .top,.tabbar,.modal-cab,.panel-flot,.centro,.toast,.form-card,.barra-guardar,.campana{background:var(--panel);color:var(--ink);border-color:var(--panel-borde)}
 .msg,.seg button,.anio,.etapas button.on,.tabs-acc button.on,.ficha-qr{background:var(--blanco)}
 input:where(:not([type=checkbox]):not([type=radio])),select,textarea{color:var(--ink)}
@@ -3826,7 +3827,7 @@ html[data-tema="mono"] .hero-saludo,html[data-tema="mono"] .ico,html[data-tema="
 /* --- Ajustes por dispositivo --- */
 html[data-so="ios"] input,html[data-so="ios"] select,html[data-so="ios"] textarea{font-size:16px}   /* evita el zoom automático de Safari al escribir */
 html[data-so="ios"] .b{border-radius:999px;font-weight:600}
-html[data-so="ios"] .tabbar{padding-bottom:calc(8px + env(safe-area-inset-bottom,0px));-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8)}
+html[data-so="ios"] .tabbar{-webkit-backdrop-filter:blur(24px) saturate(1.8);backdrop-filter:blur(24px) saturate(1.8)}
 html[data-so="ios"] *{-webkit-touch-callout:none}html[data-so="ios"] input,html[data-so="ios"] textarea{-webkit-touch-callout:default;-webkit-user-select:text;user-select:text}
 html[data-so="ios"] body{-webkit-overflow-scrolling:touch}
 html[data-so="android"] .b{border-radius:14px;font-weight:700;position:relative;overflow:hidden}
@@ -3848,6 +3849,37 @@ html[data-form="movil"] #cargaPill{bottom:calc(92px + env(safe-area-inset-bottom
 html[data-form="tablet"] .bi-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
 html[data-form="tablet"] .b,html[data-form="tablet"] .tabbar button{min-height:42px}
 html[data-form="tablet"] .dir-pasos{grid-template-columns:1fr}
+
+/* ===== v8.7.1 · correcciones vistas en iPhone y Android ===== */
+@media(max-width:1000px){
+  /* menú lateral en teléfono: panel del tema (antes quedaba blanco con texto claro en oscuro) */
+  .lateral{background:var(--panel)!important;color:var(--ink);-webkit-backdrop-filter:blur(28px) saturate(1.8);backdrop-filter:blur(28px) saturate(1.8);border:1px solid var(--panel-borde)}
+  #menu button{color:var(--ink)}#menu button.on,#menu.con-pastilla button.on{color:#fff}
+  .tabbar{background:var(--panel)!important;border-color:var(--panel-borde)!important}
+  .tabbar button{color:var(--ink-2)}.tabbar button.on{background:var(--teal-wash);color:var(--teal)}
+  html[data-tema="oscuro"] .tabbar button.on{color:var(--teal-dark)}
+  .top{background:var(--panel)!important}
+  .velo-lat{background:rgba(5,15,22,.45)}
+  /* contenido: nada se sale de la pantalla y los campos de fecha ocupan su columna */
+  main,.card,.bi-card,.form-grid,.grid2,.grid3{min-width:0;max-width:100%}
+  input,select,textarea{max-width:100%;min-width:0}
+  input[type="date"],input[type="datetime-local"],input[type="time"],input[type="month"]{-webkit-appearance:none;appearance:none;display:block;width:100%;min-height:46px;text-align:left;margin:0}
+  input[type="date"]::-webkit-date-and-time-value,input[type="datetime-local"]::-webkit-date-and-time-value{text-align:left;margin:0;min-height:1.2em}
+  input[type="date"]::-webkit-calendar-picker-indicator{opacity:.6}
+  .barra-guardar{bottom:calc(98px + env(safe-area-inset-bottom,0px));padding:8px 10px;gap:8px;border-radius:18px}
+  .barra-guardar .bg-estado{flex:1 1 100%;font-size:12px;margin:0;text-align:center}
+  .barra-guardar .b{flex:1 1 calc(50% - 8px);width:auto;min-width:0;justify-content:center;min-height:42px;padding:0 6px;font-size:12.5px;white-space:nowrap}
+  .acceso-form{flex-wrap:wrap}.temas.mini{position:static;flex:0 0 100%;justify-content:center;margin:0 0 12px}.temas.mini button{padding:5px}
+  main{padding-bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+  #cargaPill{bottom:calc(98px + env(safe-area-inset-bottom,0px))}
+}
+html[data-tema="oscuro"] .lat-marca img,html[data-tema="oscuro"] .lat-app img{mix-blend-mode:normal}
+html[data-tema="oscuro"] .toast,html[data-tema="oscuro"] .panel-flot,html[data-tema="oscuro"] .centro{background:var(--panel)}
+html[data-tema="oscuro"] .hero-saludo{background:linear-gradient(135deg,#0B3A4B,#0F5F7C 60%,#1478A0)}
+html[data-tema="oscuro"] .kmini .ico,html[data-tema="oscuro"] .accion .ico{filter:saturate(.85) brightness(.95)}
+html[data-tema="oscuro"] .acceso-pie,html[data-tema="oscuro"] .acceso-marca{color:#fff}
+html[data-tema="oscuro"] .modal-fondo,html[data-tema="oscuro"] .velo{background:rgba(0,0,0,.6)}
+
 @media(max-width:700px){#splash .sp-sistema{--d:120px}}
 @media(prefers-reduced-motion:reduce){html::after{animation:none}#splash .sp-mascota{animation:none}}
 </style>
