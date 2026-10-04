@@ -72,14 +72,24 @@ require("fs").mkdirSync(CAP, { recursive: true });
       if (!descarga || !/^Consolidado_PQRS_.*\.xlsx$/.test(descarga.suggestedFilename())) errores.push(w + " no se descargó el Excel del tablero");
       await p.waitForFunction(() => /Excel listo/.test(document.getElementById("toasts").textContent), null, { timeout: 15000 }).catch(() => errores.push(w + " sin aviso de Excel listo"));
     }
-    await irA("usuarios"); await p.waitForSelector("#usrLista .usr", { timeout: 8000 }); await p.waitForTimeout(300);
+    await irA("usuarios"); await p.waitForSelector("#usrLista .ufila:not(.cab)", { timeout: 8000 }); await p.waitForTimeout(300);
     if (!/github\.io\/DEFINIDO\/portal\//.test(await p.textContent("#enlaceActual").catch(() => ""))) errores.push(w + " el enlace de ingreso para los técnicos no es el del portal de GitHub");
     await p.waitForSelector("#audLista .aud-fila:not(.aud-cab)", { timeout: 8000 }).catch(() => errores.push(w + " la auditoría de accesos no muestra eventos"));
     if (!/Ingreso correcto/.test(await p.textContent("#audLista"))) errores.push(w + " la auditoría no registra el ingreso del administrador");
+    if (await p.locator("#usrLista .usr").count()) errores.push(w + " los usuarios siguen en tarjetas: deben verse como lista");
+    if (w >= 1366 && !(await p.locator("#usrLista .ufila.cab").isVisible())) errores.push(w + " la lista de usuarios no muestra su encabezado de columnas");
     await desb("usuarios"); await p.screenshot({ path: CAP + `z_${w}_usuarios.png`, fullPage: true });
     await p.click("#btnNuevoUsr"); await p.waitForSelector("#u_sedes", { timeout: 5000 }); await p.waitForTimeout(300);
     await desb("modal usuario"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_usuario_nuevo.png` });
     await p.keyboard.press("Escape");
+    // v8.6 · directorio de áreas: explicación visible y botón Guardar siempre a la vista, con contador de cambios
+    await irA("responsables"); await p.waitForSelector("#respLista .resp-fila[data-i]", { timeout: 8000 }); await p.waitForTimeout(400);
+    if (!(await p.locator(".dir-guia").isVisible())) errores.push(w + " el directorio no explica qué es");
+    const guardar = await p.evaluate(() => { const r = document.getElementById("btnGuardarResp").getBoundingClientRect(); return { abajo: r.bottom, vp: innerHeight, vis: r.width > 0 }; });
+    if (!guardar.vis || guardar.abajo > guardar.vp + 1) errores.push(w + " el botón Guardar del directorio no está a la vista sin desplazarse (" + Math.round(guardar.abajo) + " > " + guardar.vp + ")");
+    await p.fill('#respLista .resp-fila[data-i] input[data-k="cargo"]', "Cargo de prueba");
+    if (!/1 cambio sin guardar/.test(await p.textContent("#respEstado"))) errores.push(w + " el directorio no cuenta los cambios pendientes");
+    await desb("responsables"); await p.screenshot({ path: CAP + `z_${w}_directorio.png` });
     await irA("config"); await p.waitForSelector("#tablaEntidades .cfg-fila[data-ent]", { timeout: 8000 }); await p.waitForTimeout(300);
     await p.waitForSelector("#qrImagen svg", { timeout: 8000 }).catch(() => errores.push(w + " sin código QR del formulario"));
     if (!(await p.$("#aj_pushTema")) || (await p.$("#aj_acuseInstitucional"))) errores.push(w + " configuración de push ausente o con el acuse automático a EPS todavía visible");

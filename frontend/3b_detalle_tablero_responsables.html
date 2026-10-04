@@ -563,7 +563,7 @@ function pintarResponsables(){
       campo("cargo","Cargo","Cargo")+
       campo("correo","Correo de notificación","correo@miredips.org",true,' type="email" class="'+(r.correo?"":"falta")+'"')+
       campo("telefono","Teléfono","")+
-      '<div class="resp-reglas">'+
+      '<div class="resp-reglas"><div class="resp-reglas-tit">Se sugiere esta área cuando la PQRS coincide con… <em>(vacío = sin límite)</em></div>'+
         campoLista("servicios","Servicios que atiende","URGENCIAS; CONSULTA EXTERNA")+
         campoLista("sedes","Sedes (vacío = todas)","C. LA PLAYA; P. LA 21")+
         campoLista("palabras","Palabras clave de la manifestación","medicamento; farmacia; insulina")+
@@ -589,18 +589,12 @@ function pintarResponsables(){
   $("respLista").querySelectorAll('input[data-k="correo"]').forEach(function(inp){
     inp.addEventListener("input", function(){ inp.classList.toggle("falta", !inp.value.trim()); });
   });
+  actualizarCambiosResp();
 }
-$("respBuscar").addEventListener("input", pintarResponsables);
-$("btnNuevoResp").addEventListener("click", function(){
-  $("respBuscar").value = "";
-  APP.responsables.push({ id:"", area:"", nombre:"", cargo:"", correo:"", telefono:"", activo:true, fila:null, servicios:[], sedes:[], palabras:[], copia:[] });
-  pintarResponsables();
-  var ult = $("respLista").querySelector(".resp-fila.nuevo:last-child input"); if(ult) ult.focus();
-});
-$("btnGuardarResp").addEventListener("click", function(){
-  var filas = Array.prototype.slice.call(document.querySelectorAll(".resp-fila[data-i]"));
+/* Cambios pendientes del directorio: se calculan igual al mostrarlos y al guardar. */
+function cambiosResp(){
   var cambios = [];
-  filas.forEach(function(f){
+  Array.prototype.slice.call(document.querySelectorAll(".resp-fila[data-i]")).forEach(function(f){
     var i = parseInt(f.dataset.i,10), r = APP.responsables[i], datos = { fila:r.fila };
     var distinto = !r.fila;
     f.querySelectorAll("input").forEach(function(inp){
@@ -608,8 +602,28 @@ $("btnGuardarResp").addEventListener("click", function(){
       var antes = r[inp.dataset.k]; if(antes && antes.join) antes = antes.join("; ");
       if((antes||"") !== datos[inp.dataset.k]) distinto = true;
     });
+    f.classList.toggle("editado", distinto && !!r.fila);
     if(datos.area && distinto) cambios.push(datos);
   });
+  return cambios;
+}
+function actualizarCambiosResp(){
+  var n = cambiosResp().length, e = $("respEstado"), barra = $("barraResp");
+  if(!e) return;
+  e.textContent = n ? n + (n===1 ? " cambio sin guardar" : " cambios sin guardar") : "Sin cambios por guardar";
+  barra.classList.toggle("pendiente", n > 0);
+}
+$("respLista").addEventListener("input", actualizarCambiosResp);
+$("respBuscar").addEventListener("input", pintarResponsables);
+$("btnNuevoResp").addEventListener("click", function(){
+  $("respBuscar").value = "";
+  APP.responsables.push({ id:"", area:"", nombre:"", cargo:"", correo:"", telefono:"", activo:true, fila:null, servicios:[], sedes:[], palabras:[], copia:[] });
+  pintarResponsables();
+  var ult = $("respLista").querySelector(".resp-fila.nuevo:last-child input");
+  if(ult){ ult.focus({ preventScroll:true }); ult.scrollIntoView({ block:"center", behavior:"smooth" }); }
+});
+$("btnGuardarResp").addEventListener("click", function(){
+  var cambios = cambiosResp();
   if(!cambios.length){ aviso("respAviso","No hay cambios por guardar.","info"); return; }
   var fin = ocupado("btnGuardarResp","Guardando "+cambios.length+"…");
   var errores = [];

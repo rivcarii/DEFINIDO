@@ -101,7 +101,7 @@
     <p class="grupo">Análisis</p>
     <button data-v="tablero"><svg class="ic"><use href="#i-tablero"/></svg>Tablero</button>
     <p class="grupo" data-perm="admin">Administración</p>
-    <button data-v="responsables" data-perm="admin"><svg class="ic"><use href="#i-area"/></svg>Áreas responsables</button>
+    <button data-v="responsables" data-perm="admin"><svg class="ic"><use href="#i-area"/></svg>Directorio de áreas</button>
     <button data-v="usuarios" data-perm="admin"><svg class="ic"><use href="#i-personas"/></svg>Usuarios y sedes</button>
     <button data-v="config" data-perm="admin"><svg class="ic"><use href="#i-ajustes"/></svg>Configuración</button>
   </nav>
@@ -349,8 +349,16 @@
 
   <!-- ===================== RESPONSABLES ===================== -->
   <section id="v-responsables" hidden>
-    <div class="cab-vista"><div><h2 class="vista">Responsables de gestión</h2>
-      <p class="sub">A estos correos llega la solicitud interna cuando direccionas una PQRS. Edita directamente sobre la fila y guarda.</p></div></div>
+    <div class="cab-vista"><div><h2 class="vista">Directorio de áreas</h2>
+      <p class="sub">Las áreas y las personas que reciben las solicitudes cuando direccionas una PQRS.</p></div></div>
+    <details class="dir-guia" open>
+      <summary>¿Cómo funciona el directorio?</summary>
+      <div class="dir-pasos">
+        <div><b>1</b><div><strong>Cada fila es un área</strong><span>Escribe el nombre del área, quién responde y el <u>correo</u> donde recibirá el aviso. Sin correo no se le puede notificar.</span></div></div>
+        <div><b>2</b><div><strong>El sistema sugiere el área</strong><span>Si el servicio, la sede o las palabras clave de la manifestación coinciden con las <u>reglas</u> de la fila, esa área aparece sugerida al direccionar.</span></div></div>
+        <div><b>3</b><div><strong>Guarda tus cambios</strong><span>El botón <u>Guardar cambios</u> está siempre visible en la barra inferior y te dice cuántos cambios tienes pendientes.</span></div></div>
+      </div>
+    </details>
     <div class="card">
       <div id="respAviso"></div>
       <div class="resp-barra">
@@ -358,9 +366,10 @@
         <span class="resp-cont" id="respCont"></span>
       </div>
       <div class="resp-tabla" id="respLista"></div>
-      <div class="acciones">
+      <div class="barra-guardar" id="barraResp">
+        <span class="bg-estado" id="respEstado">Sin cambios por guardar</span>
+        <button class="b sec" id="btnNuevoResp" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar área</button>
         <button class="b pri" id="btnGuardarResp" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar cambios</button>
-        <button class="b sec" id="btnNuevoResp" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar área o responsable</button>
       </div>
     </div>
   </section>
@@ -373,7 +382,7 @@
     <div id="usrAviso"></div>
     <div id="usrEnlace"></div>
     <div class="resp-barra"><div class="buscar"><svg class="ic s"><use href="#i-buscar"/></svg><input id="usrBuscar" placeholder="Buscar por nombre, usuario o sede"></div><span class="resp-cont" id="usrCont"></span></div>
-    <div class="usr-lista" id="usrLista"></div>
+    <div class="ulista" id="usrLista"></div>
     <div class="card" style="margin-top:18px">
       <div class="cab-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:10px">
         <div><h3 style="margin:0">Auditoría de accesos y cambios</h3>

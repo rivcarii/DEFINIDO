@@ -266,17 +266,19 @@ function pintarUsuarios(){
   pintarEnlace(r.enlace);
   var lista = r.usuarios.filter(function(u){ return !q || norm([u.nombre,u.usuario,u.correo,u.sedes.join(" ")].join(" ")).indexOf(q) !== -1; });
   $("usrCont").textContent = r.usuarios.filter(function(u){ return u.activo; }).length + " activos de " + r.usuarios.length;
-  $("usrLista").innerHTML = lista.length ? lista.map(function(u){
+  var cab = '<div class="ufila cab"><span>Usuario</span><span>Rol</span><span>Sedes</span><span>Permisos y avisos</span><span>Activo</span><span></span></div>';
+  $("usrLista").innerHTML = lista.length ? cab + lista.map(function(u){
     var todas = u.sedes.some(function(x){ return /^todas$/i.test(x); }) || u.rol === "Administrador";
-    return '<div class="usr'+(u.activo?"":" inactivo")+'"><div class="usr-cab"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span>'+
-      '<div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span></div><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
-      '<div class="sedes-lista">'+(todas ? '<span>Todas las sedes</span>' : u.sedes.map(function(x){ return '<span>'+esc(x)+'</span>'; }).join(""))+'</div>'+
-      '<div class="sedes-lista">'+(u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.debeCambiar?'<span>Contraseña temporal</span>':'')+'</div>'+
-      '<div class="usr-pie"><em>'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</em>'+
-        '<label class="interruptor" title="Activo"><input type="checkbox" data-activo="'+esc(u.usuario)+'"'+(u.activo?" checked":"")+'><i></i></label>'+
-        '<button class="b sec mini" type="button" data-editar="'+esc(u.usuario)+'">Editar</button>'+
-        '<button class="b fant mini" type="button" data-clave="'+esc(u.usuario)+'">'+ic("candado","s")+'Clave</button>'+
-        (r.enlace && r.enlace.url && !r.enlace.prueba ? '<button class="b fant mini" type="button" data-invitar="'+esc(u.usuario)+'">'+ic("enviar","s")+'Invitar</button>' : '')+'</div></div>';
+    var etiquetas = (u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.debeCambiar?'<span class="aten">Contraseña temporal</span>':'');
+    return '<div class="ufila'+(u.activo?"":" inactivo")+'">'+
+      '<div class="u-id"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span><div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span><span class="u-ult">'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</span></div></div>'+
+      '<div class="u-rol" data-l="Rol"><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
+      '<div class="u-sedes" data-l="Sedes">'+(todas ? 'Todas las sedes' : esc(u.sedes.join(", ")))+'</div>'+
+      '<div class="sedes-lista" data-l="Permisos">'+(etiquetas || '<span>Solo consulta</span>')+'</div>'+
+      '<div class="u-act" data-l="Activo"><label class="interruptor" title="Activo"><input type="checkbox" data-activo="'+esc(u.usuario)+'"'+(u.activo?" checked":"")+'><i></i></label></div>'+
+      '<div class="u-acc"><button class="b sec mini" type="button" data-editar="'+esc(u.usuario)+'">Editar</button>'+
+        '<button class="b fant mini icono-b" type="button" data-clave="'+esc(u.usuario)+'" title="Restablecer contraseña" aria-label="Restablecer contraseña de '+esc(u.usuario)+'">'+ic("candado","s")+'</button>'+
+        (r.enlace && r.enlace.url && !r.enlace.prueba ? '<button class="b fant mini icono-b" type="button" data-invitar="'+esc(u.usuario)+'" title="Copiar invitación" aria-label="Copiar invitación para '+esc(u.usuario)+'">'+ic("enviar","s")+'</button>' : '')+'</div></div>';
   }).join("") : vacio("personas","No hay usuarios con ese filtro.");
   $("usrLista").querySelectorAll("[data-editar]").forEach(function(b){ b.addEventListener("click", function(){ formUsuario(b.dataset.editar); }); });
   $("usrLista").querySelectorAll("[data-invitar]").forEach(function(b){ b.addEventListener("click", function(){
