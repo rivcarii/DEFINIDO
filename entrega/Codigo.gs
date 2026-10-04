@@ -1430,7 +1430,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     }
     _xlEstiloConsolidado_(h, n, nc);
     var r = tmp.insertSheet("Resumen"), rows = [["RESUMEN DE LA EXPORTACIÓN", ""], ["Generado", _fmtHora_(Date.now())],
-      ["Filtro", descripcionFiltro || "Todo el consolidado"], ["Total de PQRS", n], ["", ""]];
+      ["Filtro", descripcionFiltro || "Todo el consolidado"], ["Total de PQRS", n], ["Versión de la plataforma", VERSION_CODIGO], ["", ""]];
     [["POR TIPO", C.TIPO_PQRS], ["POR SEDE", C.SEDE], ["POR ESTADO", C.ESTADO], ["POR SEMÁFORO", C.SEMAFORO],
      ["POR CANAL", C.CANAL], ["OPORTUNIDAD", C.OPORTUNIDAD]].forEach(function (b) {
       rows.push([b[0], "CANTIDAD"]);
@@ -1441,7 +1441,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     r.getRange(1, 1).setFontWeight("bold");
     r.setColumnWidth(1, 320);
     _xlEstiloResumen_(r, rows, 2);
-    _hojasMatrices_(tmp, filas);
+    try { _hojasMatrices_(tmp, filas); } catch (e) { Logger.log("Hojas de cruces: " + e); }
     _xlPanel_(tmp, filas, descripcionFiltro, "INFORME DE PQRS · CONSOLIDADO COMPLETO", false);
     SpreadsheetApp.flush();
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
@@ -1505,7 +1505,7 @@ function _construirXlsxIndicadores_(nombre, filas, descripcionFiltro) {
     var sedes = SESION && !SESION.todas ? (SESION.sedes || []).join(", ") : "Todas las sedes";
     var pct = function (x) { return n ? Math.round(x * 1000 / n) / 10 + " %" : "—"; };
     var rows = [["INDICADORES DE PQRS · MiRed Barranquilla IPS", ""], ["Generado", _fmtHora_(Date.now())], ["Filtro", descripcionFiltro || "Todo el período"],
-      ["Sedes incluidas", sedes || "Las asignadas a tu usuario"], ["Contenido", "Solo conteos. No incluye datos de las personas ni el contenido de las PQRS."], ["", ""],
+      ["Sedes incluidas", sedes || "Las asignadas a tu usuario"], ["Contenido", "Solo conteos. No incluye datos de las personas ni el contenido de las PQRS."], ["Versión de la plataforma", VERSION_CODIGO],
       ["INDICADOR", "VALOR"], ["Total de PQRS", n], ["Abiertas", abiertas], ["Cerradas o respondidas", cerradas], ["Vencidas", venc], ["Por vencer", porVenc],
       ["Respondidas a tiempo", aTiempo], ["Respondidas fuera de término", fuera],
       ["Oportunidad de respuesta", (aTiempo + fuera) ? Math.round(aTiempo * 1000 / (aTiempo + fuera)) / 10 + " %" : "—"], ["", ""]];
@@ -1523,7 +1523,7 @@ function _construirXlsxIndicadores_(nombre, filas, descripcionFiltro) {
     cabezas.forEach(function (fila) { _estiloEncabezado_(r, fila, nc); });
     r.setColumnWidth(1, 330); r.setColumnWidth(2, 120); r.setColumnWidth(3, 120);
     _xlEstiloResumen_(r, rows, nc);
-    _hojasMatrices_(tmp, filas);
+    try { _hojasMatrices_(tmp, filas); } catch (e) { Logger.log("Hojas de cruces: " + e); }
     _xlPanel_(tmp, filas, descripcionFiltro, "INDICADORES DE PQRS", true);
     SpreadsheetApp.flush();
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
@@ -1565,7 +1565,7 @@ function apiExportarExcel_(filtros) {
   var detalle = (plantilla === "admin" ? "consolidado completo" : "indicadores sin datos de casos") + " · " + filas.length + " PQRS · " + _descripcionFiltro_(filtros);
   _traza("—", "Exportación a Excel", detalle + " · guardado en Drive");
   _auditar_("Exportación a Excel", SESION ? SESION.usuario : "sistema", detalle);
-  var out = { ok: true, plantilla: plantilla, nombre: nombre + ".xlsx", filas: filas.length, tam: bytes.length, url: archivo.getUrl(), carpeta: carpeta.getUrl() };
+  var out = { ok: true, version: VERSION_CODIGO, plantilla: plantilla, nombre: nombre + ".xlsx", filas: filas.length, tam: bytes.length, url: archivo.getUrl(), carpeta: carpeta.getUrl() };
   if (bytes.length <= MAX_ENTREGA_XLSX) out.base64 = Utilities.base64Encode(bytes);
   else out.mensaje = "El archivo pesa " + Math.round(bytes.length / 1048576) + " MB: descárgalo desde Drive o exporta por año o por mes.";
   return out;
@@ -2414,7 +2414,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "9.1 · ícono de la medalla";
+var VERSION_CODIGO = "9.1.1 · Excel profesional";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();

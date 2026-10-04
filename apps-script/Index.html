@@ -5921,7 +5921,7 @@ function exportarExcel(btnId, plantilla, txt){
     fin();
     if(r.ok===false){ toast({ tipo:"err", titulo:"No se pudo exportar", texto:r.mensaje||"", dur:9000 }); return; }
     if(r.base64) descargarXlsx(r.nombre, r.base64);
-    toast({ tipo:"area", titulo:(r.plantilla==="admin" ? "Consolidado listo" : "Indicadores listos")+" · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive.", dur:9000 });
+    toast({ tipo:"area", titulo:(r.plantilla==="admin" ? "Consolidado listo" : "Indicadores listos")+" · "+r.filas+" PQRS", texto:r.nombre+(r.base64 ? "" : " · "+(r.mensaje||""))+" · guardado también en Drive."+(r.version ? " · Servidor: versión "+r.version : " · Servidor con versión anterior: publica el Codigo.gs nuevo"), dur:9000 });
   }).catch(function(e){ fin(); toast({ tipo:"err", titulo:"No se pudo exportar", texto:String(e && e.message || e), dur:9000 }); });
 }
 $("btnExportarExcel").addEventListener("click", function(){ exportarExcel("btnExportarExcel", "admin"); });
