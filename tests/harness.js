@@ -30,6 +30,20 @@ const Utilities = {
   DigestAlgorithm: { SHA_256: "sha256" }, Charset: { UTF_8: "utf8" },
 };
 
+/* Hoja de un libro temporal de exportación: acepta cualquier método de estilo (cadena sin efecto) y registra gráficos y reglas. */
+const _cadena = () => new Proxy(function () {}, { get: (t, k) => (k === "then" ? undefined : _cadena()), apply: () => _cadena() });
+function _hojaTemporal(Base, nombre, libro) {
+  const h = new Base(nombre); h.graficos = []; h.reglas = []; h.estilos = 0;
+  const getRangeBase = h.getRange.bind(h);
+  h.getRange = (...a) => { const r = getRangeBase(...a); const prox = new Proxy(r, { get: (t, k) => (k in t ? t[k] : (...x) => { h.estilos++; return prox; }) }); return prox; };
+  h.newChart = () => { const o = { tipo: null, opts: {}, rangos: [] }; const b = new Proxy({}, { get: (_, k) => {
+    if (k === "setChartType") return t => { o.tipo = t; return b; }; if (k === "addRange") return r => { o.rangos.push(r); return b; };
+    if (k === "setOption") return (a, v) => { o.opts[a] = v; return b; }; if (k === "setPosition") return (...a) => { o.pos = a; return b; };
+    if (k === "build") return () => o; return () => b; } }); return b; };
+  h.insertChart = c => { h.graficos.push(c); };
+  h.setConditionalFormatRules = r => { h.reglas = r; };
+  return new Proxy(h, { get: (t, k) => (k in t ? t[k] : (typeof k === "string" && /^(set|get|merge|create|apply|hide|show|auto|insert|move|protect|clear)/.test(k) ? (...x) => { t.estilos++; return _cadena(); } : undefined)) });
+}
 class Hoja {
   constructor(nombre, filas) { this.nombre = nombre; this.d = filas || []; this.formulas = {}; }
   getName() { return this.nombre; }
@@ -71,13 +85,16 @@ function crear(hojas, gmail) {
   const enviados = [], exportaciones = [];
   const ctx = {
     console, Math, Date, JSON, Object, Array, String, Number, RegExp, parseInt, isNaN, isFinite,
-    SpreadsheetApp: { getActiveSpreadsheet: () => ss, flush() {}, getUi() { throw new Error("sin UI"); },
+    Charts: { ChartType: { PIE: "PIE", COLUMN: "COLUMN", BAR: "BAR", LINE: "LINE" } },
+    SpreadsheetApp: { BorderStyle: { SOLID: "SOLID", SOLID_MEDIUM: "SOLID_MEDIUM", SOLID_THICK: "SOLID_THICK" }, BandingTheme: { LIGHT_GREY: "LIGHT_GREY" },
+      newConditionalFormatRule: () => { const o = { }; const b = new Proxy({}, { get: (_, k) => (k === "build" ? () => o : (...a) => { o[k] = a; return b; }) }); return b; },
+      getActiveSpreadsheet: () => ss, flush() {}, getUi() { throw new Error("sin UI"); },
       // v8.2: libro temporal para exportar a Excel (se registra lo que se escribió para verificarlo en las pruebas)
       create(nombre) {
-        const hs = {}, h0 = new Hoja("Hoja 1");
+        const hs = {}, h0 = _hojaTemporal(Hoja, "Hoja 1");
         h0.setName = function (n) { this.nombre = n; hs[n] = this; }; hs["Hoja 1"] = h0;
         const libro = { id: "tmp" + exportaciones.length, nombre, hojas: hs, getId: () => libro.id, getSheets: () => [h0],
-          insertSheet: n => (hs[n] = new Hoja(n)) };
+          insertSheet: n => (hs[n] = _hojaTemporal(Hoja, n)), setActiveSheet() {}, moveActiveSheet() {} };
         exportaciones.push(libro); return libro; } },
     Session: { getScriptTimeZone: () => process.env.SCRIPT_TZ || "America/New_York", getActiveUser: () => ({ getEmail: () => "siau@miredips.org" }),
                getEffectiveUser: () => ({ getEmail: () => "siau@miredips.org" }) },

@@ -1428,6 +1428,7 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
       COLS_FECHA_XLSX.forEach(function (c) { h.getRange(2, c, n, 1).setNumberFormat("dd/mm/yyyy"); });
       h.getRange(2, C.MARCA, n, 1).setNumberFormat("dd/mm/yyyy hh:mm");
     }
+    _xlEstiloConsolidado_(h, n, nc);
     var r = tmp.insertSheet("Resumen"), rows = [["RESUMEN DE LA EXPORTACIÓN", ""], ["Generado", _fmtHora_(Date.now())],
       ["Filtro", descripcionFiltro || "Todo el consolidado"], ["Total de PQRS", n], ["", ""]];
     [["POR TIPO", C.TIPO_PQRS], ["POR SEDE", C.SEDE], ["POR ESTADO", C.ESTADO], ["POR SEMÁFORO", C.SEMAFORO],
@@ -1439,7 +1440,9 @@ function _construirXlsx_(nombre, filas, descripcionFiltro) {
     r.getRange(1, 1, rows.length, 2).setValues(rows);
     r.getRange(1, 1).setFontWeight("bold");
     r.setColumnWidth(1, 320);
+    _xlEstiloResumen_(r, rows, 2);
     _hojasMatrices_(tmp, filas);
+    _xlPanel_(tmp, filas, descripcionFiltro, "INFORME DE PQRS · CONSOLIDADO COMPLETO", false);
     SpreadsheetApp.flush();
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
       { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
@@ -1479,12 +1482,9 @@ function _hojasMatrices_(tmp, filas) {
    ["Por servicio", "SERVICIO × TIPO DE PQRS", C.SERVICIO, null], ["Por motivo", "MOTIVO ESPECÍFICO (DERECHO VULNERADO) × TIPO DE PQRS", C.TIPOLOGIA, null],
    ["Por riesgo", "NIVEL DE RIESGO × TIPO DE PQRS", C.NIVEL_RIESGO, null]].forEach(function (d) {
     var h = tmp.insertSheet(d[0]), m = _matriz_(filas, d[2], C.TIPO_PQRS, d[3]), nc = m[0].length;
-    h.getRange(1, 1).setValue(d[1]).setFontWeight("bold");
+    h.getRange(1, 1).setValue(d[1]);
     h.getRange(3, 1, m.length, nc).setValues(m);
-    _estiloEncabezado_(h, 3, nc);
-    try { h.getRange(3 + m.length - 1, 1, 1, nc).setFontWeight("bold"); h.getRange(3, nc, m.length, 1).setFontWeight("bold"); } catch (e) {}
-    h.setColumnWidth(1, 260);
-    try { h.setFrozenRows(3); } catch (e) {}
+    _xlHojaMatriz_(h, m, d[1]);
   });
 }
 /**
@@ -1522,7 +1522,9 @@ function _construirXlsxIndicadores_(nombre, filas, descripcionFiltro) {
     r.getRange(1, 1).setFontWeight("bold");
     cabezas.forEach(function (fila) { _estiloEncabezado_(r, fila, nc); });
     r.setColumnWidth(1, 330); r.setColumnWidth(2, 120); r.setColumnWidth(3, 120);
+    _xlEstiloResumen_(r, rows, nc);
     _hojasMatrices_(tmp, filas);
+    _xlPanel_(tmp, filas, descripcionFiltro, "INDICADORES DE PQRS", true);
     SpreadsheetApp.flush();
     var resp = UrlFetchApp.fetch("https://docs.google.com/spreadsheets/d/" + id + "/export?format=xlsx",
       { headers: { Authorization: "Bearer " + ScriptApp.getOAuthToken() }, muteHttpExceptions: true });
@@ -2412,7 +2414,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "8.9 · pulido visual";
+var VERSION_CODIGO = "9.0 · Excel profesional";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -5912,4 +5914,219 @@ function apiProbarWhatsapp_(telefono) {
   var r = _waEnviar_(to, "Prueba del Sistema de PQRS · SIAU MiRed IPS: si lees esto, WhatsApp quedó conectado.");
   _auditar_("Prueba de WhatsApp", SESION ? SESION.usuario : "sistema", r.ok ? "Enviada" : "Error: " + r.error);
   return r.ok ? { ok: true, mensaje: "Mensaje de prueba enviado." } : { ok: false, mensaje: "WhatsApp respondió: " + r.error };
+}
+
+
+// =====================================================================================
+// v9.0 · EXCEL PROFESIONAL: panel con gráficos, tablas con estilo de marca y formato condicional
+// =====================================================================================
+/*
+ * El libro se arma como Google Sheets temporal y se exporta a .xlsx: los gráficos, colores, filtros, formatos condicionales y
+ * paneles inmovilizados se convierten en elementos nativos de Excel. Todo lo decorativo va en _xl_() (si una función de estilo
+ * falla, el archivo sale igual, solo menos vistoso). Los datos nunca dependen del estilo.
+ */
+var XL = { teal: "#006081", oscuro: "#00475F", claro: "#F3F8FA", medio: "#DCEAF0", linea: "#CFE0E7", tinta: "#10222C", gris: "#5B6F7A", rojo: "#E20A31", amarillo: "#FEDC00", verde: "#009C4D" };
+function _xl_(f) { try { f(); } catch (e) { Logger.log("Excel (estilo): " + e); } }
+function _xlColorSemaforo_(t) {
+  var k = _norm(_limpiarSimbolo_(t));
+  return k.indexOf("vencida") === 0 ? "#E20A31" : k.indexOf("por vencer") === 0 ? "#F29D00" : k.indexOf("en termino") === 0 ? "#009C4D" : "#9AA9B2";
+}
+function _xlKpis_(filas) {
+  var k = { total: filas.length, abiertas: 0, cerradas: 0, vencidas: 0, porVencer: 0, aTiempo: 0, fuera: 0 };
+  filas.forEach(function (f) {
+    var est = _norm(f[C.ESTADO - 1]), sem = _norm(_limpiarSimbolo_(f[C.SEMAFORO - 1])), op = String(f[C.OPORTUNIDAD - 1] || "");
+    if (est.indexOf("cerrada") !== -1 || est.indexOf("respondida") !== -1) k.cerradas++; else k.abiertas++;
+    if (sem.indexOf("vencida") === 0) k.vencidas++; else if (sem.indexOf("por vencer") === 0) k.porVencer++;
+    if (op === "A tiempo") k.aTiempo++; else if (op === "Fuera de término") k.fuera++;
+  });
+  k.oportunidad = (k.aTiempo + k.fuera) ? Math.round(k.aTiempo * 1000 / (k.aTiempo + k.fuera)) / 10 : null;
+  return k;
+}
+/** Encabezado de tabla (teal, texto blanco) y cuerpo con bordes suaves y filas alternas. */
+function _xlTabla_(h, fila, col, nf, nc, opciones) {
+  opciones = opciones || {};
+  _xl_(function () {
+    var ench = h.getRange(fila, col, 1, nc);
+    ench.setFontWeight("bold").setBackground(XL.teal).setFontColor("#FFFFFF").setFontSize(10).setHorizontalAlignment("center").setVerticalAlignment("middle").setWrap(true);
+    if (nf > 1) {
+      var cuerpo = h.getRange(fila + 1, col, nf - 1, nc);
+      cuerpo.setFontSize(10).setFontColor(XL.tinta).setVerticalAlignment("middle").setBorder(true, true, true, true, true, true, XL.linea, SpreadsheetApp.BorderStyle.SOLID);
+      for (var i = 1; i < nf; i += 2) h.getRange(fila + 1 + i, col, 1, nc).setBackground(XL.claro);
+      if (nc > 1) h.getRange(fila + 1, col + 1, nf - 1, nc - 1).setHorizontalAlignment("center");
+    }
+    h.setRowHeight(fila, 30);
+  });
+}
+function _xlBanda_(h, fila, col, nf, nc, texto, tam, fondo, color) {
+  _xl_(function () {
+    var r = h.getRange(fila, col, nf, nc);
+    r.merge(); r.setValue(texto).setBackground(fondo).setFontColor(color).setFontSize(tam).setFontWeight("bold").setVerticalAlignment("middle").setHorizontalAlignment("left").setWrap(true);
+  });
+}
+function _xlFranja_(h, fila, col, ancho) {
+  _xl_(function () {
+    ["#006081", XL.rojo, XL.amarillo, XL.verde].forEach(function (c, i) { h.getRange(fila, col + i * ancho, 1, ancho).setBackground(c); });
+    h.setRowHeight(fila, 6);
+  });
+}
+function _xlEstiloResumen_(r, rows, nc) {
+  _xl_(function () {
+    r.setHiddenGridlines(true);
+    r.getRange(1, 1, 1, nc).setFontSize(15).setFontWeight("bold").setFontColor(XL.oscuro);
+    r.getRange(2, 1, 4, 1).setFontWeight("bold").setFontColor(XL.gris);
+    rows.forEach(function (f, i) {
+      var cab = (f[1] === "CANTIDAD" || f[1] === "VALOR");
+      if (cab) _xlTabla_(r, i + 1, 1, 1, nc);
+      else if (f[0] && f[1] !== "" && i > 5) { _xl_(function () { r.getRange(i + 1, 1, 1, nc).setBorder(false, false, true, false, false, false, XL.linea, SpreadsheetApp.BorderStyle.SOLID); r.getRange(i + 1, 2, 1, nc - 1).setHorizontalAlignment("center"); }); }
+    });
+    r.setTabColor(XL.verde);
+  });
+}
+/** Hoja de cruces: título, tabla con encabezado de marca, totales resaltados y mapa de calor en el interior. */
+function _xlHojaMatriz_(h, m, titulo) {
+  var nf = m.length, nc = m[0].length;
+  _xl_(function () {
+    h.setHiddenGridlines(true);
+    h.getRange(1, 1).setFontSize(14).setFontWeight("bold").setFontColor(XL.oscuro);
+    _xlTabla_(h, 3, 1, nf, nc);
+    // colores de cada tipo en el encabezado
+    for (var j = 1; j < nc - 1; j++) { var col = _colorTipo_(m[0][j]); h.getRange(3, j + 1).setBackground(col).setFontColor(_norm(m[0][j]).indexOf("reclamo") === 0 ? "#2B2100" : "#FFFFFF"); }
+    h.getRange(3 + nf - 1, 1, 1, nc).setFontWeight("bold").setBackground(XL.medio).setBorder(true, false, false, false, false, false, XL.teal, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
+    h.getRange(4, nc, nf - 1, 1).setFontWeight("bold").setBackground(XL.medio);
+    h.getRange(4, 1, nf - 1, 1).setFontWeight("bold").setHorizontalAlignment("left");
+    if (nf > 3 && nc > 2) {
+      var regla = SpreadsheetApp.newConditionalFormatRule().setGradientMinpoint("#FFFFFF").setGradientMaxpoint("#7FC4DB").setRanges([h.getRange(4, 2, nf - 2, nc - 2)]).build();
+      h.setConditionalFormatRules([regla]);
+    }
+    h.setColumnWidth(1, 280); for (var c = 2; c <= nc; c++) h.setColumnWidth(c, 105);
+    h.setFrozenRows(3); h.setTabColor(XL.teal);
+  });
+}
+/** Consolidado: encabezado fijo, filtros, filas alternas, anchos útiles y colores por semáforo, tipo y riesgo. */
+function _xlEstiloConsolidado_(h, n, nc) {
+  _xl_(function () {
+    var todo = h.getRange(1, 1, Math.max(n + 1, 2), nc);
+    todo.setFontFamily("Calibri").setFontSize(10).setVerticalAlignment("middle");
+    var ench = h.getRange(1, 1, 1, nc);
+    ench.setFontWeight("bold").setBackground(XL.teal).setFontColor("#FFFFFF").setHorizontalAlignment("center").setWrap(true);
+    h.setRowHeight(1, 44); h.setFrozenRows(1); h.setFrozenColumns(1); h.setTabColor(XL.oscuro);
+    var ancho = {}; for (var c = 1; c <= nc; c++) ancho[c] = 120;
+    ancho[C.CODIGO] = 150; ancho[C.CANAL] = 130; ancho[C.NOMBRE_SOL] = 190; ancho[C.NOMBRE_AFI] = 190; ancho[C.CORREO] = 210; ancho[C.DIRECCION] = 190;
+    ancho[C.SEDE] = 150; ancho[C.SERVICIO] = 170; ancho[C.SERVICIO_ESP] = 170; ancho[C.TIPOLOGIA] = 230; ancho[C.DESCRIPCION] = 430; ancho[C.CLASIF_INTERNA] = 200;
+    ancho[C.RTA_AREA] = 330; ancho[C.RTA_USUARIO] = 330; ancho[C.OBSERVACIONES] = 280; ancho[C.SEMAFORO] = 120; ancho[C.ESTADO] = 150; ancho[C.NIVEL_RIESGO] = 190; ancho[C.RESPONSABLE] = 170;
+    COLS_FECHA_XLSX.forEach(function (x) { ancho[x] = 95; });
+    Object.keys(ancho).forEach(function (k) { h.setColumnWidth(parseInt(k, 10), ancho[k]); });
+    if (n) {
+      [C.DESCRIPCION, C.RTA_AREA, C.RTA_USUARIO, C.OBSERVACIONES].forEach(function (x) { h.getRange(2, x, n, 1).setWrap(true).setVerticalAlignment("top"); });
+      var b = h.getRange(2, 1, n, nc).applyRowBanding(SpreadsheetApp.BandingTheme.LIGHT_GREY, false, false);
+      _xl_(function () { b.setFirstRowColor("#FFFFFF").setSecondRowColor(XL.claro); });
+      _xl_(function () { h.getRange(1, 1, n + 1, nc).createFilter(); });
+      var reglas = [], rg = function (col, texto, fondo, fuente) {
+        reglas.push(SpreadsheetApp.newConditionalFormatRule().whenTextContains(texto).setBackground(fondo).setFontColor(fuente).setRanges([h.getRange(2, col, n, 1)]).build());
+      };
+      rg(C.SEMAFORO, "Vencida", "#FBE1E6", "#AB1130"); rg(C.SEMAFORO, "Por vencer", "#FFF0D2", "#8E5B00"); rg(C.SEMAFORO, "En término", "#DDF0E5", "#1C6B44");
+      rg(C.TIPO_PQRS, "Queja", "#FDEBEE", "#B0102B"); rg(C.TIPO_PQRS, "Reclamo", "#FFF3DB", "#8E5B00"); rg(C.TIPO_PQRS, "Sugerencia", "#E4EEFB", "#1A5CB0");
+      rg(C.TIPO_PQRS, "Felicitación", "#E6F5EC", "#0B6B3A"); rg(C.TIPO_PQRS, "Petición", "#F0EAF9", "#5E3A96");
+      rg(C.NIVEL_RIESGO, "Vital", "#FBE1E6", "#AB1130"); rg(C.NIVEL_RIESGO, "Priorizado", "#FFF0D2", "#8E5B00");
+      rg(C.OPORTUNIDAD, "Fuera", "#FBE1E6", "#AB1130"); rg(C.OPORTUNIDAD, "A tiempo", "#DDF0E5", "#1C6B44");
+      h.setConditionalFormatRules(reglas);
+    }
+  });
+}
+function _xlGrafico_(h, tipo, rango, titulo, fila, col, ancho, alto, opciones) {
+  _xl_(function () {
+    var b = h.newChart().setChartType(tipo).addRange(rango).setPosition(fila, col, 6, 4).setOption("title", titulo)
+      .setOption("width", ancho).setOption("height", alto).setOption("backgroundColor", "#FFFFFF")
+      .setOption("titleTextStyle", { color: XL.oscuro, fontSize: 13, bold: true }).setOption("legend", { position: "bottom", textStyle: { color: XL.gris, fontSize: 10 } });
+    Object.keys(opciones || {}).forEach(function (k) { b = b.setOption(k, opciones[k]); });
+    h.insertChart(b.build());
+  });
+}
+/**
+ * Hoja «Panel»: encabezado de marca, 6 indicadores en tarjetas y 5 gráficos (tipo, semáforo, mes × tipo, sede y motivo).
+ * Los datos de los gráficos están en la hoja «Datos» (tablas visibles y con estilo).
+ */
+function _xlPanel_(tmp, filas, descripcionFiltro, titulo, tecnico) {
+  _xl_(function () {
+    var k = _xlKpis_(filas), tz = _tz_();
+    var panel = tmp.insertSheet("Panel"), datos = tmp.insertSheet("Datos");
+    // ----- hoja de datos (tablas) -----
+    var sin = function (v) { var t = _limpiarSimbolo_(String(v === null || v === undefined ? "" : v)).trim(); return t || "Sin dato"; };
+    var tabla = function (fila, tituloT, ench, filasT) {
+      datos.getRange(fila, 2).setValue(tituloT);
+      _xl_(function () { datos.getRange(fila, 2).setFontWeight("bold").setFontSize(12).setFontColor(XL.oscuro); });
+      var m = [ench].concat(filasT);
+      datos.getRange(fila + 1, 2, m.length, ench.length).setValues(m);
+      _xlTabla_(datos, fila + 1, 2, m.length, ench.length);
+      return { cab: fila + 1, ini: fila + 2, fin: fila + 1 + filasT.length, sig: fila + m.length + 3 };
+    };
+    var con = function (col, tope) {
+      var c = _conteo_(filas, col).map(function (x) { return [sin(x[0]), x[1]]; });
+      if (tope && c.length > tope) { var resto = 0; c.slice(tope).forEach(function (x) { resto += x[1]; }); c = c.slice(0, tope); c.push(["Otras", resto]); }
+      return c.map(function (x) { return [x[0], x[1], filas.length ? Math.round(x[1] * 1000 / filas.length) / 10 + " %" : "—"]; });
+    };
+    var fila = 2, T = {};
+    T.tipo = tabla(fila, "PQRS por tipo", ["Tipo", "Cantidad", "% del total"], con(C.TIPO_PQRS)); fila = T.tipo.sig;
+    T.sem = tabla(fila, "Estado frente al término", ["Semáforo", "Cantidad", "% del total"], con(C.SEMAFORO)); fila = T.sem.sig;
+    T.sede = tabla(fila, "PQRS por sede (las 10 con más casos)", ["Sede", "Cantidad", "% del total"], con(C.SEDE, 10)); fila = T.sede.sig;
+    T.motivo = tabla(fila, "Motivo específico (derecho vulnerado)", ["Motivo", "Cantidad", "% del total"], con(C.TIPOLOGIA, 8)); fila = T.motivo.sig;
+    var mes = function (f) { var d = f[C.FECHA_RADICACION - 1]; return d instanceof Date && !isNaN(d.getTime()) ? Utilities.formatDate(d, tz, "yyyy-MM") : "Sin fecha"; };
+    var mm = _matriz_(filas, C.FECHA_RADICACION, C.TIPO_PQRS, mes);
+    var cuerpo = mm.slice(1, mm.length - 1); if (cuerpo.length > 12) cuerpo = cuerpo.slice(cuerpo.length - 12);   // últimos 12 meses
+    var cols = mm[0].slice(0, mm[0].length - 1);
+    var mat = [cols].concat(cuerpo.map(function (f) { return f.slice(0, f.length - 1); }));
+    datos.getRange(fila, 2).setValue("PQRS por mes y tipo (últimos 12 meses)");
+    _xl_(function () { datos.getRange(fila, 2).setFontWeight("bold").setFontSize(12).setFontColor(XL.oscuro); });
+    mat[0][0] = "Mes";
+    datos.getRange(fila + 1, 2, mat.length, cols.length).setValues(mat);
+    _xlTabla_(datos, fila + 1, 2, mat.length, cols.length);
+    var TM = { cab: fila + 1, ini: fila + 2, fin: fila + 1 + cuerpo.length, nc: cols.length };
+    _xl_(function () {
+      datos.setHiddenGridlines(true); datos.setColumnWidth(1, 24); datos.setColumnWidth(2, 260);
+      for (var c = 3; c <= 2 + cols.length; c++) datos.setColumnWidth(c, 100);
+      datos.setTabColor("#9AA9B2");
+    });
+    // ----- panel -----
+    _xl_(function () {
+      panel.setHiddenGridlines(true); panel.setColumnWidth(1, 24); panel.setColumnWidth(14, 24);
+      for (var c = 2; c <= 13; c++) panel.setColumnWidth(c, 92);
+      panel.getRange(1, 1, 70, 14).setBackground("#FFFFFF").setFontFamily("Calibri");
+      panel.setRowHeight(1, 12);
+    });
+    _xlBanda_(panel, 2, 2, 3, 12, titulo + "\nMiRed Barranquilla IPS · Oficina de Atención al Usuario (SIAU)", 20, XL.oscuro, "#FFFFFF");
+    _xl_(function () { panel.setRowHeight(2, 26); panel.setRowHeight(3, 26); panel.setRowHeight(4, 26); });
+    _xlFranja_(panel, 5, 2, 3);
+    var sedes = SESION && !SESION.todas ? (SESION.sedes || []).join(", ") : "Todas las sedes";
+    _xlBanda_(panel, 6, 2, 1, 12, "Periodo y filtro: " + (descripcionFiltro || "Todo el período") + "   ·   Sedes: " + sedes + "   ·   Generado: " + _fmtHora_(Date.now()), 10, "#FFFFFF", XL.gris);
+    _xl_(function () { panel.setRowHeight(6, 24); panel.setRowHeight(7, 10); });
+    // tarjetas de indicadores
+    var tarjetas = [["PQRS RADICADAS", k.total, XL.teal, "en el periodo"], ["ABIERTAS", k.abiertas, "#1F6FD1", "en gestión"], ["CERRADAS", k.cerradas, XL.verde, "respondidas"],
+                    ["VENCIDAS", k.vencidas, XL.rojo, "fuera del término"], ["POR VENCER", k.porVencer, "#F29D00", "próximas al límite"],
+                    ["OPORTUNIDAD", k.oportunidad === null ? "—" : k.oportunidad + " %", "#7B4FB8", "respuestas a tiempo"]];
+    tarjetas.forEach(function (t, i) {
+      var col = 2 + i * 2;
+      _xlBanda_(panel, 8, col, 1, 2, t[0], 9, XL.claro, XL.gris);
+      _xl_(function () { panel.getRange(9, col, 1, 2).merge(); panel.getRange(9, col, 1, 2).setValue(t[1]).setBackground(XL.claro).setFontColor(t[2]).setFontSize(26).setFontWeight("bold").setHorizontalAlignment("left").setVerticalAlignment("middle"); });
+      _xl_(function () { panel.getRange(10, col, 1, 2).merge(); panel.getRange(10, col, 1, 2).setValue(t[3]).setBackground(XL.claro).setFontColor(XL.gris).setFontSize(9).setHorizontalAlignment("left"); });
+      _xl_(function () { panel.getRange(8, col, 3, 1).setBorder(null, true, null, null, null, null, t[2], SpreadsheetApp.BorderStyle.SOLID_THICK); });
+    });
+    _xl_(function () { panel.setRowHeight(8, 22); panel.setRowHeight(9, 42); panel.setRowHeight(10, 22); panel.setRowHeight(11, 14); });
+    // gráficos
+    var tc = function (T1) { return datos.getRange(T1.ini, 2, T1.fin - T1.ini + 1, 2); };
+    var conCab = function (T1) { return datos.getRange(T1.cab, 2, T1.fin - T1.cab + 1, 2); };
+    var nombres = function (T1) { return datos.getRange(T1.ini, 2, T1.fin - T1.ini + 1, 1).getValues().map(function (x) { return x[0]; }); };
+    var C_PIE = Charts.ChartType.PIE, C_COL = Charts.ChartType.COLUMN, C_BAR = Charts.ChartType.BAR;
+    _xlGrafico_(panel, C_PIE, conCab(T.tipo), "PQRS por tipo", 12, 2, 540, 290, { pieHole: 0.5, colors: nombres(T.tipo).map(function (n) { return _colorTipo_(n); }), pieSliceText: "value", chartArea: { width: "90%", height: "70%" } });
+    _xlGrafico_(panel, C_PIE, conCab(T.sem), "Estado frente al término", 12, 8, 540, 290, { pieHole: 0.5, colors: nombres(T.sem).map(_xlColorSemaforo_), pieSliceText: "value" });
+    if (TM.fin >= TM.ini) {
+      var rangoMes = datos.getRange(TM.cab, 2, TM.fin - TM.cab + 1, TM.nc);
+      _xlGrafico_(panel, C_COL, rangoMes, "PQRS por mes y tipo", 28, 2, 1085, 320, { isStacked: true, colors: cols.slice(1).map(function (n) { return _colorTipo_(n); }), hAxis: { textStyle: { fontSize: 10 } }, vAxis: { gridlines: { color: "#E6EEF2" } }, bar: { groupWidth: "62%" } });
+    }
+    _xlGrafico_(panel, C_BAR, conCab(T.sede), "PQRS por sede", 45, 2, 540, 330, { colors: [XL.teal], legend: { position: "none" } });
+    _xlGrafico_(panel, C_BAR, conCab(T.motivo), "Motivo específico (derecho vulnerado)", 45, 8, 540, 330, { colors: ["#B4531A"], legend: { position: "none" } });
+    _xlBanda_(panel, 64, 2, 2, 12, tecnico
+      ? "Indicadores agregados: no incluyen datos de las personas ni el contenido de las PQRS. Cuenta únicamente las sedes asignadas a quien descargó el archivo."
+      : "Documento confidencial. La hoja «Consolidado» contiene datos personales y de salud protegidos por la Ley 1581 de 2012 y por la reserva de la historia clínica: no se reenvía ni se comparte fuera del proceso.", 9, "#FFFFFF", XL.gris);
+    _xl_(function () { panel.setTabColor(XL.rojo); tmp.setActiveSheet(panel); tmp.moveActiveSheet(1); });
+  });
 }

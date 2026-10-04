@@ -258,7 +258,7 @@ assert(+sigue.codigo.split("-")[3] === tope + 41, "si alguien escribe a mano un 
 const ex = G.apiExportarExcel_({ anio: 2026, mes: 9 });
 const libro = G.__exportaciones[G.__exportaciones.length - 1];
 assert(ex.ok && ex.filas > 0 && ex.base64 && /^Consolidado_PQRS_2026-09_/.test(ex.nombre) && /\.xlsx$/.test(ex.nombre), "exporta el consolidado de un mes a .xlsx: " + ex.nombre + " · " + ex.filas + " filas");
-assert(Object.keys(libro.hojas).filter(k => k !== "Hoja 1").sort().join() === "Consolidado,Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "el Excel del administrador lleva Consolidado, Resumen e indicadores (nunca la hoja Usuarios)");
+assert(Object.keys(libro.hojas).filter(k => k !== "Hoja 1").sort().join() === "Consolidado,Datos,Panel,Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "el Excel del administrador lleva Consolidado, Resumen e indicadores (nunca la hoja Usuarios)");
 assert(libro.hojas.Consolidado.celda(1, 1) === "CÓDIGO DE RADICACIÓN" && libro.hojas.Consolidado.getLastRow() === ex.filas + 1, "encabezados y filas completos en el libro exportado");
 assert(libro.hojas.Resumen.d.some(f => f[0] === "POR TIPO") && libro.hojas.Resumen.d.some(f => f[0] === "POR SEDE"), "hoja Resumen con totales por tipo y sede");
 assert(G.DriveApp.__temporales[libro.id] === true, "el libro temporal se manda a la papelera");
@@ -498,7 +498,7 @@ const exTec = G.apiExportarExcel_({ plantilla: "admin" });   // un técnico no p
 const libTec = G.__exportaciones[G.__exportaciones.length - 1];
 assert(exTec.plantilla === "tecnico" && !libTec.hojas.Consolidado, "un técnico solo recibe indicadores aunque pida la plantilla del administrador");
 const hojasTec = Object.keys(libTec.hojas).filter(k => k !== "Hoja 1").sort().join();
-assert(hojasTec === "Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "plantilla del técnico: solo hojas de indicadores: " + hojasTec);
+assert(hojasTec === "Datos,Panel,Por mes,Por motivo,Por riesgo,Por sede,Por servicio,Resumen", "plantilla del técnico: solo hojas de indicadores: " + hojasTec);
 const todoTec = JSON.stringify(Object.keys(libTec.hojas).map(k => libTec.hojas[k].d || []));
 assert(!/SIAU-20\d\d-\d\d-\d{4}/.test(todoTec) && !/@correo\.com|@gmail\.com|Marelys|Rosa Villalba|Pedro/.test(todoTec), "el Excel del técnico no trae radicados, nombres ni correos");
 const sedesTec = (libTec.hojas["Por sede"].d || []).slice(2).map(f => f[0]).filter(x => x && x !== "TOTAL");
@@ -549,3 +549,26 @@ assert(fallo.ok !== false && /No se pudo enviar por WhatsApp \(Token vencido\)/.
 G.UrlFetchApp.waFalla = false;
 assert(G.RUTAS.apiGuardarWhatsapp[1] === "admin" && G.RUTAS.apiProbarWhatsapp[1] === "admin" && G.RUTAS.apiWhatsappEstado[1] === "admin", "la configuración de WhatsApp es solo del administrador");
 G.apiGuardarAjustes_({ waActivo: false });
+
+// ---- v8.10: Excel profesional (panel, gráficos, estilo) ----
+console.log("---- Excel profesional ----");
+G.SESION = null;
+const exPro = G.apiExportarExcel_({});
+const libPro = G.__exportaciones[G.__exportaciones.length - 1];
+const panelA = libPro.hojas.Panel;
+assert(panelA && panelA.graficos.length === 5, "el panel del administrador trae 5 gráficos: " + (panelA ? panelA.graficos.length : "sin panel"));
+const tiposG = panelA.graficos.map(g => g.tipo).join(",");
+assert(tiposG === "PIE,PIE,COLUMN,BAR,BAR", "tipos de gráfico: pastel de tipos, pastel de semáforo, columnas por mes, barras por sede y por motivo: " + tiposG);
+assert(panelA.graficos[0].opts.colors.includes("#E20A31") && panelA.graficos[0].opts.colors.includes("#009C4D"), "el gráfico por tipo usa los colores de cada tipo (queja roja, felicitación verde)");
+assert(panelA.graficos[2].opts.isStacked === true && panelA.graficos[2].opts.colors.length >= 3, "las columnas por mes van apiladas y con los colores de cada tipo");
+assert(panelA.graficos.every(g => g.rangos.length === 1 && g.pos && g.opts.title), "cada gráfico tiene datos, posición y título");
+assert(panelA.celda(9, 2) === exPro.filas && /INFORME DE PQRS/.test(panelA.celda(2, 2)), "el panel muestra el título y el total de PQRS en la primera tarjeta");
+assert(libPro.hojas.Datos.celda(3, 2) === "Tipo" && libPro.hojas.Datos.getLastRow() > 20, "la hoja Datos trae las tablas que alimentan los gráficos");
+assert(libPro.hojas.Consolidado.reglas.length >= 10, "el consolidado trae formato condicional (semáforo, tipo, riesgo y oportunidad): " + libPro.hojas.Consolidado.reglas.length);
+assert(libPro.hojas["Por sede"].reglas.length === 1, "las hojas de cruces traen mapa de calor");
+G.SESION = { usuario: "tecnico.playa", rol: "Técnico", todas: false, sedes: ["C. LA PLAYA"], sedesNorm: [G._norm("C. LA PLAYA")] };
+G.apiExportarExcel_({});
+const libTP = G.__exportaciones[G.__exportaciones.length - 1];
+assert(libTP.hojas.Panel && libTP.hojas.Panel.graficos.length === 5 && !libTP.hojas.Consolidado, "el técnico recibe el mismo panel con gráficos, sin el consolidado");
+assert(/no incluyen datos de las personas/.test(libTP.hojas.Panel.celda(64, 2)) && /C\. LA PLAYA/.test(libTP.hojas.Panel.celda(6, 2)), "el panel del técnico aclara que no hay datos personales y muestra sus sedes");
+G.SESION = null;
