@@ -1,4 +1,4 @@
-"""Imágenes de la app (íconos, favicon, imagen para compartir) con la mascota del SIAU y las PQRS como planetas que la orbitan.
+"""Imágenes de la app (íconos, favicon, imagen para compartir): medalla dorada del SIAU sobre fondo azul MiRed con la franja de la marca.
 Uso: python3 tools/imagenes_pwa.py   (requiere Pillow)
 Genera en assets/pwa/: icon-192.png, icon-512.png, icon-maskable-512.png, apple-touch-icon.png (180), favicon.png (64), og.png (1200x630), imagen_app_1024.png"""
 import math, pathlib
@@ -52,12 +52,42 @@ def sistema(lienzo, cx, cy, u, mascota_h):
         px = cx + math.cos(math.radians(ang)) * rad * u; py = cy - math.sin(math.radians(ang)) * rad * u
         lienzo.alpha_composite(planeta(pd, color, letra), (round(px - pd / 2), round(py - pd / 2)))
 
+MEDALLA = Image.open(R / "assets" / "siau" / "Medalla_SIAU_dorada.png").convert("RGBA")
+MEDALLA = MEDALLA.crop(MEDALLA.getbbox())
+
 def icono(n, escala=1.0, redondo=False):
+    """Ícono de la app: medalla dorada del SIAU sobre fondo azul MiRed, con halo claro y la franja roja · amarilla · verde de la marca."""
     im = fondo(n, n)
-    sistema(im, n / 2, n / 2, n * escala, n * escala * 0.60)
-    if escala < 1:   # el resto del cuadrado ya es fondo: zona segura de los íconos «maskable»
-        pass
+    d = ImageDraw.Draw(im, "RGBA")
+    c = n / 2
+    # halo claro detrás de la medalla
+    halo = Image.new("RGBA", (n, n), (0, 0, 0, 0)); hd = ImageDraw.Draw(halo)
+    r = n * 0.40 * escala
+    hd.ellipse((c - r, c - r * 1.02, c + r, c + r * 0.98), fill=(255, 255, 255, 34))
+    im.alpha_composite(halo.filter(ImageFilter.GaussianBlur(n * 0.012)))
+    r2 = n * 0.43 * escala
+    anillo = Image.new("RGBA", (n, n), (0, 0, 0, 0)); ImageDraw.Draw(anillo).ellipse((c - r2, c - r2, c + r2, c + r2), outline=(255, 255, 255, 60), width=max(1, int(n / 200)))
+    im.alpha_composite(anillo)
+    # los tres puntos de la marca MiRed (rojo, verde y amarillo) orbitando sobre el anillo
+    for col, ang in [(XROJO, 52), (XVERDE, 196), (XAMA, 306)]:
+        px = c + math.cos(math.radians(ang)) * r2; py = c - math.sin(math.radians(ang)) * r2; pr = n * 0.052 * escala
+        punto = Image.new("RGBA", (n, n), (0, 0, 0, 0)); pd = ImageDraw.Draw(punto)
+        pd.ellipse((px - pr * 1.35, py - pr * 1.35, px + pr * 1.35, py + pr * 1.35), fill=(255, 255, 255, 235))
+        pd.ellipse((px - pr, py - pr, px + pr, py + pr), fill=col)
+        im.alpha_composite(punto)
+    # medalla (sin deformar)
+    alto = n * 0.56 * escala
+    m = MEDALLA.resize((round(MEDALLA.width * alto / MEDALLA.height), round(alto)), Image.LANCZOS)
+    sombra = Image.new("RGBA", (n, n), (0, 0, 0, 0)); sombra.paste((0, 0, 0, 90), (round(c - m.width / 2), round(c - m.height / 2 + n * 0.015)), m)
+    im.alpha_composite(sombra.filter(ImageFilter.GaussianBlur(n * 0.012)))
+    im.alpha_composite(m, (round(c - m.width / 2), round(c - m.height / 2 - n * 0.005)))
+    # franja de la marca al pie (en el ícono «maskable» queda dentro de la zona segura)
+    h = max(3, round(n * 0.045 * escala)); y0 = round(c + n * 0.5 * escala - h) if escala < 1 else n - h
+    for i, (col, x0, x1) in enumerate([("#006081", 0, .55), (XROJO, .55, .70), (XAMA, .70, .85), (XVERDE, .85, 1)]):
+        d.rectangle((round(n * x0), y0, round(n * x1), y0 + h), fill=col)
     return im
+
+XROJO, XAMA, XVERDE = "#E20A31", "#FEDC00", "#009C4D"
 
 def guardar(im, nombre, tam=None):
     if tam: im = im.resize((tam, tam), Image.LANCZOS)
@@ -66,12 +96,19 @@ def guardar(im, nombre, tam=None):
 grande = icono(1024, 1.0)
 guardar(grande, "imagen_app_1024.png")
 guardar(grande, "icon-512.png", 512); guardar(grande, "icon-192.png", 192)
-guardar(grande, "apple-touch-icon.png", 180); guardar(grande, "favicon.png", 64)
+guardar(grande, "apple-touch-icon.png", 180)
+# favicon: sin puntos ni anillo (a 16–32 px no se distinguirían): medalla grande sobre azul con la franja de la marca
+fav = fondo(256, 256); m = MEDALLA.resize((round(MEDALLA.width * 190 / MEDALLA.height), 190), Image.LANCZOS)
+fav.alpha_composite(m, ((256 - m.width) // 2, 24)); fd = ImageDraw.Draw(fav)
+for col, x0, x1 in [("#006081", 0, .55), (XROJO, .55, .70), (XAMA, .70, .85), (XVERDE, .85, 1)]: fd.rectangle((round(256 * x0), 238, round(256 * x1), 256), fill=col)
+fav.resize((64, 64), Image.LANCZOS).save(OUT / "favicon.png", optimize=True)
 guardar(icono(1024, 0.80), "icon-maskable-512.png", 512)
 
 # Imagen para compartir el enlace (WhatsApp, correo): 1200 × 630
 og = fondo(1200, 630); d = ImageDraw.Draw(og, "RGBA")
-sistema(og, 935, 315, 520, 310)
+ic = icono(1024, 1.0).resize((430, 430), Image.LANCZOS)
+mask = Image.new("L", (430, 430), 0); ImageDraw.Draw(mask).rounded_rectangle((0, 0, 429, 429), 86, fill=255)
+og.paste(ic, (690, 100), mask)
 fg = ImageFont.truetype(FUENTE, 56); fp = ImageFont.truetype(FUENTE.replace("-Bold", ""), 25); fs = ImageFont.truetype(FUENTE, 22)
 d.text((70, 190), "Sistema de PQRS", font=fg, fill="white")
 d.text((70, 268), "Peticiones · Quejas · Reclamos · Sugerencias", font=fp, fill=(255, 255, 255, 215))
