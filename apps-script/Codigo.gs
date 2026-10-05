@@ -627,7 +627,13 @@ function apiEliminarResponsable_(fila) {
  * en texto para mostrarlo en pantalla. No contiene información interna de gestión.
  */
 /** v8.3 · ¿El radicado viene de una EPS o un ente de control (correo institucional)? A ellos NO se les escribe de forma automática. */
-function _esInstitucional_(f) { return /Remitente institucional:/.test(String(f[C.OBSERVACIONES - 1] || "")); }
+function _esInstitucional_(f) {
+  if (/Remitente institucional:/.test(String(f[C.OBSERVACIONES - 1] || ""))) return true;
+  // También si el correo del radicado pertenece a una EPS, un ente de control o un despacho (hoja Entidades_Correo)
+  var correo = String(f[C.CORREO - 1] || "").trim();
+  if (!correo || correo.indexOf("@") < 1) return false;
+  try { return !!_entidadDe_(correo, ENT_CACHE || (ENT_CACHE = _entidades_())); } catch (e) { return false; }
+}
 
 function _acuseRecepcion_(fila) {
   var h = _h(CFG.HOJA_DATOS);
@@ -2445,7 +2451,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "9.1.3 · Excel profesional";
+var VERSION_CODIGO = "9.2 · Correo: EPS y entes solo en la plataforma";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3117,11 +3123,14 @@ function apiMarcarCorreoAtendido_(idMsg, codigo, nota) {
 var RE_PQRS_FUERTE = /(queja|reclam|inconform|derecho de peticion|tutela|denuncia|felicit|sugerencia|sugiero|mala atencion|no me atendieron|maltrato|pesimo servicio|demora|negaron|negaron el servicio|pqrs|pqr\b)/;
 var RE_CITA = /(\bcitas?\b|agendar|agendamiento|\bagenda\b|asignar(me)? (una )?cita|asignacion de cita|programar|reprogramar|cancelar (la |mi )?cita|\bturno\b|disponibilidad de (agenda|citas)|control con|consulta con)/;
 
+// Solicitudes de documentos de salud (historia clínica, órdenes, resultados de laboratorio o imágenes): no son PQRS.
+var RE_DOCUMENTO = /(historia clinica|historial clinico|orden(es)? medica|orden(es)? de (laboratorio|examen|examenes|procedimiento)|formula medica|resultados? de|laboratorio|radiologia|rayos x|ecografia|imagenes? diagnostica|tomografia|resonancia|epicrisis|incapacidad|certificado medico|copia de (mi )?(historia|orden|resultado))/;
 function _categoriaTexto_(asunto, cuerpo) {
   var t = _norm(asunto + " " + cuerpo);
   if (RE_PQRS_FUERTE.test(t)) return "pqrs";
   if (RE_CITA.test(t)) return "cita";
-  if (/(solicitud|peticion|solicito|requiero|historia clinica|certificado|copia de)/.test(t)) return "pqrs";
+  if (RE_DOCUMENTO.test(t)) return "documento";
+  if (/(solicitud|peticion|solicito|requiero|certificado|copia de)/.test(t)) return "pqrs";
   return "otro";
 }
 
@@ -3202,7 +3211,7 @@ function apiCorreos_(soloResumen) {
   if (etiqueta) etiqueta.getThreads(0, 30).forEach(agregar);
   GmailApp.search('in:inbox newer_than:45d -label:"' + CFG.GMAIL_DESCARTADO + '" -category:promotions -category:social', 0, 60).forEach(agregar);
 
-  var items = [], res = { institucional: 0, pqrs: 0, cita: 0, curso: 0, area: 0, usuario: 0, rebote: 0, otro: 0, sistema: 0 };
+  var items = [], res = { institucional: 0, pqrs: 0, cita: 0, documento: 0, curso: 0, area: 0, usuario: 0, rebote: 0, otro: 0, sistema: 0 };
 
   hilos.forEach(function (hilo) {
     var etq = hilo.getLabels().map(function (l) { return l.getName(); });
@@ -3273,7 +3282,7 @@ function apiCorreos_(soloResumen) {
   });
 
   items.sort(function (a, b) { return b.ts - a.ts; });
-  res.relevantes = res.institucional + res.pqrs + res.cita + res.curso + res.area + res.usuario + res.rebote;
+  res.relevantes = res.institucional + res.pqrs + res.cita + res.documento + res.curso + res.area + res.usuario + res.rebote;
   var rangoP = { "Crítica": 0, "Alta": 1, "Media": 2 };
   items.sort(function (a, b) { return ((rangoP[a.prioridad] !== undefined ? rangoP[a.prioridad] : 3) - (rangoP[b.prioridad] !== undefined ? rangoP[b.prioridad] : 3)) || (b.ts - a.ts); });
   return { ok: true, resumen: res, items: items };
@@ -4405,6 +4414,9 @@ function _prioridadDe_(clasif, entidad, cats) {
 // Ajustes de la automatización (Configuración ▸ Automatización)
 // ---------------------------------------------------------------------------
 var AJUSTES_BASE = { autoInstitucional: true, autoUsuarios: true, citasAuto: false,
+                     // v9.2: a usuarios (p. ej. @gmail.com) se les confirma por correo que su cita o su pedido de documentos llegó; a EPS y entes nunca.
+                     // Los correos de EPS y entes solo se muestran en la plataforma (sin correo interno, Chat ni push) salvo que se active.
+                     acuseUsuarios: true, avisosInstitucionales: false,
                      webhookChat: "", chatModo: "todas", pushTema: "", pushServidor: "https://ntfy.sh", avisarA: "", avisosSede: true, desde: 0, alias: "",
                      // v8: direccionamiento con el directorio. Felicitaciones: "resumen" (un correo diario por área),
                      // "inmediato" (una por una) o "manual". PQRS: solo si el área es inequívoca y se activa.
@@ -4551,6 +4563,8 @@ function _avisoNuevoCaso_(fila, extra) {
   var fechasTxt = "Recibida " + _fmt(f[C.FECHA_RECEPCION - 1]) + (f[C.FECHA_PQRS - 1] ? " · hechos " + _fmt(f[C.FECHA_PQRS - 1]) : "") + (vence ? " · vence " + vence : "");
   var etq = prioridad === "Crítica" ? "[CRÍTICA]" : prioridad === "Alta" ? "[ALTA]" : "[NUEVA]";
   var a = _ajustes_();
+  // v9.2: lo de EPS y entes de control se ve solo en la plataforma (Correo ▸ EPS y entes y la bandeja), sin avisos fuera de ella
+  if (remitente && !a.avisosInstitucionales) return;
   var lineaChat = _lineaChat_(etq, codigo, [remitente, f[C.CLASIF_INTERNA - 1], tipo, f[C.SEDE - 1], f[C.CANAL - 1]], fechasTxt);
   var prioPush = prioridad === "Crítica" ? 5 : prioridad === "Alta" ? 4 : (remitente ? 3 : 0);   // todo lo de EPS y entes llega al celular
   if (a.chatModo !== "prioritarias" || prioridad === "Crítica" || prioridad === "Alta") _avisoChat_(lineaChat, prioPush, f[C.SEDE - 1]);
@@ -4607,7 +4621,7 @@ function apiProcesarCorreoAhora_() { return procesarCorreoEntrante(); }
 
 function _procesarCorreo_() {
   var a = _ajustes_();
-  var res = { ok: true, radicadas: 0, porClasificar: 0, citas: 0, revisar: 0, codigos: [] };
+  var res = { ok: true, radicadas: 0, porClasificar: 0, citas: 0, acuses: 0, revisar: 0, codigos: [] };
   if (!a.autoInstitucional && !a.autoUsuarios) { res.mensaje = "La radicación automática está apagada."; return res; }
   if (!a.desde) {   // primera ejecución: solo procesa lo que llegue de aquí en adelante
     a.desde = Date.now();
@@ -4653,8 +4667,8 @@ function _procesarCorreo_() {
         }
       } else {
         _guardarHilo_(id, { categoria: "institucional", estado: "Por clasificar", correoUsuario: de.correo, asunto: asunto, area: ent.entidad, accion: "Sin categoría detectada · prioridad " + prioridad });
-        _avisoChat_("[POR CLASIFICAR] *Correo de " + ent.entidad + " sin clasificar*\nPendiente en Correo ▸ EPS y entes." + (_urlPlataforma_("") ? "\n<" + _urlPlataforma_("") + "|Abrir la plataforma>" : ""), 4);
-        var dest = _correosAviso_("", ent.avisar);
+        if (a.avisosInstitucionales) _avisoChat_("[POR CLASIFICAR] *Correo de " + ent.entidad + " sin clasificar*\nPendiente en Correo ▸ EPS y entes." + (_urlPlataforma_("") ? "\n<" + _urlPlataforma_("") + "|Abrir la plataforma>" : ""), 4);
+        var dest = a.avisosInstitucionales ? _correosAviso_("", ent.avisar) : [];
         if (dest.length) _enviar(dest.join(","), "[PQRS · por clasificar] Correo de " + ent.entidad, "Correo de " + ent.entidad + " pendiente de clasificar.",
           _correoHilo_({ interno: "AVISO INTERNO · CORREO DE " + ent.entidad.toUpperCase(), kicker: ent.tipo, titulo: "Correo de " + ent.entidad + " pendiente de clasificar",
             mensaje: "Llegó un correo de " + ent.entidad + " y no se identificó su categoría (riesgo vital, priorizado, simple, tutela o derecho de petición).\n\n" +
@@ -4674,6 +4688,12 @@ function _procesarCorreo_() {
         var citas = apiResponsables_().filter(function (x) { return x.activo && x.correo && /cita|agend|call/i.test(x.area); })[0];
         if (citas) { var d = apiDireccionarHilo_(id, { idResponsable: citas.id, modo: "reenviar", avisarUsuario: true, categoria: "cita", nota: "Direccionada automáticamente." }); if (d.ok) res.citas++; }
       }
+      else if (a.acuseUsuarios && _acuseSolicitud_(m, de, "cita")) res.acuses++;
+      hilo.addLabel(etqAuto);
+      return;
+    }
+    if (catU === "documento") {
+      if (a.acuseUsuarios && _acuseSolicitud_(m, de, "documento")) res.acuses++;
       hilo.addLabel(etqAuto);
       return;
     }
@@ -4692,8 +4712,28 @@ function _procesarCorreo_() {
     var rU = apiRadicarCorreo_(m.getId(), dU);
     if (rU.ok) { res.radicadas++; res.codigos.push(rU.codigo); _avisoNuevoCaso_(_filaDe(rU.codigo), {}); hilo.addLabel(etqAuto); }
   });
-  res.mensaje = "Radicadas: " + res.radicadas + " · por clasificar: " + res.porClasificar + " · citas direccionadas: " + res.citas + " · para revisar: " + res.revisar;
+  res.mensaje = "Radicadas: " + res.radicadas + " · por clasificar: " + res.porClasificar + " · citas direccionadas: " + res.citas + " · confirmaciones a usuarios: " + res.acuses + " · para revisar: " + res.revisar;
   return res;
+}
+/**
+ * v9.2 · Confirma al usuario (no a EPS ni entes) que su solicitud de cita o de documentos llegó y qué datos necesita el SIAU.
+ * No contiene datos clínicos. Devuelve true si se envió. Nunca escribe a direcciones automáticas ni a entidades de la hoja Entidades_Correo.
+ */
+function _acuseSolicitud_(m, de, tipo) {
+  var correo = String(de && de.correo || "").toLowerCase();
+  if (!_correoOk(correo) || /(^|[._-])(no-?reply|noresponder|do-?not-?reply|mailer-daemon|postmaster|notificaciones?)([._-]|@)/.test(correo)) return false;
+  if (_entidadDe_(correo, ENT_CACHE || (ENT_CACHE = _entidades_()))) return false;
+  var esCita = tipo === "cita";
+  try {
+    m.reply(esCita ? "Recibimos su solicitud de cita." : "Recibimos su solicitud de documentos.", _opcionesCorreo_({ htmlBody: _correoHilo_({
+      titulo: esCita ? "Recibimos su solicitud de cita" : "Recibimos su solicitud de documentos",
+      mensaje: "Reciba un cordial saludo. Su mensaje llegó a la Oficina de Atención al Usuario (SIAU) de MiRed IPS y lo remitiremos al área encargada. Le responderemos por este mismo medio.\n\n" +
+        (esCita ? "Para agilizar la asignación, responda este correo con: nombre completo del paciente, tipo y número de documento, celular, sede y servicio o especialidad."
+          : "Los documentos de salud (historia clínica, órdenes, resultados) son reservados: se entregan al titular o a quien esté autorizado, previa verificación de su identidad. " +
+            "Responda este correo con: nombre completo del paciente, tipo y número de documento, celular, el documento que necesita y la sede donde fue atendido.") }) }));
+    _traza("—", esCita ? "Confirmación de solicitud de cita" : "Confirmación de solicitud de documentos", "Enviada al usuario por correo (sin datos del caso)");
+    return true;
+  } catch (e) { return false; }
 }
 function entidadSedeLista_() {
   var ops = _listasConfig_()["ENTIDAD PRESENTADA"] || [];

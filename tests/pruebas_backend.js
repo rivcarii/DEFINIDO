@@ -269,7 +269,7 @@ assert(fq.tipo === "Queja" && fq.confianza === "alta", "«felicitación» con co
 assert(G._formulasFila_(5).bloque[0].indexOf("Categorias_Correo") !== -1, "el término toma primero la categoría del correo");
 
 // correo automático
-G.__props.AJUSTES = JSON.stringify({ desde: 1, webhookChat: "https://chat.googleapis.com/v1/spaces/X/messages?key=k", avisarA: "siau.lider@miredips.org" });
+G.__props.AJUSTES = JSON.stringify({ desde: 1, avisosInstitucionales: true, webhookChat: "https://chat.googleapis.com/v1/spaces/X/messages?key=k", avisarA: "siau.lider@miredips.org" });
 G.SESION = null;
 const antes = enviadosHilo.length;
 const pr = G.procesarCorreoEntrante();

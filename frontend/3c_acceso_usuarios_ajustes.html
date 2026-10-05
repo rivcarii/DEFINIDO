@@ -14,7 +14,7 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
-var FRONT_VERSION = "9.1.3";
+var FRONT_VERSION = "9.2";
 function pintarVersion(estado){
   var el = $("accVersion");
   if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
@@ -366,7 +366,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
+var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","acuseUsuarios","avisosInstitucionales","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });

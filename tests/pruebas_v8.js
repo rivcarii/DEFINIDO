@@ -572,10 +572,34 @@ const libTP = G.__exportaciones[G.__exportaciones.length - 1];
 assert(libTP.hojas.Panel && libTP.hojas.Panel.graficos.length === 5 && !libTP.hojas.Consolidado, "el técnico recibe el mismo panel con gráficos, sin el consolidado");
 assert(/no incluyen datos de las personas/.test(libTP.hojas.Panel.celda(64, 2)) && /C\. LA PLAYA/.test(libTP.hojas.Panel.celda(6, 2)), "el panel del técnico aclara que no hay datos personales y muestra sus sedes");
 G.SESION = null;
-assert(G.estadoAcceso().version === G.VERSION_CODIGO && /^9\.1\.3/.test(G.estadoAcceso().version), "estadoAcceso informa la versión del servidor para el ingreso");
+assert(G.estadoAcceso().version === G.VERSION_CODIGO && /^9\.2/.test(G.estadoAcceso().version), "estadoAcceso informa la versión del servidor para el ingreso");
 (function () {
   var xml = '<?xml version="1.0"?><c:chartSpace xmlns:c="x"><c:chart><c:plotArea><c:barChart><c:ser><c:idx val="0"/><c:dLbls><c:showVal val="0"/></c:dLbls><c:cat></c:cat><c:val></c:val></c:ser><c:ser><c:idx val="1"/><c:cat></c:cat><c:val></c:val></c:ser><c:gapWidth val="5"/></c:barChart></c:plotArea></c:chart></c:chartSpace>';
   var r = G._xlEtiquetasXml_(xml);
   assert((r.match(/<c:showVal val="1"\/>/g) || []).length === 2 && !/showVal val="0"/.test(r), "cada serie del gráfico lleva etiquetas de datos");
   assert(/<c:dLbls>.*<\/c:dLbls><c:cat>/.test(r) && /formatCode="#,##0;;;"/.test(r), "las etiquetas van antes de las categorías y ocultan ceros");
 })();
+
+console.log("---- v9.2: EPS y entes solo en la plataforma; usuarios de Gmail sí reciben confirmación ----");
+G.__props.AJUSTES = JSON.stringify(Object.assign(JSON.parse(G.__props.AJUSTES), { autoInstitucional: true, autoUsuarios: true, citasAuto: false, acuseUsuarios: true, avisosInstitucionales: false, avisosSede: true, webhookChat: "https://chat.googleapis.com/v1/spaces/x/messages?key=k", pushTema: "pqrs-miredips-prueba-123" }));
+Hilo("e1", [M("em1", "Gestión EPS <auditoria@sura.com.co>", "Solicitud riesgo vital paciente", "Solicitamos gestionar de manera urgente la atención del paciente.")]);
+Hilo("g1", [M("gm1", "Persona Ficticia <persona.ficticia@gmail.com>", "Solicitud de cita", "Buenas tardes, necesito una cita de medicina general para la próxima semana.")]);
+Hilo("g2", [M("gm2", "Otra Persona <otra.persona@gmail.com>", "Resultados de laboratorio", "Necesito copia de mis resultados de laboratorio y de mi orden médica.")]);
+Hilo("g3", [M("gm3", "Sistema <noreply@gmail.com>", "Resultados de laboratorio", "Mensaje automático con resultados de laboratorio.")]);
+const nEnv92 = enviados().length, nLlam92 = G.UrlFetchApp.llamadas.length;
+const r92 = G._procesarCorreo_();
+const nuevos92 = enviados().slice(nEnv92);
+assert(r92.radicadas >= 1, "la EPS se radica en la plataforma: " + r92.mensaje);
+assert(!nuevos92.some(e => /sura\.com\.co/.test(e.para || "")) && !nuevos92.some(e => /^\[PQRS/.test(e.asunto || "") && /Sura/i.test(e.asunto || "")), "a la EPS no se le escribe y no hay correo interno de aviso");
+assert(!G.UrlFetchApp.llamadas.slice(nLlam92).some(l => /chat\.googleapis|ntfy/.test(l.url)), "el correo de la EPS no genera Chat ni push, solo se ve en la plataforma");
+assert(H_.e1.msgs.length === 1, "la EPS no recibe respuesta automática en su conversación");
+assert(H_.g1.msgs.length === 2 && H_.g2.msgs.length === 2, "usuarios de Gmail: se confirma la solicitud de cita y la de documentos");
+assert(H_.g3.msgs.length === 1, "no se responde a direcciones automáticas (noreply)");
+assert(r92.acuses === 2, "se cuentan las confirmaciones a usuarios: " + r92.acuses);
+const cat92 = G.apiCorreo_ ? null : null;
+assert(G._categoriaTexto_("Resultados", "necesito mis resultados de laboratorio") === "documento" && G._categoriaTexto_("Cita", "agendar cita") === "cita" && G._categoriaTexto_("Queja", "mala atencion") === "pqrs",
+  "categorías: documento, cita y PQRS");
+assert(G._categoriaTexto_("Pregunta", "buenos dias, quiero saber el horario") === "otro", "falso positivo: una pregunta general no es solicitud de documentos");
+// una EPS que escribe desde su dominio no recibe acuse aunque se radique por otro canal
+{ const fx = cons.d.length; const r = G.apiRadicar_({ descripcion: "Reclamo remitido por EPS.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "RECLAMO", sede: "C. LA PLAYA", correo: "jefe@sura.com.co" });
+  const ac = G._acuseRecepcion_(fila(r.codigo)); assert(/no aplica/.test(ac), "un correo de dominio de EPS se trata como institucional en cualquier canal: " + ac); }

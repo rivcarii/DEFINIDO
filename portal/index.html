@@ -4430,11 +4430,13 @@ html{scroll-behavior:smooth}
     <div class="card" style="margin-bottom:16px">
       <div id="autoAviso"></div>
       <fieldset><legend>Automatización del canal correo</legend>
-        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: te avisa a ti (correo interno, Google Chat y push al celular), muestra el análisis detallado y la respuesta la envías tú. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
+        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: lo muestra únicamente en la plataforma (Correo ▸ EPS y entes y la bandeja, con el análisis detallado) y la respuesta la envías tú. A los usuarios (por ejemplo, correos @gmail.com con pedidos de citas o de documentos) sí se les confirma la recepción. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
         <div class="grid">
           <label class="interruptor"><input type="checkbox" id="aj_autoInstitucional"><i></i>Radicar solo lo de EPS y entes de control</label>
           <label class="interruptor"><input type="checkbox" id="aj_autoUsuarios"><i></i>Radicar solas las PQRS claras de usuarios</label>
           <label class="interruptor"><input type="checkbox" id="aj_citasAuto"><i></i>Direccionar solas las solicitudes de citas</label>
+          <label class="interruptor"><input type="checkbox" id="aj_acuseUsuarios"><i></i>Confirmar a usuarios (Gmail, etc.) sus solicitudes de citas y documentos</label>
+          <label class="interruptor"><input type="checkbox" id="aj_avisosInstitucionales"><i></i>Avisar fuera de la plataforma lo de EPS y entes (correo, Chat y push)</label>
           <label class="interruptor"><input type="checkbox" id="aj_avisosSede"><i></i>Avisar por correo a los técnicos de cada sede</label>
         </div>
         <div class="grid" style="margin-top:14px">
@@ -4958,6 +4960,7 @@ function pintarInicio(r){
           '<button class="cr" type="button" data-cat="area"><b data-n="'+c.area+'">'+c.area+'</b><span>Respuestas de áreas</span></button>'+
           '<button class="cr" type="button" data-cat="usuario"><b data-n="'+c.usuario+'">'+c.usuario+'</b><span>Usuarios con radicado</span></button>'+
           '<button class="cr" type="button" data-cat="cita"><b data-n="'+(c.cita||0)+'">'+(c.cita||0)+'</b><span>Solicitudes de citas</span></button>'+
+          '<button class="cr" type="button" data-cat="documento"><b data-n="'+(c.documento||0)+'">'+(c.documento||0)+'</b><span>Solicitudes de documentos</span></button>'+
           '<button class="cr" type="button" data-cat="curso"><b data-n="'+(c.curso||0)+'">'+(c.curso||0)+'</b><span>En conversación</span></button>'+
           '<button class="cr'+(c.rebote?" alerta":"")+'" type="button" data-cat="rebote"><b data-n="'+c.rebote+'">'+c.rebote+'</b><span>No entregados</span></button>'+
         '</div>'+
@@ -5175,6 +5178,7 @@ var CATS = [
   { k:"institucional", t:"EPS y entes",      i:"escudo",     d:"Correos de EPS y entes de control que no se pudieron clasificar solos. Elige la categoría y radica: el término y la prioridad se calculan." },
   { k:"pqrs",    t:"Posibles PQRS",          i:"correo",     d:"Correos de usuarios que parecen una PQRS nueva. Ábrelos para radicarlos, pedir datos o direccionarlos." },
   { k:"cita",    t:"Solicitudes de citas",   i:"calendario", d:"No son PQRS: direcciónalas al área de citas. Si faltan datos, pídelos en la misma conversación." },
+  { k:"documento", t:"Solicitudes de documentos", i:"correo", d:"Historias clínicas, órdenes médicas, resultados de laboratorio o radiología. No son PQRS: verifica la identidad del titular y direcciónalas al área que los entrega." },
   { k:"curso",   t:"En conversación",        i:"responder",  d:"Conversaciones que ya gestionaste: se pidieron datos, se remitieron a un área o se respondió al usuario." },
   { k:"area",    t:"Respuestas de áreas",    i:"area",       d:"Un responsable contestó sobre un radicado: regístralo con un clic." },
   { k:"usuario", t:"Usuarios con radicado",  i:"usuario",    d:"El usuario escribe sobre una PQRS que ya existe." },
@@ -5227,7 +5231,7 @@ function pintarCorreos(){
         '<span class="extracto">'+esc((c.respuesta||c.cuerpo||"").replace(/\s+/g," ").slice(0,170))+'</span>'+
         '<div class="claves">'+nuevo+estado+(c.codigo?'<span class="clave cod">'+esc(c.codigo)+'</span>':'')+
           (c.mensajes>1?'<span class="clave gris">'+c.mensajes+' mensajes</span>':'')+
-          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
+          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"||c.categoria==="documento"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
         '<em>'+esc(c.fecha)+'</em></div></button>';
   }).join("")+'</div>';
   $("listaCorreos").querySelectorAll(".hilo").forEach(function(b){
@@ -6727,7 +6731,7 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
-var FRONT_VERSION = "9.1.3";
+var FRONT_VERSION = "9.2";
 function pintarVersion(estado){
   var el = $("accVersion");
   if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
@@ -7079,7 +7083,7 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
+var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","acuseUsuarios","avisosInstitucionales","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });

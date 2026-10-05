@@ -474,11 +474,13 @@
     <div class="card" style="margin-bottom:16px">
       <div id="autoAviso"></div>
       <fieldset><legend>Automatización del canal correo</legend>
-        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: te avisa a ti (correo interno, Google Chat y push al celular), muestra el análisis detallado y la respuesta la envías tú. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
+        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: lo muestra únicamente en la plataforma (Correo ▸ EPS y entes y la bandeja, con el análisis detallado) y la respuesta la envías tú. A los usuarios (por ejemplo, correos @gmail.com con pedidos de citas o de documentos) sí se les confirma la recepción. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
         <div class="grid">
           <label class="interruptor"><input type="checkbox" id="aj_autoInstitucional"><i></i>Radicar solo lo de EPS y entes de control</label>
           <label class="interruptor"><input type="checkbox" id="aj_autoUsuarios"><i></i>Radicar solas las PQRS claras de usuarios</label>
           <label class="interruptor"><input type="checkbox" id="aj_citasAuto"><i></i>Direccionar solas las solicitudes de citas</label>
+          <label class="interruptor"><input type="checkbox" id="aj_acuseUsuarios"><i></i>Confirmar a usuarios (Gmail, etc.) sus solicitudes de citas y documentos</label>
+          <label class="interruptor"><input type="checkbox" id="aj_avisosInstitucionales"><i></i>Avisar fuera de la plataforma lo de EPS y entes (correo, Chat y push)</label>
           <label class="interruptor"><input type="checkbox" id="aj_avisosSede"><i></i>Avisar por correo a los técnicos de cada sede</label>
         </div>
         <div class="grid" style="margin-top:14px">

@@ -419,6 +419,7 @@ function pintarInicio(r){
           '<button class="cr" type="button" data-cat="area"><b data-n="'+c.area+'">'+c.area+'</b><span>Respuestas de áreas</span></button>'+
           '<button class="cr" type="button" data-cat="usuario"><b data-n="'+c.usuario+'">'+c.usuario+'</b><span>Usuarios con radicado</span></button>'+
           '<button class="cr" type="button" data-cat="cita"><b data-n="'+(c.cita||0)+'">'+(c.cita||0)+'</b><span>Solicitudes de citas</span></button>'+
+          '<button class="cr" type="button" data-cat="documento"><b data-n="'+(c.documento||0)+'">'+(c.documento||0)+'</b><span>Solicitudes de documentos</span></button>'+
           '<button class="cr" type="button" data-cat="curso"><b data-n="'+(c.curso||0)+'">'+(c.curso||0)+'</b><span>En conversación</span></button>'+
           '<button class="cr'+(c.rebote?" alerta":"")+'" type="button" data-cat="rebote"><b data-n="'+c.rebote+'">'+c.rebote+'</b><span>No entregados</span></button>'+
         '</div>'+
@@ -636,6 +637,7 @@ var CATS = [
   { k:"institucional", t:"EPS y entes",      i:"escudo",     d:"Correos de EPS y entes de control que no se pudieron clasificar solos. Elige la categoría y radica: el término y la prioridad se calculan." },
   { k:"pqrs",    t:"Posibles PQRS",          i:"correo",     d:"Correos de usuarios que parecen una PQRS nueva. Ábrelos para radicarlos, pedir datos o direccionarlos." },
   { k:"cita",    t:"Solicitudes de citas",   i:"calendario", d:"No son PQRS: direcciónalas al área de citas. Si faltan datos, pídelos en la misma conversación." },
+  { k:"documento", t:"Solicitudes de documentos", i:"correo", d:"Historias clínicas, órdenes médicas, resultados de laboratorio o radiología. No son PQRS: verifica la identidad del titular y direcciónalas al área que los entrega." },
   { k:"curso",   t:"En conversación",        i:"responder",  d:"Conversaciones que ya gestionaste: se pidieron datos, se remitieron a un área o se respondió al usuario." },
   { k:"area",    t:"Respuestas de áreas",    i:"area",       d:"Un responsable contestó sobre un radicado: regístralo con un clic." },
   { k:"usuario", t:"Usuarios con radicado",  i:"usuario",    d:"El usuario escribe sobre una PQRS que ya existe." },
@@ -688,7 +690,7 @@ function pintarCorreos(){
         '<span class="extracto">'+esc((c.respuesta||c.cuerpo||"").replace(/\s+/g," ").slice(0,170))+'</span>'+
         '<div class="claves">'+nuevo+estado+(c.codigo?'<span class="clave cod">'+esc(c.codigo)+'</span>':'')+
           (c.mensajes>1?'<span class="clave gris">'+c.mensajes+' mensajes</span>':'')+
-          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
+          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"||c.categoria==="documento"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
         '<em>'+esc(c.fecha)+'</em></div></button>';
   }).join("")+'</div>';
   $("listaCorreos").querySelectorAll(".hilo").forEach(function(b){

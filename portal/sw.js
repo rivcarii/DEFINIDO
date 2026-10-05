@@ -1,5 +1,5 @@
 /* Generado por tools/construir_portal.mjs · no editar a mano */
-var VERSION = "pqrs-c4dfaa2cad";
+var VERSION = "pqrs-4eddea258f";
 var CASCARA = ["./", "index.html", "config.js", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png"];
 self.addEventListener("install", function (e) { e.waitUntil(caches.open(VERSION).then(function (c) { return c.addAll(CASCARA); }).then(function () { return self.skipWaiting(); })); });
 self.addEventListener("activate", function (e) {
