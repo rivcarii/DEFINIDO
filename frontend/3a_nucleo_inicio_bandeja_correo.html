@@ -167,6 +167,7 @@ function ver(v){
   if(v==="usuarios") cargarUsuarios();
   if(v==="config"){ cargarAjustes(); cargarQR(); }
   window.scrollTo({top:0});
+  try { if(window.riverinoVista) window.riverinoVista(v); } catch(e) {}
 }
 document.querySelectorAll("nav button[data-v]").forEach(function(b){
   b.addEventListener("click", function(){ ver(b.dataset.v); if(b.dataset.v==="bandeja") cargarBandeja(); });
@@ -214,6 +215,7 @@ function arrancar(d){
   if(CICLO) clearInterval(CICLO);
   CICLO = setInterval(sondear, 60000);
   abrirEnlaceDirecto();
+  try { if(window.riverinoIniciar) window.riverinoIniciar(); } catch(e) {}
 }
 /* Enlace de los avisos: …/exec?pqrs=SIAU-2026-09-0001 abre ese radicado después de ingresar. */
 function abrirEnlaceDirecto(){

@@ -4708,6 +4708,7 @@ function ver(v){
   if(v==="usuarios") cargarUsuarios();
   if(v==="config"){ cargarAjustes(); cargarQR(); }
   window.scrollTo({top:0});
+  try { if(window.riverinoVista) window.riverinoVista(v); } catch(e) {}
 }
 document.querySelectorAll("nav button[data-v]").forEach(function(b){
   b.addEventListener("click", function(){ ver(b.dataset.v); if(b.dataset.v==="bandeja") cargarBandeja(); });
@@ -4755,6 +4756,7 @@ function arrancar(d){
   if(CICLO) clearInterval(CICLO);
   CICLO = setInterval(sondear, 60000);
   abrirEnlaceDirecto();
+  try { if(window.riverinoIniciar) window.riverinoIniciar(); } catch(e) {}
 }
 /* Enlace de los avisos: …/exec?pqrs=SIAU-2026-09-0001 abre ese radicado después de ingresar. */
 function abrirEnlaceDirecto(){
@@ -6731,7 +6733,7 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
-var FRONT_VERSION = "9.2";
+var FRONT_VERSION = "9.3";
 function pintarVersion(estado){
   var el = $("accVersion");
   if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
@@ -6817,6 +6819,7 @@ function cambiarClave(obligatorio){
     srv("apiCambiarMiClave", $("c_actual").value, $("c_nueva").value).then(function(r){
       fin(); if(!r.ok){ aviso("claveAviso", esc(r.mensaje), "err"); return; }
       APP.sesion.debeCambiar = false; cerrarModal(); toast({ tipo:"area", titulo:"Contraseña actualizada", texto:"Úsala en tu próximo ingreso." });
+      if(obligatorio){ try { window.riverinoBienvenida(); } catch(e) {} }   /* usuario nuevo: Riverino le da la bienvenida */
     }).catch(function(e){ fin(); aviso("claveAviso", msgErr(e), "err"); });
   });
 }
@@ -6833,6 +6836,7 @@ var ARRANQUE_HTML = $("arranque").innerHTML;
 /* v7.1: cerrar sesión sin recargar (recargar el marco de Apps Script dejaba la página en blanco). */
 function limpiarApp(){
   if(CICLO){ clearInterval(CICLO); CICLO = null; }
+  try { if(window.riverinoCerrar) window.riverinoCerrar(); } catch(e) {}
   APP = JSON.parse(APP_INICIAL);
   $("menuPerfil").hidden = true; $("centro").hidden = true; cerrarModal(); cerrarLateral();
   $("toasts").innerHTML = ""; $("centroLista").innerHTML = ""; $("campanaN").hidden = true;
@@ -7314,5 +7318,289 @@ else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || "");
       location.assign(location.pathname + "?api=" + encodeURIComponent(u));
     }
   });
+})();
+</script>
+<style>
+/* v9.3 · RIVERINO: guía de la plataforma (recorrido de bienvenida, consejos de primera vez y asistente que lleva a cada opción) */
+.rv-av{display:inline-block;flex:none;width:44px;height:44px;border-radius:50%;background-color:#fff;background-repeat:no-repeat;background-size:205% auto;background-position:26% 1%;border:2px solid var(--teal);box-shadow:0 2px 8px rgba(0,40,60,.22)}
+#riverino{position:fixed;right:clamp(12px,2vw,22px);bottom:calc(clamp(12px,2vw,22px) + env(safe-area-inset-bottom,0px));z-index:58;display:flex;align-items:center;gap:8px;border:0;background:transparent;padding:0;cursor:pointer;font:inherit}
+#riverino .rv-av{width:56px;height:56px;border-width:3px;transition:transform .25s var(--ease)}
+#riverino:hover .rv-av,#riverino:focus-visible .rv-av{transform:scale(1.08) rotate(-4deg)}
+#riverino .rv-etq{background:var(--surface,#fff);color:var(--ink);border:1px solid var(--line-2,var(--line));border-radius:99px;padding:7px 13px;font-size:12.5px;font-weight:700;box-shadow:0 4px 14px rgba(0,40,60,.16);white-space:nowrap}
+#riverino.callado .rv-etq{display:none}
+body.rv #toasts{bottom:calc(clamp(10px,2vw,22px) + 76px)}
+html[data-form="movil"] #riverino{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+html[data-form="movil"] #riverino .rv-etq{display:none}
+html[data-form="movil"] #riverino .rv-av{width:50px;height:50px}
+html[data-form="movil"] body.rv #toasts{bottom:calc(150px + env(safe-area-inset-bottom,0px))}
+html:has(.lateral.abierto) #riverino{opacity:0;pointer-events:none}
+.rv-panel{position:fixed;right:clamp(12px,2vw,22px);bottom:calc(clamp(12px,2vw,22px) + 70px + env(safe-area-inset-bottom,0px));z-index:59;width:min(390px,calc(100vw - 24px));max-height:min(620px,calc(100dvh - 130px));display:flex;flex-direction:column;
+  background:var(--surface,#fff);color:var(--ink);border:1px solid var(--line-2,var(--line));border-radius:20px;box-shadow:0 18px 50px rgba(0,30,45,.28);overflow:hidden;animation:rvEntra .25s var(--ease) both}
+html[data-form="movil"] .rv-panel{left:10px;right:10px;width:auto;bottom:calc(150px + env(safe-area-inset-bottom,0px));max-height:calc(100dvh - 250px)}
+@keyframes rvEntraT{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translateX(-50%)}}
+@keyframes rvEntra{from{opacity:0;transform:translateY(14px) scale(.97)}to{opacity:1;transform:none}}
+.rv-cab{display:flex;align-items:center;gap:11px;padding:13px 14px;background:linear-gradient(135deg,var(--teal-dark,#00475F),var(--teal,#006081));color:#fff}
+.rv-cab b{display:block;font-size:15px;font-family:var(--display,inherit)}
+.rv-cab span.t{font-size:12px;opacity:.88}
+.rv-cab button{margin-left:auto;border:0;background:rgba(255,255,255,.16);color:#fff;width:32px;height:32px;border-radius:10px;cursor:pointer;font-size:18px;line-height:1}
+.rv-cuerpo{padding:14px;overflow:auto;display:grid;gap:11px;scrollbar-width:thin}
+.rv-burbuja{background:var(--teal-wash,#E4F0F5);color:var(--ink);border-radius:14px 14px 14px 4px;padding:10px 12px;font-size:13.5px;line-height:1.5}
+.rv-burbuja b{color:var(--teal-dark,#00475F)}
+html[data-tema="oscuro"] .rv-burbuja b{color:var(--ink)}
+.rv-buscar{display:flex;gap:8px}
+.rv-buscar input{flex:1;min-width:0;border-radius:99px;padding:10px 14px}
+.rv-chips{display:flex;flex-wrap:wrap;gap:7px}
+.rv-chips button{border:1px solid var(--line-2,#CBD8DE);background:var(--surface,#fff);color:var(--ink-2);border-radius:99px;padding:6px 11px;font-size:12.5px;font-weight:600;cursor:pointer}
+.rv-chips button:hover{border-color:var(--teal);color:var(--teal)}
+.rv-res{border:1px solid var(--line);border-radius:14px;padding:11px 12px;background:var(--surface,#fff);display:grid;gap:7px}
+.rv-res h4{margin:0;font-size:14px;color:var(--ink)}
+.rv-res p,.rv-res li{margin:0;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.rv-res ol,.rv-res ul{margin:0;padding-left:19px;display:grid;gap:3px}
+.rv-res .b{justify-self:start}
+.rv-pie{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:9px 14px;border-top:1px solid var(--line);font-size:12px}
+.rv-pie button{border:0;background:none;color:var(--teal);font-weight:700;cursor:pointer;padding:2px 0;font-size:12px}
+/* resaltado de lo que se explica */
+.rv-foco{position:relative;z-index:2;outline:3px solid var(--amarillo,#FEDC00)!important;outline-offset:3px;border-radius:12px;animation:rvLate 1.1s ease-in-out infinite}
+@keyframes rvLate{50%{outline-color:var(--rojo,#E20A31);outline-offset:6px}}
+/* recorrido */
+.rv-tour{position:fixed;z-index:96;left:50%;bottom:calc(24px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);width:min(520px,calc(100vw - 20px));
+  background:var(--surface,#fff);color:var(--ink);border:1px solid var(--line-2,var(--line));border-radius:22px;box-shadow:0 22px 60px rgba(0,30,45,.38);padding:16px;display:grid;grid-template-columns:auto 1fr;gap:6px 14px;animation:rvEntraT .3s var(--ease) both}
+html[data-form="movil"] .rv-tour{bottom:calc(86px + env(safe-area-inset-bottom,0px))}
+.rv-tour .rv-av{width:64px;height:64px;grid-row:1 / span 2}
+.rv-tour h3{margin:0;font-size:17px;font-family:var(--display,inherit)}
+.rv-tour p{margin:0;font-size:14px;line-height:1.55;color:var(--ink-2)}
+.rv-tour .rv-pasos{grid-column:1 / -1;display:flex;align-items:center;gap:6px;margin-top:6px}
+.rv-tour .rv-pasos i{width:8px;height:8px;border-radius:50%;background:var(--line-2,#CBD8DE)}
+.rv-tour .rv-pasos i.on{background:var(--teal);width:22px;border-radius:99px}
+.rv-tour .rv-pasos span{margin-left:auto;display:flex;gap:8px}
+.rv-tip{display:flex;gap:12px;align-items:flex-start;margin:0 0 14px;padding:12px 14px;border-radius:16px;background:var(--teal-wash,#E4F0F5);border:1px solid var(--line);color:var(--ink);animation:rvEntra .3s var(--ease) both}
+.rv-tip .rv-av{width:40px;height:40px}
+.rv-tip b{display:block;font-size:13.5px;margin-bottom:2px}
+.rv-tip p{margin:0;font-size:13px;line-height:1.5;color:var(--ink-2)}
+.rv-tip .rv-acc{display:flex;gap:12px;margin-top:6px}
+.rv-tip .rv-acc button{border:0;background:none;padding:0;color:var(--teal);font-weight:700;cursor:pointer;font-size:12.5px}
+@media (prefers-reduced-motion:reduce){.rv-foco,.rv-panel,.rv-tour,.rv-tip{animation:none}}
+</style>
+<script>
+/* v9.3 · RIVERINO. Sin datos de casos: solo explica la plataforma. Guarda en localStorage (pqrs_guia_<usuario>) qué consejos ya se vieron. */
+(function(){
+  /* ---------- base de conocimiento: p = permiso (gestion, correo, radicar, admin), v = apartado, k = palabras clave ---------- */
+  var KB = [
+    { t:"Qué muestra Inicio", v:"inicio", k:"inicio resumen tarjetas indicadores pantalla principal panel mes sedes pendientes",
+      d:"<p>Inicio resume <b>tus sedes</b>: cuántas PQRS hay, cuáles están vencidas o por vencer y las prioritarias. Toca un mes para ver qué sede tuvo más manifestaciones.</p>" },
+    { t:"Cómo leer el semáforo y los términos", v:"bandeja", k:"semaforo termino vencida vencimiento plazo dias rojo amarillo verde oportunidad vence",
+      d:"<ul><li><b>Verde</b>: dentro del término.</li><li><b>Amarillo</b>: por vencer (se avisa 5 días antes).</li><li><b>Rojo</b>: vencida.</li></ul><p>El término lo manda la <b>clasificación</b> (riesgo vital, tutela, derecho de petición…) y, si no hay, la entidad ante quien se presentó.</p>" },
+    { t:"Cómo busco un radicado o a una persona", v:"inicio", sel:".buscar-global", k:"buscar busqueda radicado codigo nombre documento encontrar localizar cedula",
+      d:"<p>Escribe el radicado (SIAU-2026-09-0001), el nombre o el documento en la <b>barra de arriba</b> y pulsa Enter. En la Bandeja también hay un buscador con filtros por estado, canal, tipo y sede.</p>" },
+    { t:"Cómo se usa la Bandeja de PQRS", v:"bandeja", k:"bandeja etapas sin direccionar en gestion por responder cerradas todas filtrar lista casos gestionar",
+      d:"<p>La Bandeja agrupa los casos por <b>etapas</b>: Sin direccionar → En gestión → Por responder → Cerradas, más Prioritarias, Vencidas y por vencer, y Felicitaciones. Elige una etapa, filtra si lo necesitas y toca un caso para abrir su detalle y su trazabilidad.</p>" },
+    { t:"Cómo radicar una PQRS", v:"radicar", p:"radicar", k:"radicar radico radicamos registrar tabular nueva crear pqrs queja reclamo peticion sugerencia ventanilla buzon telefono presencial formulario",
+      d:"<ol><li>Entra a <b>Radicar PQRS</b>.</li><li>Llena fechas y canal (presencial, buzón, teléfono…).</li><li>Escribe quién presenta y, si es distinto, el paciente.</li><li>Elige tipo, sede, servicio y el <b>motivo específico</b> (derecho vulnerado).</li><li>Pega la descripción tal como la dijo el usuario y guarda: el radicado <b>SIAU-AAAA-MM-NNNN</b> y el término se calculan solos.</li></ol>" },
+    { t:"Qué es una PQRS prioritaria y el riesgo vital", v:"prioritarias", k:"prioritaria prioritarias riesgo vital priorizado nna ninos adolescentes urgente critica 8 horas 24 horas 48 horas tutela",
+      d:"<p>El sistema detecta señales de riesgo y la población de especial protección. <b>Riesgo vital en niñas, niños y adolescentes: 8 horas</b>; riesgo vital: 24 horas; priorizado: 48 horas. Nunca baja de categoría. Mira la sección <b>Prioritarias</b> a diario y atiéndelas primero.</p>" },
+    { t:"Cómo funciona el correo y la lista de EPS y entes", v:"correo", p:"correo", k:"correo eps entes control supersalud gmail hilo conversacion clasificar bandeja correos email citas documentos",
+      d:"<p>En <b>Correo y EPS</b> llegan los correos clasificados: EPS y entes por clasificar, posibles PQRS, solicitudes de citas y de documentos, respuestas de áreas y no entregados. <b>A las EPS y entes de control el sistema nunca les escribe solo</b>: lo de ellos se ve únicamente aquí y tú les respondes.</p>" },
+    { t:"Qué hago con una solicitud de cita o de documentos", v:"correo", p:"correo", k:"cita citas agendar historia clinica orden medica laboratorio radiologia resultados documentos certificado",
+      d:"<p>No son PQRS. El usuario recibe una confirmación automática. Verifica la identidad del titular antes de entregar documentos de salud (son reservados) y direcciónalo al área que corresponde desde el mismo hilo.</p>" },
+    { t:"Cómo direcciono un caso a un área", v:"bandeja", p:"gestion", k:"direccionar redireccionar area responsable enviar caso remitir asignar jefe coordinador",
+      d:"<ol><li>Abre el caso en la Bandeja (etapa <b>Sin direccionar</b>).</li><li>En el detalle, usa <b>Direccionar al área responsable</b>: te sugiere el área según el servicio.</li><li>El área recibe el aviso y su respuesta se registra en la trazabilidad.</li></ol><p>Si te equivocas, usa <b>Redireccionar</b>.</p>" },
+    { t:"Cómo respondo al usuario y cierro el caso", v:"bandeja", p:"gestion", k:"responder respuesta usuario cerrar cierre redactar texto carta contestar finalizar",
+      d:"<ol><li>Registra lo que respondió el área.</li><li>En el detalle, usa <b>Responder al usuario y cerrar</b>: el redactor arma una respuesta formal que puedes editar.</li><li>Al enviarla, el caso se cierra y el usuario recibe la encuesta de satisfacción.</li></ol>" },
+    { t:"Qué es la ficha del formulario", v:"ficha", p:"radicar", k:"ficha formulario qr afiche imprimir codigo qr cartel sede",
+      d:"<p><b>Ficha del formulario</b> genera el afiche con el código QR para imprimir y ubicarlo en tu sede. Los usuarios lo escanean para enviar su PQRS desde el celular.</p>" },
+    { t:"Cómo uso el Tablero y descargo el Excel", v:"tablero", k:"tablero indicadores graficas excel exportar descargar reporte informe mes anio estadisticas",
+      d:"<p>El <b>Tablero</b> muestra indicadores por mes, sede, tipo y motivo. Abajo puedes <b>descargar el Excel</b>: el administrador baja el consolidado completo; los técnicos y consulta bajan <b>solo los indicadores</b>, sin datos personales ni descripciones.</p>" },
+    { t:"Cómo creo usuarios y asigno sedes", v:"usuarios", p:"admin", k:"usuario usuarios crear tecnico clave contrasena sede asignar rol permisos acceso whatsapp",
+      d:"<ol><li>Entra a <b>Usuarios y sedes</b> y crea el usuario con su rol (Técnico, Consulta o Administrador).</li><li>Asígnale las sedes que podrá ver.</li><li>La persona recibe un correo de bienvenida y debe <b>cambiar su contraseña temporal</b> al ingresar.</li></ol>" },
+    { t:"Cómo configuro las áreas responsables", v:"responsables", p:"admin", k:"directorio areas responsables reglas direccionamiento servicios palabras clave copias correo jefe",
+      d:"<p>El <b>Directorio de áreas</b> define quién recibe cada solicitud: servicios, sedes, palabras clave y correos en copia. Entre más completo esté, mejores serán las sugerencias de direccionamiento.</p>" },
+    { t:"Qué se configura en Configuración", v:"config", p:"admin", k:"configuracion automatizacion avisos google chat push ntfy whatsapp respaldo entidades categorias qr ajustes",
+      d:"<p><b>Configuración</b> reúne la automatización del correo (EPS, entes, usuarios, citas), los avisos por Google Chat y push, el WhatsApp, el respaldo diario en Drive y la tabla de entidades y categorías.</p>" },
+    { t:"Cómo cambio mi contraseña o el tema", v:"inicio", sel:"#btnPerfil", k:"contrasena clave cambiar password tema oscuro claro apariencia instalar app celular cerrar sesion perfil salir",
+      d:"<p>Toca tu <b>avatar</b> (arriba a la derecha): ahí cambias la contraseña, eliges el tema (claro, oscuro, mono o cálido), instalas la app en tu celular o cierras sesión.</p>" },
+    { t:"Para qué sirve la campana", v:"inicio", sel:"#btnCampana", k:"campana notificaciones avisos sonido alertas novedades",
+      d:"<p>La <b>campana</b> lista las novedades de esta sesión: radicados nuevos, correos de EPS y entes y respuestas de áreas. Puedes activar los avisos del escritorio desde tu avatar.</p>" },
+    { t:"Qué hago con una felicitación", v:"bandeja", k:"felicitacion felicitaciones reconocimiento agradecimiento gracias",
+      d:"<p>Las felicitaciones se ven en la etapa <b>Felicitaciones</b> de la Bandeja. No tienen término. El sistema las entrega a cada área en un resumen y el usuario recibe un agradecimiento.</p>" },
+    { t:"Por qué no veo algunas opciones o sedes", v:"inicio", k:"permiso permisos no veo no aparece opcion menu sede acceso rol bloqueado limitado",
+      d:"<p>Cada rol ve lo suyo: el <b>Técnico</b> radica y consulta solo sus sedes; <b>Consulta</b> solo mira; el <b>Administrador</b> direcciona, responde y configura. Si te falta algo, pídeselo al administrador.</p>" },
+    { t:"Qué hago si la pantalla no carga o dice «sin conexión»", v:"inicio", k:"error no carga lento conexion internet falla cargando pantalla blanca problema actualizar version",
+      d:"<p>Revisa tu internet y espera unos segundos. Si persiste, cierra sesión y vuelve a ingresar. Si el problema sigue, avisa al administrador con la versión que aparece en la pantalla de ingreso.</p>" }
+  ];
+  var RAPIDAS = [["Radicar una PQRS","radicar pqrs"],["Buscar un radicado","buscar radicado"],["Semáforo y términos","semaforo"],["Direccionar un caso","direccionar"],["Responder y cerrar","responder"],["Descargar Excel","excel"],["Cambiar contraseña","contrasena"],["No veo una opción","no veo opcion"]];
+  var STOP = "como donde que para los las una unos unas del por mis puedo hago quiero necesito hacer esta este con sin sobre cual cuales hay tengo debo se me mi el la lo un de en y o a al es son".split(" ");
+
+  /* consejos de primera vez por apartado y pasos del recorrido */
+  var TIPS = {
+    inicio:["Aquí empieza todo","Mira primero las tarjetas de tus sedes: casos abiertos, por vencer y vencidos. Toca un mes para ver el detalle."],
+    bandeja:["Los casos van por etapas","Empieza por <b>Sin direccionar</b> y <b>Prioritarias</b>. Toca un caso para ver su detalle y su trazabilidad."],
+    prioritarias:["Atiende esto primero","Riesgo vital, priorizadas, tutelas y requerimientos. Los términos son cortos (8, 24 o 48 horas)."],
+    correo:["Tu correo, clasificado","EPS y entes aparecen solo aquí: el sistema no les escribe solo. Ábrelos para clasificar y radicar."],
+    radicar:["Radicar paso a paso","Llena las fechas, quién presenta, el tipo, la sede y el motivo específico. El radicado y el término se calculan al guardar."],
+    ficha:["Tu afiche con QR","Imprímelo y ponlo en tu sede: así los usuarios envían su PQRS desde el celular."],
+    tablero:["Los números de tus sedes","Cambia de mes o de año y descarga el Excel de indicadores cuando lo necesites."],
+    responsables:["Quién recibe qué","Entre más completo el directorio, mejor se sugiere el área al direccionar."],
+    usuarios:["Crea accesos con cuidado","Cada persona tiene su usuario, su rol y sus sedes. La contraseña temporal se cambia al primer ingreso."],
+    config:["Automatiza con calma","Aquí se configuran los avisos, el correo automático y los respaldos. Cada interruptor tiene una explicación."]
+  };
+  function pasos(){
+    var p = (APP.sesion && APP.sesion.puede) || {}, s = [
+      { t:"¡Hola, [nombre]! Soy Riverino", d:"Voy a mostrarte la plataforma en un minuto. Puedes saltar el recorrido cuando quieras: después me encuentras en el botón de abajo a la derecha." },
+      { t:"Este es el menú", d:"Todo está a la izquierda (en el celular, en la barra de abajo y el botón ☰). Lo que no ves es porque tu rol no lo necesita.", foco:"#menu", fm:".tabbar" },
+      { t:"Inicio: tu resumen", d:"Tarjetas con los casos de tus sedes, lo que está por vencer y los meses con más manifestaciones.", v:"inicio", foco:'#menu [data-v="inicio"]', fm:'.tabbar [data-v="inicio"]' },
+      { t:"Bandeja de PQRS", d:"Aquí gestionas los casos por etapas: sin direccionar, en gestión, por responder y cerradas. El semáforo te dice cuáles se vencen.", v:"bandeja", foco:'#menu [data-v="bandeja"]', fm:'.tabbar [data-v="bandeja"]' },
+      { t:"Prioritarias", d:"Riesgo vital, tutelas y requerimientos. Son las primeras que debes atender.", v:"prioritarias", foco:'#menu [data-v="prioritarias"]' }
+    ];
+    if(p.radicar) s.push({ t:"Radicar PQRS", d:"Cuando un usuario te entregue una PQRS en la ventanilla, el buzón o por teléfono, regístrala aquí. El radicado y el término se calculan solos.", v:"radicar", foco:'#menu [data-v="radicar"]', fm:'.tabbar [data-v="radicar"]' });
+    if(p.correo) s.push({ t:"Correo y EPS", d:"Los correos llegan clasificados. A las EPS y entes de control el sistema no les escribe: tú decides y respondes.", v:"correo", foco:'#menu [data-v="correo"]', fm:'.tabbar [data-v="correo"]' });
+    s.push({ t:"Tablero e indicadores", d:"Gráficos por mes, sede y tipo, y la descarga del Excel de indicadores.", v:"tablero", foco:'#menu [data-v="tablero"]' });
+    if(p.admin) s.push({ t:"Administración", d:"Como administrador creas usuarios y sedes, ordenas el directorio de áreas y configuras los avisos y la automatización.", v:"usuarios", foco:'#menu [data-v="usuarios"]' });
+    s.push({ t:"Tu perfil", d:"Toca tu avatar para cambiar la contraseña, elegir el tema (claro, oscuro…) o instalar la app en tu celular.", v:"inicio", foco:"#btnPerfil", menu:true });
+    s.push({ t:"Cuando te pierdas, búscame", d:"Toca mi botón y pregúntame, por ejemplo: «cómo radico», «qué es el semáforo» o «dónde descargo el Excel». Te explico y te llevo a la opción." });
+    return s;
+  }
+
+  /* ---------- almacenamiento local (por usuario) ---------- */
+  var MEM = {};
+  function clave(){ return "pqrs_guia_" + String((APP && APP.sesion && APP.sesion.usuario) || (APP && APP.usuario) || "u").toLowerCase().replace(/[^a-z0-9._-]/g, ""); }
+  function leer(){ var g = null; try { g = JSON.parse(localStorage.getItem(clave()) || "null"); } catch(e) {} return g || MEM[clave()] || { activa:false, tour:false, tips:{} }; }
+  function guardar(g){ MEM[clave()] = g; try { localStorage.setItem(clave(), JSON.stringify(g)); } catch(e) {} }
+  function primerNombre(){ var n = (APP.sesion && APP.sesion.nombre) || APP.usuario || ""; return String(n).split(/\s+/)[0] || "equipo"; }
+  function $$(id){ return document.getElementById(id); }
+  function avatar(extra){ return '<span class="rv-av' + (extra ? " " + extra : "") + '" role="img" aria-label="Riverino"></span>'; }
+  function pintarAvatares(raiz){ if(!window.IMG_MASCOTA_SIAU) return; (raiz || document).querySelectorAll(".rv-av").forEach(function(a){ a.style.backgroundImage = "url(" + window.IMG_MASCOTA_SIAU + ")"; }); }
+  function permitido(e){ var p = (APP.sesion && APP.sesion.puede) || {}; return !e.p || !!p[e.p]; }
+
+  /* ---------- resaltado ---------- */
+  var focoActual = null, focoT = null;
+  function quitarFoco(){ if(focoActual){ focoActual.classList.remove("rv-foco"); focoActual = null; } clearTimeout(focoT); }
+  function resaltar(sel, ms){
+    quitarFoco(); if(!sel) return;
+    var el = document.querySelector(sel); if(!el || !el.offsetHeight) return;
+    el.classList.add("rv-foco"); focoActual = el;
+    try { el.scrollIntoView({ block:"nearest", behavior:"smooth" }); } catch(e) {}
+    if(ms) focoT = setTimeout(quitarFoco, ms);
+  }
+  function llevar(e){
+    cerrarPanel();
+    ver(e.v); if(e.v === "bandeja") cargarBandeja();
+    setTimeout(function(){ resaltar(e.sel || ('#menu [data-v="' + e.v + '"]') + ",.tabbar [data-v=\"" + e.v + '"]', 4200); }, 350);
+  }
+
+  /* ---------- búsqueda ---------- */
+  function buscar(q){
+    var tk = norm(q).split(/[^a-z0-9]+/).filter(function(x){ return x.length > 2 && STOP.indexOf(x) < 0; });
+    if(!tk.length) return [];
+    var res = [];
+    KB.forEach(function(e, i){
+      if(!permitido(e)) return;
+      var claves = norm(e.k).split(" "), titulo = norm(e.t), cuerpo = norm(e.d.replace(/<[^>]+>/g, " ")), sc = 0;
+      tk.forEach(function(w){
+        var mejor = 0;
+        claves.forEach(function(c){
+          if(c === w) mejor = Math.max(mejor, 4);
+          else if(c.length > 3 && w.length > 3 && (c.indexOf(w) === 0 || w.indexOf(c) === 0 || (c.length > 4 && w.length > 4 && c.slice(0, 5) === w.slice(0, 5)))) mejor = Math.max(mejor, 3);
+        });
+        if(titulo.indexOf(w) >= 0) mejor += 2;
+        else if(!mejor && cuerpo.indexOf(w) >= 0) mejor = 1;
+        sc += mejor;
+      });
+      if(sc > 0) res.push({ e:e, sc:sc, i:i });
+    });
+    res.sort(function(a, b){ return (b.sc - a.sc) || (a.i - b.i); });
+    return res.slice(0, 3).map(function(x){ return x.e; });
+  }
+  function tarjeta(e){
+    return '<div class="rv-res"><h4>' + esc(e.t) + '</h4>' + e.d + '<button class="b sec mini" type="button" data-rv-ir="' + KB.indexOf(e) + '">' + ic("flecha", "s") + 'Llévame a ' + esc((TITULOS[e.v] || [e.v])[0]) + '</button></div>';
+  }
+
+  /* ---------- panel del asistente ---------- */
+  function vistaActual(){ var h = document.querySelector("section[id^='v-']:not([hidden])"); return h ? h.id.replace("v-", "") : "inicio"; }
+  function abrirPanel(){
+    if($$("rvPanel")){ cerrarPanel(); return; }
+    var v = vistaActual(), tip = TIPS[v], ctx = tip ? '<div class="rv-burbuja"><b>' + esc((TITULOS[v] || [v])[0]) + ':</b> ' + tip[1] + '</div>' : "";
+    var d = document.createElement("div"); d.className = "rv-panel"; d.id = "rvPanel"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Riverino, guía de la plataforma");
+    d.innerHTML = '<div class="rv-cab">' + avatar() + '<div><b>Riverino</b><span class="t">Tu guía en el sistema de PQRS</span></div><button type="button" id="rvCerrar" aria-label="Cerrar">×</button></div>' +
+      '<div class="rv-cuerpo" id="rvCuerpo"><div class="rv-burbuja">Hola, <b>' + esc(primerNombre()) + '</b>. Dime qué quieres hacer y te explico paso a paso. Si quieres, te llevo a la opción.</div>' + ctx +
+      '<form class="rv-buscar" id="rvForm"><input id="rvQ" type="search" placeholder="Ej.: cómo radico una queja" autocomplete="off" aria-label="Pregúntale a Riverino"><button class="b pri" type="submit">Buscar</button></form>' +
+      '<div class="rv-chips" id="rvChips">' + RAPIDAS.map(function(r, i){ return '<button type="button" data-rv-q="' + i + '">' + esc(r[0]) + '</button>'; }).join("") + '</div><div id="rvRes"></div></div>' +
+      '<div class="rv-pie"><button type="button" id="rvTour">Ver el recorrido de bienvenida</button><button type="button" id="rvTips">' + (leer().activa ? "Apagar los consejos" : "Activar los consejos") + '</button></div>';
+    document.body.appendChild(d); pintarAvatares(d);
+    $$("rvCerrar").onclick = cerrarPanel;
+    $$("rvForm").onsubmit = function(ev){ ev.preventDefault(); responder($$("rvQ").value); };
+    $$("rvChips").onclick = function(ev){ var b = ev.target.closest("[data-rv-q]"); if(b){ var r = RAPIDAS[+b.dataset.rvQ]; $$("rvQ").value = r[0]; responder(r[1]); } };
+    $$("rvRes").onclick = function(ev){ var b = ev.target.closest("[data-rv-ir]"); if(b) llevar(KB[+b.dataset.rvIr]); };
+    $$("rvTour").onclick = function(){ cerrarPanel(); window.riverinoRecorrido(); };
+    $$("rvTips").onclick = function(){ var g = leer(); g.activa = !g.activa; if(g.activa) g.tips = {}; guardar(g); cerrarPanel(); toast({ tipo:"area", titulo:"Riverino", texto: g.activa ? "Te mostraré un consejo la primera vez que entres a cada apartado." : "Apagué los consejos. Aquí sigo si me necesitas." }); };
+    $$("riverino").classList.add("callado");
+    setTimeout(function(){ if($$("rvQ")) $$("rvQ").focus(); }, 60);
+  }
+  function responder(q){
+    var r = buscar(q), caja = $$("rvRes"); if(!caja) return;
+    if(!String(q).trim()){ caja.innerHTML = ""; return; }
+    caja.innerHTML = r.length ? r.map(tarjeta).join("") :
+      '<div class="rv-burbuja">No encontré eso. Prueba con otras palabras (por ejemplo «radicar», «semáforo», «excel», «contraseña») o toca una de las opciones de arriba. Si algo no funciona, avisa al administrador.</div>';
+    var c = $$("rvCuerpo"); if(c) c.scrollTop = c.scrollHeight;
+  }
+  function cerrarPanel(){ var p = $$("rvPanel"); if(p) p.remove(); if($$("riverino")) $$("riverino").classList.remove("callado"); }
+
+  /* ---------- recorrido de bienvenida ---------- */
+  var tour = null;
+  function cerrarTour(fin){
+    var t = $$("rvTour2"); if(t) t.remove(); quitarFoco(); if($$("menuPerfil") && tour && tour.abrioPerfil) $$("menuPerfil").hidden = true; tour = null;
+    var g = leer(); g.tour = true; g.activa = true; guardar(g);
+    if(fin) toast({ tipo:"feliz", titulo:"¡Listo!", texto:"Cuando te pierdas, toca mi botón y pregúntame. Te mostraré un consejo la primera vez que entres a cada apartado." });
+  }
+  function paso(i){
+    var s = tour.s[i]; if(!s) return cerrarTour(true);
+    tour.i = i; quitarFoco(); if($$("menuPerfil") && tour.abrioPerfil){ $$("menuPerfil").hidden = true; tour.abrioPerfil = false; }
+    if(s.v) { ver(s.v); }
+    var movil = document.documentElement.getAttribute("data-form") === "movil";
+    var caja = $$("rvTour2");
+    if(!caja){ caja = document.createElement("div"); caja.className = "rv-tour"; caja.id = "rvTour2"; caja.setAttribute("role", "dialog"); caja.setAttribute("aria-live", "polite"); document.body.appendChild(caja); }
+    caja.innerHTML = avatar() + '<h3>' + esc(s.t.replace("[nombre]", primerNombre())) + '</h3><p>' + esc(s.d) + '</p>' +
+      '<div class="rv-pasos">' + tour.s.map(function(x, k){ return '<i class="' + (k === i ? "on" : "") + '"></i>'; }).join("") +
+      '<span>' + (i > 0 ? '<button class="b sec mini" type="button" id="rvAnt">Atrás</button>' : '<button class="b sec mini" type="button" id="rvSaltar">Saltar</button>') +
+      '<button class="b pri mini" type="button" id="rvSig">' + (i === tour.s.length - 1 ? "Terminar" : "Siguiente") + '</button></span></div>';
+    pintarAvatares(caja);
+    $$("rvSig").onclick = function(){ paso(i + 1); };
+    if($$("rvAnt")) $$("rvAnt").onclick = function(){ paso(i - 1); };
+    if($$("rvSaltar")) $$("rvSaltar").onclick = function(){ cerrarTour(false); };
+    if(s.menu){ var mp = $$("menuPerfil"); if(mp){ mp.hidden = false; tour.abrioPerfil = true; } }
+    setTimeout(function(){ resaltar(movil ? (s.fm || s.foco) : s.foco); }, 380);
+  }
+  window.riverinoRecorrido = function(){
+    if(!APP || !APP.sesion || tour) return; cerrarPanel();
+    tour = { s:pasos(), i:0 }; paso(0);
+  };
+  window.riverinoBienvenida = function(){ var g = leer(); if(!g.tour) setTimeout(window.riverinoRecorrido, 700); };
+
+  /* ---------- consejos de primera vez ---------- */
+  window.riverinoVista = function(v){
+    if(!$$("riverino") || tour) return;
+    var g = leer(), t = TIPS[v], sec = $$("v-" + v);
+    var viejo = document.querySelector(".rv-tip"); if(viejo) viejo.remove();
+    if(!g.activa || !t || !sec || g.tips[v]) return;
+    var d = document.createElement("div"); d.className = "rv-tip";
+    d.innerHTML = avatar() + '<div><b>' + esc(t[0]) + '</b><p>' + t[1] + '</p><div class="rv-acc"><button type="button" data-rv="ok">Entendido</button><button type="button" data-rv="ask">Pregúntale a Riverino</button></div></div>';
+    sec.insertBefore(d, sec.firstChild); pintarAvatares(d);
+    d.onclick = function(ev){ var b = ev.target.closest("[data-rv]"); if(!b) return;
+      var g2 = leer(); g2.tips[v] = 1; guardar(g2); d.remove(); if(b.dataset.rv === "ask") abrirPanel(); };
+  };
+
+  /* ---------- ciclo de vida ---------- */
+  window.riverinoIniciar = function(){
+    if($$("riverino")) return;
+    var b = document.createElement("button"); b.type = "button"; b.id = "riverino"; b.setAttribute("aria-label", "Riverino: ayuda para usar la plataforma");
+    b.innerHTML = avatar() + '<span class="rv-etq">¿Te ayudo?</span>';
+    b.onclick = abrirPanel; document.body.appendChild(b); document.body.classList.add("rv"); pintarAvatares(b);
+    setTimeout(function(){ if($$("riverino") && !$$("rvPanel")) $$("riverino").classList.add("callado"); }, 9000);
+    window.riverinoVista(vistaActual());
+  };
+  window.riverinoCerrar = function(){
+    ["riverino", "rvPanel", "rvTour2"].forEach(function(id){ var e = $$(id); if(e) e.remove(); });
+    var t = document.querySelector(".rv-tip"); if(t) t.remove(); quitarFoco(); tour = null; document.body.classList.remove("rv");
+  };
+  document.addEventListener("keydown", function(ev){ if(ev.key === "Escape"){ if($$("rvPanel")) cerrarPanel(); else if(tour) cerrarTour(false); } });
 })();
 </script>

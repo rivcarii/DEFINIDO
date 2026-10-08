@@ -31,6 +31,34 @@ require("fs").mkdirSync(CAP, { recursive: true });
     };
     await entrar("siau.admin");
 
+    // v9.3 · Riverino: botón, búsqueda, «Llévame», recorrido de bienvenida y consejos de primera vez
+    await p.waitForSelector("#riverino", { timeout: 6000 }).catch(() => errores.push(w + " no aparece el botón de Riverino"));
+    await p.click("#riverino"); await p.waitForSelector("#rvPanel", { timeout: 4000 }).catch(() => errores.push(w + " Riverino no abre su panel"));
+    await desb("riverino");
+    await p.fill("#rvQ", "cómo radico una queja"); await p.press("#rvQ", "Enter");
+    await p.waitForSelector("#rvRes .rv-res", { timeout: 4000 }).catch(() => errores.push(w + " Riverino no encontró «cómo radicar»"));
+    if (!/Radicar/i.test(await p.textContent("#rvRes").catch(() => ""))) errores.push(w + " la respuesta de Riverino no habla de radicar");
+    await p.waitForTimeout(500); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_riverino.png` });
+    await p.click('#rvRes [data-rv-ir]'); await p.waitForTimeout(600);
+    if (await p.$eval("#v-radicar", e => e.hidden)) errores.push(w + " «Llévame» no abrió el apartado");
+    await p.click("#riverino"); await p.fill("#rvQ", "zzzxxyy"); await p.press("#rvQ", "Enter");
+    if (!/No encontré/.test(await p.textContent("#rvRes").catch(() => ""))) errores.push(w + " Riverino no responde a lo que no entiende");
+    for (const [q, tit] of [["cómo radico", /radicar/i], ["dónde descargo el excel", /Tablero/i], ["quiero cambiar mi clave", /contraseña/i], ["que es el semaforo", /semáforo/i]]) {
+      await p.fill("#rvQ", q); await p.press("#rvQ", "Enter");
+      if (!tit.test(await p.textContent("#rvRes h4").catch(() => ""))) errores.push(w + " Riverino no entiende «" + q + "»");
+    }
+    await p.click("#rvTour"); await p.waitForSelector("#rvTour2", { timeout: 4000 }).catch(() => errores.push(w + " el recorrido de bienvenida no abre"));
+    let nPasos = 0; while (await p.$("#rvSig") && nPasos < 20) { const ult = /Terminar/.test(await p.textContent("#rvSig")); if (nPasos === 2 && w === 1366) await p.screenshot({ path: CAP + `z_${w}_recorrido.png` }); await p.click("#rvSig"); nPasos++; await p.waitForTimeout(150); if (ult) break; }
+    if (nPasos < 6) errores.push(w + " el recorrido es muy corto: " + nPasos + " pasos");
+    if (await p.$("#rvTour2")) errores.push(w + " el recorrido no se cerró al terminar");
+    const gu = await p.evaluate(() => JSON.parse(localStorage.getItem("pqrs_guia_siau.admin") || "null"));
+    if (!gu || !gu.tour || !gu.activa) errores.push(w + " no se guardó que el recorrido ya se vio");
+    if (await p.evaluate(() => /(clave|password|token)/i.test(localStorage.getItem("pqrs_guia_siau.admin") || ""))) errores.push(w + " la guía guarda datos sensibles");
+    await p.evaluate(() => ver("bandeja")); await p.waitForSelector(".rv-tip", { timeout: 4000 }).catch(() => errores.push(w + " no aparece el consejo de primera vez"));
+    await p.click('.rv-tip [data-rv="ok"]'); await p.evaluate(() => ver("inicio")); await p.evaluate(() => ver("bandeja")); await p.waitForTimeout(300);
+    if (await p.$(".rv-tip")) errores.push(w + " el consejo se repite después de «Entendido»");
+    await p.evaluate(() => ver("inicio")); await p.waitForTimeout(300);
+
     // v8.7 · temas, fondo sin franja blanca, pantalla de inicio y aviso de carga
     for (const t of ["oscuro", "mono", "calido", "claro"]) {
       await p.click("#btnPerfil"); await p.click('#menuPerfil .temas button[data-tema="' + t + '"]'); await p.waitForTimeout(250);

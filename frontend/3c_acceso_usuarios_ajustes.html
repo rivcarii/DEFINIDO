@@ -14,7 +14,7 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
-var FRONT_VERSION = "9.2";
+var FRONT_VERSION = "9.3";
 function pintarVersion(estado){
   var el = $("accVersion");
   if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
@@ -100,6 +100,7 @@ function cambiarClave(obligatorio){
     srv("apiCambiarMiClave", $("c_actual").value, $("c_nueva").value).then(function(r){
       fin(); if(!r.ok){ aviso("claveAviso", esc(r.mensaje), "err"); return; }
       APP.sesion.debeCambiar = false; cerrarModal(); toast({ tipo:"area", titulo:"Contraseña actualizada", texto:"Úsala en tu próximo ingreso." });
+      if(obligatorio){ try { window.riverinoBienvenida(); } catch(e) {} }   /* usuario nuevo: Riverino le da la bienvenida */
     }).catch(function(e){ fin(); aviso("claveAviso", msgErr(e), "err"); });
   });
 }
@@ -116,6 +117,7 @@ var ARRANQUE_HTML = $("arranque").innerHTML;
 /* v7.1: cerrar sesión sin recargar (recargar el marco de Apps Script dejaba la página en blanco). */
 function limpiarApp(){
   if(CICLO){ clearInterval(CICLO); CICLO = null; }
+  try { if(window.riverinoCerrar) window.riverinoCerrar(); } catch(e) {}
   APP = JSON.parse(APP_INICIAL);
   $("menuPerfil").hidden = true; $("centro").hidden = true; cerrarModal(); cerrarLateral();
   $("toasts").innerHTML = ""; $("centroLista").innerHTML = ""; $("campanaN").hidden = true;
