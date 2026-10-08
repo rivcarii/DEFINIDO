@@ -14,9 +14,21 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
+var FRONT_VERSION = "9.3";
+function pintarVersion(estado){
+  var el = $("accVersion");
+  if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
+    var b = $("btnAcceso"); if(b && b.parentNode) b.parentNode.appendChild(el); }
+  var sv = estado && estado.version ? String(estado.version).split(" ")[0] : "";
+  var ok = sv && sv === FRONT_VERSION;
+  el.innerHTML = "Pantalla " + esc(FRONT_VERSION) + " · Servidor " + (sv ? esc(sv) : "<b>desactualizado (publica el Codigo.gs nuevo)</b>") +
+    (sv && !ok ? " · <b>no coinciden</b>" : "");
+  el.style.color = ok ? "" : "#E20A31";
+}
 function mostrarAcceso(estado, mensaje){
+  pintarVersion(estado);
   $("app").hidden = true; $("acceso").hidden = false;
-  if(estado && estado.logo) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
+  if(estado && estado.logo && !window.IMG_MIRED_B) $("logoAcceso").src = "data:image/png;base64," + estado.logo;
   if(window.IMG_MASCOTA && $("mascotaAcceso") && !$("mascotaAcceso").getAttribute("src")) $("mascotaAcceso").src = IMG_MASCOTA;
   aviso("accAviso", mensaje ? esc(mensaje) : "", "err");
   if(estado && estado.hayUsuarios === false){
@@ -25,7 +37,7 @@ function mostrarAcceso(estado, mensaje){
     $("accCampos").innerHTML = '<label for="a_nombre">Nombre completo</label><input id="a_nombre" autocomplete="name">'+
       '<label for="a_usuario">Usuario</label><input id="a_usuario" autocomplete="username" placeholder="p. ej. siau.lider">'+
       '<label for="a_correo">Correo (para avisos)</label><input id="a_correo" type="email" autocomplete="email">'+
-      campoClave("a_clave","Contraseña","new-password")+'<div class="hint">Mínimo 8 caracteres, con letras y números.</div>'+campoClave("a_clave2","Repite la contraseña","new-password");
+      campoClave("a_clave","Contraseña","new-password")+'<div class="hint">Mínimo 10 caracteres, con mayúscula, minúscula y número. No uses tu usuario ni palabras comunes.</div>'+campoClave("a_clave2","Repite la contraseña","new-password");
     $("btnAcceso").textContent = "Crear administrador e ingresar";
     $("btnAcceso").onclick = function(){
       if(val("a_clave") !== val("a_clave2")){ aviso("accAviso","Las contraseñas no coinciden.","err"); return; }
@@ -75,7 +87,7 @@ function aplicarSesion(){
 }
 function cambiarClave(obligatorio){
   $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(440px,100%)"><div class="modal-cab"><div><h3>'+(obligatorio?"Crea tu contraseña":"Cambiar mi contraseña")+'</h3>'+
-    '<p>'+(obligatorio?"Estás usando una contraseña temporal asignada por el administrador.":"Mínimo 8 caracteres, con letras y números.")+'</p></div>'+
+    '<p>'+(obligatorio?"Estás usando una contraseña temporal asignada por el administrador.":"Mínimo 10 caracteres, con mayúscula, minúscula y número (sin tu usuario ni palabras comunes).")+'</p></div>'+
     (obligatorio?'':'<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button>')+'</div>'+
     '<div class="modal-cuerpo"><div id="claveAviso"></div>'+campoClave("c_actual", obligatorio?"Contraseña temporal":"Contraseña actual")+
     campoClave("c_nueva","Nueva contraseña","new-password")+campoClave("c_nueva2","Repite la nueva contraseña","new-password")+
@@ -88,6 +100,7 @@ function cambiarClave(obligatorio){
     srv("apiCambiarMiClave", $("c_actual").value, $("c_nueva").value).then(function(r){
       fin(); if(!r.ok){ aviso("claveAviso", esc(r.mensaje), "err"); return; }
       APP.sesion.debeCambiar = false; cerrarModal(); toast({ tipo:"area", titulo:"Contraseña actualizada", texto:"Úsala en tu próximo ingreso." });
+      if(obligatorio){ try { window.riverinoBienvenida(); } catch(e) {} }   /* usuario nuevo: Riverino le da la bienvenida */
     }).catch(function(e){ fin(); aviso("claveAviso", msgErr(e), "err"); });
   });
 }
@@ -104,6 +117,7 @@ var ARRANQUE_HTML = $("arranque").innerHTML;
 /* v7.1: cerrar sesión sin recargar (recargar el marco de Apps Script dejaba la página en blanco). */
 function limpiarApp(){
   if(CICLO){ clearInterval(CICLO); CICLO = null; }
+  try { if(window.riverinoCerrar) window.riverinoCerrar(); } catch(e) {}
   APP = JSON.parse(APP_INICIAL);
   $("menuPerfil").hidden = true; $("centro").hidden = true; cerrarModal(); cerrarLateral();
   $("toasts").innerHTML = ""; $("centroLista").innerHTML = ""; $("campanaN").hidden = true;
@@ -195,22 +209,60 @@ $("btnEscritorio").addEventListener("click", function(){
 /* ============================ USUARIOS ============================ */
 function cargarUsuarios(){
   $("usrLista").innerHTML = esqueleto(3);
-  srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); })
+  srv("apiUsuarios").then(function(r){ if(!r.ok){ aviso("usrAviso", esc(r.mensaje), "err"); return; } APP.usr = r; pintarUsuarios(); cargarAuditoria(); })
     .catch(function(e){ aviso("usrAviso", msgErr(e), "err"); });
 }
-/* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña). */
+/* v8.4 · Auditoría de accesos y cambios (ingresos, bloqueos, contraseñas, usuarios, exportaciones). Solo administrador. */
+function cargarAuditoria(){
+  if(!$("audLista")) return;
+  $("audLista").innerHTML = esqueleto(3);
+  srvSilencioso("apiAuditoria", { texto: $("audBuscar") ? $("audBuscar").value : "", limite: 150 }).then(function(r){
+    if(!r.ok || !r.items.length){ $("audLista").innerHTML = vacio("escudo","Todavía no hay eventos registrados."); return; }
+    $("audLista").innerHTML = '<div class="aud-fila aud-cab"><span>Fecha</span><span>Usuario</span><span>Evento</span><span>Detalle</span></div>'+
+      r.items.map(function(x){ return '<div class="aud-fila'+(x.alerta?' alerta':'')+'"><span>'+esc(x.fecha)+'</span><span>'+esc(x.usuario)+'</span><b>'+esc(x.evento)+'</b><span>'+esc(x.detalle)+'</span></div>'; }).join("");
+  }).catch(function(e){ $("audLista").innerHTML = '<div class="aviso err">'+ic("alerta","s")+'<div>'+msgErr(e)+'</div></div>'; });
+}
+$("btnAudActualizar").addEventListener("click", cargarAuditoria);
+$("audBuscar").addEventListener("input", function(){ clearTimeout(APP._audT); APP._audT = setTimeout(cargarAuditoria, 350); });
+/* Enlace de ingreso para compartir con los técnicos (no necesitan cuenta de Google: entran con usuario y contraseña).
+   v9.2: el administrador lo cambia aquí mismo («Cambiar enlace»); se guarda en la propiedad URL_PLATAFORMA del proyecto. */
+var PORTAL_URL = "https://rivcarii.github.io/DEFINIDO/portal/";
+/* El enlace de ingreso para las personas es el del portal (GitHub Pages). Si el servidor aún devuelve el de Apps Script, se corrige aquí. */
+function enlaceVisible(e){
+  var o = {}, k; for(k in (e||{})) o[k] = e[k];
+  if(o.url && /script\.google\.com/.test(o.url) && !o.prueba){ o.appsScript = o.url; o.url = PORTAL_URL; }
+  return o;
+}
 function pintarEnlace(e){
-  e = e || {};
-  if(!e.url){ $("usrEnlace").innerHTML = ""; return; }
-  var ok = !e.prueba;
+  e = enlaceVisible(e);
+  var ok = !!e.url && !e.prueba, abierto = !ok;
   $("usrEnlace").innerHTML = '<div class="enlace-card'+(ok?'':' mal')+'"><div class="enlace-ic">'+ic(ok?"enviar":"alerta")+'</div><div class="enlace-txt">'+
-    '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : 'Estás usando el enlace de prueba (/dev)')+'</b>'+
+    '<b>'+(ok ? 'Enlace de ingreso para los técnicos' : e.url ? 'Estás usando el enlace de prueba (/dev)' : 'Falta el enlace de la plataforma')+'</b>'+
     '<span>'+(ok ? 'Compártelo con cada técnico junto con su usuario. No necesitan cuenta de Google ni permisos sobre la hoja: todo se ejecuta con la cuenta '+esc(e.cuenta||"de la implementación")+'.'
-      : 'Ese enlace solo lo abren los editores del proyecto; por eso a los técnicos les pide acceso. Usa el enlace que termina en <b>/exec</b>: Implementar ▸ Administrar implementaciones ▸ copiar «URL de la aplicación web».')+'</span>'+
-    '<code>'+esc(e.url)+'</code></div>'+
-    (ok ? '<div class="enlace-acc"><button class="b pri mini" type="button" id="btnCopiarEnlace">'+ic("check","s")+'Copiar enlace</button>'+
-      '<a class="b sec mini" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent("Plataforma de PQRS · MiRed IPS\n"+e.url+"\nIngresa con el usuario y la contraseña temporal que te entregó el administrador.")+'">WhatsApp</a></div>' : '')+'</div>';
+      : 'Los técnicos no pueden entrar con ese enlace. Pega abajo la «URL de la aplicación web» (termina en <b>/exec</b>): Implementar ▸ Administrar implementaciones ▸ Copiar.')+'</span>'+
+    (e.url ? '<code id="enlaceActual">'+esc(e.url)+'</code>' : '')+
+    '<span class="hint" id="enlaceVersion">Código publicado: '+esc(e.version||"anterior (publica la versión nueva)")+'</span>'+
+    '<form class="enlace-edit" id="enlaceEdit"'+(abierto?'':' hidden')+'><input id="enlaceUrl" type="url" inputmode="url" autocomplete="off" spellcheck="false" aria-label="Enlace de la plataforma" placeholder="https://rivcarii.github.io/DEFINIDO/portal/" value="'+esc(e.url||"")+'">'+
+      '<button class="b pri mini" type="submit" id="btnGuardarEnlace">'+ic("check","s")+'Guardar enlace</button>'+
+      (ok ? '<button class="b sec mini" type="button" id="btnCancelarEnlace">Cancelar</button>' : '')+
+      (e.personalizado ? '<button class="b sec mini" type="button" id="btnEnlaceDefecto">Usar el predeterminado</button>' : '')+'</form>'+
+    '</div><div class="enlace-acc">'+
+    (ok ? '<button class="b pri mini" type="button" id="btnCopiarEnlace">'+ic("check","s")+'Copiar enlace</button>'+
+      '<a class="b sec mini" target="_blank" rel="noopener" href="https://wa.me/?text='+encodeURIComponent("Plataforma de PQRS · MiRed IPS\n"+e.url+"\nIngresa con el usuario y la contraseña temporal que te entregó el administrador.")+'">WhatsApp</a>'+
+      '<button class="b sec mini" type="button" id="btnCambiarEnlace">'+ic("link","s")+'Cambiar enlace</button>' : '')+'</div></div>';
   if($("btnCopiarEnlace")) $("btnCopiarEnlace").addEventListener("click", function(){ copiarTexto(e.url, "Enlace copiado"); });
+  if($("btnCambiarEnlace")) $("btnCambiarEnlace").addEventListener("click", function(){ $("enlaceEdit").hidden = false; $("enlaceUrl").focus(); $("enlaceUrl").select(); });
+  if($("btnCancelarEnlace")) $("btnCancelarEnlace").addEventListener("click", function(){ $("enlaceEdit").hidden = true; });
+  if($("btnEnlaceDefecto")) $("btnEnlaceDefecto").addEventListener("click", function(){ guardarEnlace(""); });
+  $("enlaceEdit").addEventListener("submit", function(ev){ ev.preventDefault(); guardarEnlace($("enlaceUrl").value); });
+}
+function guardarEnlace(url){
+  srv("apiGuardarEnlace", String(url||"").trim()).then(function(r){
+    if(!r || !r.ok){ toast({ tipo:"err", titulo:"No se guardó el enlace", texto: (r && r.mensaje) || "Intenta de nuevo." }); return; }
+    if(APP.usr) APP.usr.enlace = r.enlace;
+    pintarEnlace(r.enlace);
+    toast({ tipo:"area", titulo:"Enlace actualizado", texto:"Las invitaciones, el WhatsApp y los avisos por correo ya usan el enlace nuevo." });
+  }).catch(function(err){ toast({ tipo:"err", titulo:"No se guardó el enlace", texto: (err && err.message) || String(err) }); });
 }
 function copiarTexto(t, msg){
   var hecho = function(){ toast({ tipo:"area", titulo: msg || "Copiado", texto: "" , dur:3000 }); };
@@ -218,7 +270,7 @@ function copiarTexto(t, msg){
 }
 function copiaManual(t){ var a=document.createElement("textarea"); a.value=t; document.body.appendChild(a); a.select(); try{ document.execCommand("copy"); }catch(e){} document.body.removeChild(a); }
 function invitacion(u){
-  var url = (APP.usr && APP.usr.enlace && APP.usr.enlace.url) || "";
+  var url = enlaceVisible(APP.usr && APP.usr.enlace).url || "";
   return "Hola " + String(u.nombre||u.usuario).split(" ")[0] + ", ya tienes acceso a la Plataforma de PQRS de MiRed IPS.\n\n" +
     "Enlace: " + url + "\nUsuario: " + u.usuario + "\nContraseña: la temporal que te entregué (la cambiarás al ingresar).\n\n" +
     "No necesitas cuenta de Google. Verás las PQRS de: " + (u.rol === "Administrador" || u.sedes.some(function(x){ return /^todas$/i.test(x); }) ? "todas las sedes" : u.sedes.join(", ")) + ".";
@@ -228,17 +280,19 @@ function pintarUsuarios(){
   pintarEnlace(r.enlace);
   var lista = r.usuarios.filter(function(u){ return !q || norm([u.nombre,u.usuario,u.correo,u.sedes.join(" ")].join(" ")).indexOf(q) !== -1; });
   $("usrCont").textContent = r.usuarios.filter(function(u){ return u.activo; }).length + " activos de " + r.usuarios.length;
-  $("usrLista").innerHTML = lista.length ? lista.map(function(u){
+  var cab = '<div class="ufila cab"><span>Usuario</span><span>Rol</span><span>Sedes</span><span>Permisos y avisos</span><span>Activo</span><span></span></div>';
+  $("usrLista").innerHTML = lista.length ? cab + lista.map(function(u){
     var todas = u.sedes.some(function(x){ return /^todas$/i.test(x); }) || u.rol === "Administrador";
-    return '<div class="usr'+(u.activo?"":" inactivo")+'"><div class="usr-cab"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span>'+
-      '<div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span></div><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
-      '<div class="sedes-lista">'+(todas ? '<span>Todas las sedes</span>' : u.sedes.map(function(x){ return '<span>'+esc(x)+'</span>'; }).join(""))+'</div>'+
-      '<div class="sedes-lista">'+(u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.debeCambiar?'<span>Contraseña temporal</span>':'')+'</div>'+
-      '<div class="usr-pie"><em>'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</em>'+
-        '<label class="interruptor" title="Activo"><input type="checkbox" data-activo="'+esc(u.usuario)+'"'+(u.activo?" checked":"")+'><i></i></label>'+
-        '<button class="b sec mini" type="button" data-editar="'+esc(u.usuario)+'">Editar</button>'+
-        '<button class="b fant mini" type="button" data-clave="'+esc(u.usuario)+'">'+ic("candado","s")+'Clave</button>'+
-        (r.enlace && r.enlace.url && !r.enlace.prueba ? '<button class="b fant mini" type="button" data-invitar="'+esc(u.usuario)+'">'+ic("enviar","s")+'Invitar</button>' : '')+'</div></div>';
+    var etiquetas = (u.rol==="Técnico"?'<span>Radica y consulta</span>':'')+(u.avisos?'<span>Avisos por correo</span>':'')+(u.telefono?'<span>WhatsApp</span>':'')+(u.debeCambiar?'<span class="aten">Contraseña temporal</span>':'');
+    return '<div class="ufila'+(u.activo?"":" inactivo")+'">'+
+      '<div class="u-id"><span class="avatar">'+esc(iniciales(u.nombre||u.usuario))+'</span><div><b>'+esc(u.nombre||u.usuario)+'</b><span>'+esc(u.usuario)+(u.correo?' · '+esc(u.correo):'')+'</span><span class="u-ult">'+(u.ultimo ? "Último ingreso " + esc(u.ultimo) : "Sin ingresos")+'</span></div></div>'+
+      '<div class="u-rol" data-l="Rol"><span class="rol '+esc(u.rol)+'">'+esc(u.rol)+'</span></div>'+
+      '<div class="u-sedes" data-l="Sedes">'+(todas ? 'Todas las sedes' : esc(u.sedes.join(", ")))+'</div>'+
+      '<div class="sedes-lista" data-l="Permisos">'+(etiquetas || '<span>Solo consulta</span>')+'</div>'+
+      '<div class="u-act" data-l="Activo"><label class="interruptor" title="Activo"><input type="checkbox" data-activo="'+esc(u.usuario)+'"'+(u.activo?" checked":"")+'><i></i></label></div>'+
+      '<div class="u-acc"><button class="b sec mini" type="button" data-editar="'+esc(u.usuario)+'">Editar</button>'+
+        '<button class="b fant mini icono-b" type="button" data-clave="'+esc(u.usuario)+'" title="Restablecer contraseña" aria-label="Restablecer contraseña de '+esc(u.usuario)+'">'+ic("candado","s")+'</button>'+
+        (r.enlace && r.enlace.url && !r.enlace.prueba ? '<button class="b fant mini icono-b" type="button" data-invitar="'+esc(u.usuario)+'" title="Copiar invitación" aria-label="Copiar invitación para '+esc(u.usuario)+'">'+ic("enviar","s")+'</button>' : '')+'</div></div>';
   }).join("") : vacio("personas","No hay usuarios con ese filtro.");
   $("usrLista").querySelectorAll("[data-editar]").forEach(function(b){ b.addEventListener("click", function(){ formUsuario(b.dataset.editar); }); });
   $("usrLista").querySelectorAll("[data-invitar]").forEach(function(b){ b.addEventListener("click", function(){
@@ -248,7 +302,7 @@ function pintarUsuarios(){
   $("usrLista").querySelectorAll("[data-activo]").forEach(function(c){
     c.addEventListener("change", function(){
       var u = APP.usr.usuarios.filter(function(x){ return x.usuario === c.dataset.activo; })[0];
-      guardarUsuario({ usuario:u.usuario, editar:true, nombre:u.nombre, correo:u.correo, rol:u.rol, sedes:u.sedes, gestionaCorreo:u.gestionaCorreo, avisos:u.avisos, activo:c.checked },
+      guardarUsuario({ usuario:u.usuario, editar:true, nombre:u.nombre, correo:u.correo, rol:u.rol, sedes:u.sedes, gestionaCorreo:u.gestionaCorreo, avisos:u.avisos, telefono:u.telefono, activo:c.checked },
         c.checked ? "Usuario activado." : "Usuario inactivado: ya no puede ingresar.");
     });
   });
@@ -270,9 +324,12 @@ function formUsuario(usuario){
     '<div><label>Nombre completo</label><input id="u_nombre" value="'+esc(u.nombre||"")+'"></div>'+
     '<div><label>Usuario</label><input id="u_usuario" value="'+esc(u.usuario)+'"'+(usuario?" disabled":"")+' placeholder="p. ej. mgomez"></div>'+
     '<div><label>Correo (avisos)</label><input id="u_correo" type="email" value="'+esc(u.correo||"")+'"></div>'+
+    '<div><label>WhatsApp (acceso y avisos)</label><input id="u_telefono" type="tel" inputmode="tel" autocomplete="off" value="'+esc(u.telefono||"")+'" placeholder="3001234567">'+
+      '<div class="hint">Celular de 10 dígitos o con indicativo (57…). Recibe su acceso y los avisos de su sede si WhatsApp está activado en Configuración.</div></div>'+
     '<div><label>Rol</label><select id="u_rol">'+APP.usr.roles.map(function(x){ return '<option'+(x===u.rol?" selected":"")+'>'+x+'</option>'; }).join("")+'</select>'+
       '<div class="hint">Administrador: direcciona a las áreas, responde al usuario, gestiona el correo y los accesos. Técnico (SIAU de sede): radica y consulta las PQRS de sus sedes. Consulta: solo ve.</div></div>'+
-    (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal","new-password")+'</div>')+
+    (usuario?'':'<div class="full">'+campoClave("u_clave","Contraseña temporal (opcional)","new-password")+
+      '<div class="hint">Si la dejas vacía se usa la predeterminada <b>Siau123*</b>. Si el usuario tiene correo, recibe un mensaje con su usuario y la contraseña; deberá cambiarla al ingresar y vence en 72 horas.</div></div>')+
     '<div class="full"><label>Sedes asignadas</label><label class="chk" style="margin:0 0 8px"><input type="checkbox" id="u_todas"'+(todas?" checked":"")+'> Todas las sedes</label>'+
       '<div class="chk-sedes" id="u_sedes">'+APP.usr.sedes.map(function(x){ return '<label><input type="checkbox" value="'+esc(x)+'"'+(u.sedes.indexOf(x)!==-1?" checked":"")+'>'+esc(x)+'</label>'; }).join("")+'</div></div>'+
     '<div class="full" style="display:flex;gap:18px;flex-wrap:wrap">'+
@@ -286,18 +343,18 @@ function formUsuario(usuario){
   $("btnCerrarModal").addEventListener("click", cerrarModal);
   $("btnGuardarUsr").addEventListener("click", function(){
     var sedes = $("u_todas").checked ? ["TODAS"] : Array.prototype.map.call($("u_sedes").querySelectorAll("input:checked"), function(i){ return i.value; });
-    var d = { usuario: usuario || val("u_usuario"), editar: !!usuario, nombre: val("u_nombre"), correo: val("u_correo"), rol: val("u_rol"), sedes: sedes,
+    var d = { usuario: usuario || val("u_usuario"), editar: !!usuario, nombre: val("u_nombre"), correo: val("u_correo"), telefono: val("u_telefono"), rol: val("u_rol"), sedes: sedes,
               gestionaCorreo: $("u_correoOk").checked, avisos: $("u_avisos").checked, activo: $("u_activo").checked, clave: $("u_clave") ? $("u_clave").value : "" };
     var fin = ocupado("btnGuardarUsr","Guardando…");
     srv("apiGuardarUsuario", d).then(function(r){
       fin(); if(!r.ok){ aviso("uAviso", esc(r.mensaje), "err"); return; }
-      APP.usr = r; cerrarModal(); pintarUsuarios(); aviso("usrAviso", usuario ? "Usuario actualizado." : "Usuario creado. Entrégale su usuario y la contraseña temporal.", "ok");
+      APP.usr = r; cerrarModal(); pintarUsuarios(); aviso("usrAviso", usuario ? "Usuario actualizado." : "Usuario creado. "+esc(r.aviso || "Entrégale su usuario y la contraseña temporal."), "ok");
     }).catch(function(e){ fin(); aviso("uAviso", msgErr(e), "err"); });
   });
 }
 function restablecer(usuario){
   $("modal").innerHTML = '<div class="velo" id="velo"><div class="modal" style="width:min(420px,100%)"><div class="modal-cab"><div><h3>Contraseña temporal</h3><p>Para '+esc(usuario)+'. Deberá cambiarla al ingresar.</p></div>'+
-    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="rAviso"></div>'+campoClave("r_clave","Nueva contraseña temporal","new-password")+
+    '<button class="cerrar" type="button" id="btnCerrarModal">'+ic("x")+'</button></div><div class="modal-cuerpo"><div id="rAviso"></div>'+campoClave("r_clave","Nueva contraseña temporal (opcional)","new-password")+'<div class="hint">Vacía = «Siau123*». Si el usuario tiene correo, se le envía.</div>'+
     '<div class="acciones"><button class="b pri" type="button" id="btnRest">Asignar</button></div></div></div></div>';
   $("modal").hidden = false; activarVerClave($("modal"));
   $("btnCerrarModal").addEventListener("click", cerrarModal);
@@ -311,17 +368,28 @@ function restablecer(usuario){
 }
 
 /* ============================ AUTOMATIZACIÓN DEL CORREO ============================ */
-var AJ_BOOL = ["autoInstitucional","acuseInstitucional","autoUsuarios","citasAuto","avisosSede","direccionAuto","avisoCierreArea"];
+var AJ_BOOL = ["autoInstitucional","autoUsuarios","citasAuto","acuseUsuarios","avisosInstitucionales","avisosSede","direccionAuto","avisoCierreArea","respaldoDiario","waActivo","waIncluirClave"];
 function cargarAjustes(){
   $("tablaEntidades").innerHTML = esqueleto(3);
   srv("apiAjustes").then(pintarAjustes).catch(function(e){ aviso("autoAviso", msgErr(e), "err"); });
+  srvSilencioso("apiWhatsappEstado").then(pintarWa).catch(function(){});
+}
+function pintarWa(r){
+  if(!r || r.ok === false) return;
+  $("wa_phoneId").value = ""; $("wa_token").value = "";
+  $("wa_plantilla").value = r.plantilla || ""; $("wa_idioma").value = r.idioma || "es";
+  $("waPhoneEstado").textContent = r.phoneId ? "Guardado: " + r.phoneId : "Aún no guardado.";
+  $("waTokenEstado").innerHTML = r.tokenGuardado ? '<span class="chip v">Token guardado</span> Déjalo vacío para conservarlo o pega uno nuevo para cambiarlo.' : "Meta ▸ tu app ▸ WhatsApp ▸ Configuración de la API (token de un usuario del sistema, permanente).";
 }
 function pintarAjustes(r){
   if(!r.ok){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
   APP.aj = r;
   AJ_BOOL.forEach(function(k){ $("aj_"+k).checked = !!r.ajustes[k]; });
+  $("aj_pushTema").value = r.ajustes.pushTema || ""; $("aj_pushServidor").value = r.ajustes.pushServidor || "https://ntfy.sh";
   $("aj_webhookChat").value = r.ajustes.webhookChat || ""; $("aj_chatModo").value = r.ajustes.chatModo || "todas"; $("aj_avisarA").value = r.ajustes.avisarA || "";
   $("aj_direccionFelicitaciones").value = r.ajustes.direccionFelicitaciones || "resumen";
+  $("aj_respaldoCorreo").value = r.ajustes.respaldoCorreo || "";
+  $("aj_waAvisos").value = r.ajustes.waAvisos || "prioritarias";
   var cta = r.cuenta || { correo:"", alias:[] }, siau = /^siau@/i.test(cta.correo);
   $("aj_alias").innerHTML = '<option value="">'+esc(cta.correo || "Cuenta de la implementación")+' (principal)</option>'+
     (cta.alias||[]).map(function(a){ return '<option'+(norm(a)===norm(r.ajustes.alias)?' selected':'')+'>'+esc(a)+'</option>'; }).join("");
@@ -379,11 +447,29 @@ $("btnNuevaEntidad").addEventListener("click", function(){ APP.nuevaEnt = true; 
 $("btnNuevaCategoria").addEventListener("click", function(){ APP.nuevaCat = true; pintarAjustes(APP.aj); });
 $("btnGuardarAjustes").addEventListener("click", function(){
   var a = {}; AJ_BOOL.forEach(function(k){ a[k] = $("aj_"+k).checked; });
-  a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
-  a.direccionFelicitaciones = val("aj_direccionFelicitaciones");
+  a.pushTema = val("aj_pushTema"); a.pushServidor = val("aj_pushServidor"); a.webhookChat = val("aj_webhookChat"); a.chatModo = val("aj_chatModo"); a.avisarA = val("aj_avisarA"); a.alias = val("aj_alias");
+  a.direccionFelicitaciones = val("aj_direccionFelicitaciones"); a.waAvisos = val("aj_waAvisos");
   var fin = ocupado("btnGuardarAjustes","Guardando…");
   srv("apiGuardarAjustes", a).then(function(r){ fin(); if(r.ok===false){ aviso("autoAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("autoAviso","Automatización guardada.","ok"); })
     .catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnGuardarWa").addEventListener("click", function(){
+  var fin = ocupado("btnGuardarWa","Guardando…");
+  srv("apiGuardarWhatsapp", { phoneId: val("wa_phoneId"), token: val("wa_token"), plantilla: val("wa_plantilla"), idioma: val("wa_idioma") }).then(function(r){
+    fin(); if(r.ok === false){ aviso("autoAviso", esc(r.mensaje), "err"); return; }
+    pintarWa(r); aviso("autoAviso", "Conexión de WhatsApp guardada. Activa «Enviar por WhatsApp», guarda la automatización y envía un mensaje de prueba.", "ok");
+  }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnProbarWa").addEventListener("click", function(){
+  var fin = ocupado("btnProbarWa","Enviando…");
+  srv("apiProbarWhatsapp", val("wa_prueba")).then(function(r){ fin(); aviso("autoAviso", esc(r.mensaje), r.ok ? "ok" : "err"); }).catch(function(e){ fin(); aviso("autoAviso", msgErr(e), "err"); });
+});
+$("btnGenerarPush").addEventListener("click", function(){
+  var abc = "abcdefghijkmnpqrstuvwxyz23456789", v = new Uint8Array(14), t = "";
+  (window.crypto || window.msCrypto).getRandomValues(v);
+  for(var i=0;i<v.length;i++) t += abc.charAt(v[i] % abc.length);
+  $("aj_pushTema").value = "pqrs-miredips-"+t;
+  aviso("autoAviso","Tema generado. Pulsa «Guardar automatización» y suscríbete a ese tema en la app ntfy.","info");
 });
 $("btnProbarAviso").addEventListener("click", function(){
   var fin = ocupado("btnProbarAviso","Enviando…");
@@ -399,8 +485,28 @@ $("btnProcesarAhora").addEventListener("click", function(){
 pintarSonido();
 if(TOKEN) cargarApp();
 else pub("estadoAcceso").then(function(e){ mostrarAcceso(e, e && e.error || ""); }).catch(function(e){
-  $("acceso").hidden = false; aviso("accAviso", "No pude conectar con la plataforma: " + msgErr(e), "err");
+  if(window.mostrarSinConexion) window.mostrarSinConexion(e); else { $("acceso").hidden = false; aviso("accAviso", "No pude conectar con la plataforma: " + msgErr(e), "err"); }
 });
 </script>
 </body>
 </html>
+
+<script>
+/* v8.6 · App instalable (solo cuando la interfaz corre como portal): botón «Instalar la app» y ayuda para iPhone. */
+(function(){
+  function standalone(){ return (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || window.navigator.standalone === true; }
+  function pintar(){
+    var puede = !!window.__instalarApp && !standalone();
+    ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.hidden = !puede; });
+    var ios = document.getElementById("instalarIos");
+    if(ios) ios.hidden = !(window.PQRS_API && /iphone|ipad|ipod/i.test(navigator.userAgent) && !standalone());
+  }
+  function instalar(){
+    var e = window.__instalarApp; if(!e) return;
+    e.prompt(); e.userChoice.then(function(){ window.__instalarApp = null; pintar(); });
+  }
+  ["btnInstalarAcceso","btnInstalarMenu"].forEach(function(id){ var b = document.getElementById(id); if(b) b.addEventListener("click", instalar); });
+  window.addEventListener("pqrs-instalable", pintar);
+  document.addEventListener("DOMContentLoaded", pintar);
+})();
+</script>

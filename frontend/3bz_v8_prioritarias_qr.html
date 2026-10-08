@@ -86,6 +86,33 @@ function sugerenciasArea(sug){
     return '<button type="button" class="sa'+(i===0?" on":"")+'" data-area="'+esc(x.id)+'" title="'+esc((x.razones||[]).join(", "))+'">'+esc(x.area)+
       '<small>'+esc((x.razones||[]).slice(0,2).join(" · "))+'</small></button>'; }).join("")+'</div>';
 }
+/* v8.3 · Análisis detallado de lo que envía una EPS o un ente de control (solo dentro de la plataforma, con sesión). */
+function htmlAnalisis(a){
+  if(!a) return "";
+  var fila = function(k, v){ return v ? '<div class="an-f"><span>'+esc(k)+'</span><b>'+v+'</b></div>' : ''; };
+  var t = function(x){ return esc(x); };
+  var rg = a.riesgo || {};
+  var usr = a.datos || {};
+  var datosUsr = [usr.nombre, usr.documento ? "Doc. "+usr.documento : "", usr.telefono, usr.eps, usr.sede, usr.servicio].filter(String).map(t).join(" · ");
+  var plazo = a.termino ? t(a.termino)+(a.limite ? ' · vence el <u>'+t(a.limite)+'</u>' : '') : '';
+  var prio = a.prioridad ? '<span class="clave '+(a.prioridad==="Crítica"?"pr-crit":(a.prioridad==="Alta"?"pr-alta":"est"))+'">Prioridad '+t(a.prioridad)+'</span>' : '';
+  return '<div class="card analisis anim"><div class="an-cab"><div class="an-ic">'+ic("escudo")+'</div><div style="min-width:0"><h3>Análisis del requerimiento</h3>'+
+    '<div class="claves" style="margin-top:6px">'+(a.entidad ? '<span class="clave est">'+t(a.entidad)+'</span>' : '')+(a.categoria ? '<span class="clave cod">'+t(a.categoria)+'</span>' : '')+prio+
+    (rg.nivel ? '<span class="clave pr-crit">'+t(rg.nivel)+(rg.horas ? " · "+rg.horas+" h" : "")+'</span>' : '')+'</div></div></div>'+
+    '<div class="an-grid">'+
+      fila("Término legal", plazo || (a.categoria ? "" : "Sin categoría detectada: elígela abajo para calcular el término y la fecha límite"))+
+      fila("Meta interna ("+(a.metaHoras||0)+" h)", a.limiteMeta ? 'Direccionar o responder antes de <u>'+t(a.limiteMeta)+'</u>' : '')+
+      fila("Norma", a.norma ? t(a.norma) : '')+
+      fila("Plazo que pide el texto", (a.plazosTexto||[]).length ? a.plazosTexto.map(t).join(" · ") : '')+
+      fila("Referencia de la entidad", (a.referencias||[]).length ? a.referencias.map(function(r){ return '<code>'+t(r)+'</code>'; }).join(" ") : '')+
+      fila("Riesgo detectado", rg.nivel || (rg.poblacion||[]).length ? t(rg.nivel || "Población de especial protección")+((rg.razones||[]).length ? " · "+rg.razones.map(t).join(", ") : "")+((rg.poblacion||[]).length ? " · "+rg.poblacion.map(t).join(", ") : "") : '')+
+      fila("Datos del usuario en el texto", datosUsr)+
+      fila("Adjuntos", (a.adjuntos||[]).length ? a.adjuntos.map(t).join(" · ") : '')+
+      fila("Áreas sugeridas", (a.areas||[]).length ? a.areas.map(function(x){ return t(x.area); }).join(" · ") : '')+
+    '</div>'+
+    ((a.acciones||[]).length ? '<div class="an-acc"><p class="sub-tit">Qué hacer</p><ol>'+a.acciones.map(function(x){ return '<li>'+t(x)+'</li>'; }).join("")+'</ol></div>' : '')+
+    '<div class="hint">Este análisis solo se ve aquí: no viaja en los avisos push, de Chat ni de correo.</div></div>';
+}
 function bandaRiesgo(d, puede, cerrada){
   var n = d.nivelRiesgo, i = NIVEL_INFO[n];
   if(d.esFelicitacion) return '<div class="banda-feliz">'+ic("estrella","s")+'<div style="flex:1"><b>Felicitación.</b> El usuario recibió el agradecimiento automático. Solo falta que el área la conozca; no requiere respuesta ni seguimiento.</div></div>';
@@ -180,8 +207,7 @@ function cargarQR(){
 }
 $("qrTexto").addEventListener("input", function(){ clearTimeout(APP.tQr); APP.tQr = setTimeout(pintarQR, 300); });
 $("btnQrCopiar").addEventListener("click", function(){ if(qrActual()) copiarTexto(qrActual(), "Enlace del formulario copiado"); });
-$("btnQrPng").addEventListener("click", function(){
-  var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
+function descargarQrPng(t){
   var img = new Image(), svg = qrSvg(t, 1000);
   img.onload = function(){
     var cv = document.createElement("canvas"); cv.width = cv.height = 1000;
@@ -189,34 +215,100 @@ $("btnQrPng").addEventListener("click", function(){
     var a = document.createElement("a"); a.href = cv.toDataURL("image/png"); a.download = "QR_PQRS_MiRed_IPS.png"; document.body.appendChild(a); a.click(); document.body.removeChild(a);
   };
   img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+}
+$("btnQrPng").addEventListener("click", function(){
+  var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
+  descargarQrPng(t);
 });
+/* Ficha (afiche) del formulario QR · A4 · minimalista y con tipografía institucional: Volkswagen Serial (cuerpo) y Volkswagen Serial Black (títulos), con Barlow como respaldo.
+   Menos texto, la mascota de MiRed y mensajes simples. Se imprime o se guarda como PDF desde el navegador. */
+function htmlAficheQR(t){
+  var img = function(src, cls, alt){ return src ? '<img class="'+cls+'" src="'+src+'" alt="'+alt+'">' : ''; };
+  var T = { p:"#7B4FB8", q:"#E20A31", r:"#F29D00", s:"#1F6FD1", f:"#009C4D" };   // colores de los tipos (paleta del sistema)
+  var css =
+    '@page{size:A4;margin:0}*{box-sizing:border-box}html,body{margin:0}body{font-family:"Volkswagen Serial","VW Serial",Barlow,"Segoe UI",Arial,sans-serif;color:#10222C;-webkit-print-color-adjust:exact;print-color-adjust:exact}'+
+    '.hoja{width:210mm;height:296mm;position:relative;overflow:hidden;background:#fff;display:flex;flex-direction:column}'+
+    /* encabezado como el del formulario: degradado de la marca, logos, título y mascota */
+    '.cab{position:relative;flex:none;height:122mm;color:#fff;overflow:hidden;background:radial-gradient(120% 120% at 0% 0%,#0A7096 0%,#005A78 38%,#00475F 70%,#02503F 100%)}'+
+    '.cab .aro{position:absolute;border-radius:50%;border:.3mm solid rgba(255,255,255,.16)}.aro.a1{width:118mm;height:118mm;right:-8mm;top:-6mm}.aro.a2{width:150mm;height:150mm;right:-30mm;top:10mm}'+
+    '.cab .sol{position:absolute;border-radius:50%}.sol.roja{width:50mm;height:50mm;right:20mm;top:14mm;background:#C8102E}.sol.amar{width:9mm;height:9mm;right:11mm;top:74mm;background:#FEDC00}'+
+    '.cab .mas{position:absolute;right:15mm;bottom:3mm;height:108mm;width:auto}'+
+    '.cab .izq{position:relative;z-index:2;padding:11mm 0 0 16mm;width:128mm}'+
+    '.lockup{display:flex;align-items:center;gap:5mm}.lockup .mired{height:10mm}.lockup .calidad{height:12mm}.lockup .sep{width:.35mm;height:10mm;background:rgba(255,255,255,.35)}'+
+    '.siau{height:21mm;display:block;margin-top:8mm}'+
+    'h1,.pasos h2,.paso strong,.tp b,.pie b,.qrcaja .et{font-family:"Volkswagen Serial Black","VW Serial Black","Volkswagen Serial","VW Serial","Barlow Semi Condensed",Barlow,Arial,sans-serif;font-weight:900}h1{font-size:33pt;line-height:1.02;letter-spacing:-.01em;margin:5mm 0 0}'+
+    'p.sub{font-weight:400;font-size:15pt;margin:2.5mm 0 0;color:rgba(255,255,255,.82)}'+
+    '.chips{display:flex;flex-wrap:wrap;gap:2.2mm;margin-top:7mm;max-width:118mm}.chips span{display:flex;align-items:center;gap:1.8mm;background:rgba(255,255,255,.13);border:.25mm solid rgba(255,255,255,.28);border-radius:99px;padding:1.4mm 3.4mm 1.4mm 2.4mm;font-weight:700;font-size:10.5pt}'+
+    '.chips i{width:2.8mm;height:2.8mm;border-radius:50%;display:block}'+
+    '.franja{display:flex;height:2.6mm;flex:none}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
+    /* paso a paso */
+    '.medio{flex:1;display:flex;gap:11mm;align-items:center;padding:8mm 16mm 4mm}'+
+    '.qrcaja{flex:none;text-align:center}.qr{border:1.2mm solid #006081;border-radius:9mm;padding:5.5mm;background:#fff;box-shadow:0 2mm 6mm rgba(0,70,95,.12)}.qr svg{width:68mm;height:68mm;display:block}'+
+    '.qrcaja .et{margin-top:4mm;font-size:12.5pt;color:#00475F}.qrcaja .et small{display:block;font-weight:500;font-size:10pt;color:#5A6F7A;margin-top:.8mm}'+
+    '.pasos{flex:1}.pasos h2{margin:0 0 4.5mm;font-size:19pt;color:#00475F}.pasos h2 em{font-style:normal;color:#E20A31}'+
+    '.paso{display:flex;gap:4mm;align-items:flex-start;position:relative;padding-bottom:5mm}.paso:last-child{padding-bottom:0}'+
+    '.paso:not(:last-child)::after{content:"";position:absolute;left:5.2mm;top:11.5mm;bottom:.5mm;width:.5mm;background:#CFDDE3}'+
+    '.paso b{flex:none;width:11mm;height:11mm;border-radius:50%;background:#006081;color:#fff;display:grid;place-items:center;font-size:14pt;font-weight:800;box-shadow:0 1mm 2.5mm rgba(0,96,129,.3)}'+
+    '.paso:nth-child(2) b{background:#1F6FD1}.paso:nth-child(3) b{background:#F29D00}.paso:nth-child(4) b{background:#009C4D}'+
+    '.paso strong{display:block;font-size:13.5pt;color:#10222C;line-height:1.15}.paso span{display:block;font-weight:500;font-size:10.5pt;color:#4C616C;line-height:1.3;margin-top:.8mm}'+
+    /* tipos */
+    '.tipos{flex:none;display:grid;grid-template-columns:repeat(5,1fr);gap:3mm;padding:0 16mm 7mm}'+
+    '.tp{border-radius:3.5mm;background:#F5F9FB;border-top:1.3mm solid var(--c);padding:3mm 3mm 3.2mm}.tp b{display:block;font-size:11pt;color:var(--c)}.tp span{display:block;font-weight:500;font-size:8.6pt;line-height:1.28;color:#4C616C;margin-top:1mm}'+
+    '.pie{flex:none;height:25mm;background:#00475F;color:#fff;padding:0 16mm;display:flex;align-items:center;justify-content:space-between;gap:8mm}'+
+    '.pie b{display:block;font-size:12.5pt}.pie span{font-weight:500;font-size:10pt;opacity:.9}.pie .urg{font-size:9.5pt;margin-top:1.2mm;color:#FEDC00;font-weight:700}.pie .vig{display:flex;align-items:center;gap:5mm}.pie .vig img{height:9mm}'+
+    '.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px "Volkswagen Serial","VW Serial",Barlow,"Segoe UI",Arial,sans-serif;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer;z-index:9}'+
+    '@media print{.imprimir{display:none}}@media screen{body{background:#DCE5E9;padding:16px 0}.hoja{margin:0 auto;box-shadow:0 10px 40px rgba(0,0,0,.2)}}';
+  var chip = function(c, n){ return '<span><i style="background:'+c+'"></i>'+n+'</span>'; };
+  var paso = function(n, a, b){ return '<div class="paso"><b>'+n+'</b><div><strong>'+a+'</strong><span>'+b+'</span></div></div>'; };
+  var tipo = function(c, n, d){ return '<div class="tp" style="--c:'+c+'"><b>'+n+'</b><span>'+d+'</span></div>'; };
+  return '<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Ficha del formulario · SIAU · MiRed IPS</title>'+
+    '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'+
+    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;700;800&family=Barlow+Semi+Condensed:wght@800;900&display=block">'+
+    '<style>'+css+'</style></head><body><button class="imprimir" onclick="(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(function(){print()})">Imprimir o guardar como PDF</button><div class="hoja">'+
+    '<div class="cab"><i class="aro a1"></i><i class="aro a2"></i><i class="sol roja"></i><i class="sol amar"></i>'+
+      img(window.IMG_MASCOTA_SIAU,"mas","Mascota del SIAU de MiRed IPS")+
+      '<div class="izq"><div class="lockup">'+img(window.IMG_MIRED_B,"mired","MiRed IPS")+'<span class="sep"></span>'+img(window.IMG_CALIDAD_B,"calidad","Gestión de la Calidad")+'</div>'+
+      img(window.IMG_SIAU_B,"siau","SIAU · Atención al Usuario")+
+      '<h1>Opiniones<br>del usuario</h1><p class="sub">Tu voz mejora nuestra atención</p>'+
+      '<div class="chips">'+chip(T.p,"Peticiones")+chip(T.q,"Quejas")+chip(T.r,"Reclamos")+chip(T.s,"Sugerencias")+chip(T.f,"Felicitaciones")+'</div></div></div>'+
+    '<div class="franja"><i></i><i></i><i></i><i></i></div>'+
+    '<div class="medio"><div class="qrcaja"><div class="qr">'+qrSvg(t, 400)+'</div><div class="et">Escanee con la cámara de su celular<small>No necesita instalar ninguna aplicación</small></div></div>'+
+      '<div class="pasos"><h2>Así de <em>fácil</em>, en 4 pasos</h2>'+
+        paso(1,"Escanee el código","Abra la cámara de su celular y apunte al código QR.")+
+        paso(2,"Cuéntenos","Elija si es una petición, queja, reclamo, sugerencia o felicitación y escriba lo ocurrido.")+
+        paso(3,"Reciba su radicado","Al enviar, le llega un número de radicado para hacer seguimiento.")+
+        paso(4,"Le respondemos","Nuestro equipo revisa su caso y le contesta dentro de los términos de ley.")+
+      '</div></div>'+
+    '<div class="tipos">'+tipo(T.p,"Petición","Solicite información o un servicio.")+tipo(T.q,"Queja","Inconformidad con la atención de una persona.")+tipo(T.r,"Reclamo","Un servicio que no se prestó como debía.")+tipo(T.s,"Sugerencia","Una idea para mejorar nuestro servicio.")+tipo(T.f,"Felicitación","Reconozca una buena atención.")+'</div>'+
+    '<div class="pie"><div><b>Oficina de Atención al Usuario (SIAU)</b><span>MiRed Barranquilla IPS S.A.S.</span><div class="urg">¿Es una urgencia? Acérquese de inmediato al personal de la sede.</div></div>'+
+      '<div class="vig">'+img(window.IMG_SS_B,"","Vigilado Supersalud")+img(window.IMG_ALC_B,"","Alcaldía de Barranquilla")+'</div></div>'+
+    '</div></body></html>';
+}
+function abrirAfiche(t, avisoId){
+  var w = window.open("", "_blank");
+  if(!w){ aviso(avisoId,"El navegador bloqueó la ventana de la ficha. Permite ventanas emergentes para este sitio.","err"); return; }
+  w.document.write(htmlAficheQR(t));
+  w.document.close();
+}
 $("btnQrAfiche").addEventListener("click", function(){
   var t = qrActual(); if(!t){ aviso("qrAviso","Primero escribe o crea el enlace del formulario.","err"); return; }
-  var logo = $("logo").getAttribute("src") || "";
-  var w = window.open("", "_blank");
-  if(!w){ aviso("qrAviso","El navegador bloqueó la ventana del afiche. Permite ventanas emergentes para este sitio.","err"); return; }
-  w.document.write('<!DOCTYPE html><html lang="es"><head><meta charset="utf-8"><title>Afiche QR · PQRS MiRed IPS</title>'+
-    '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@500;700&family=Barlow+Semi+Condensed:wght@800;900&display=swap">'+
-    '<style>@page{size:A4;margin:0}body{margin:0;font-family:Barlow,Arial,sans-serif;color:#10222C}'+
-    '.hoja{width:210mm;height:296mm;box-sizing:border-box;padding:16mm 16mm 12mm;display:flex;flex-direction:column;background:#fff;position:relative;overflow:hidden}'+
-    '.franja{display:flex;height:9px;margin:-16mm -16mm 12mm}.franja i{flex:6;background:#006081}.franja i+i{flex:1;background:#E20A31}.franja i+i+i{background:#FEDC00}.franja i+i+i+i{background:#009C4D}'+
-    '.logo{height:26mm}h1{font-family:"Barlow Semi Condensed";font-weight:900;font-size:40pt;line-height:1;margin:10mm 0 4mm;color:#00475F}'+
-    'p.sub{font-size:16pt;margin:0 0 8mm;color:#465C68}.centro{display:flex;gap:10mm;align-items:center;flex:1}'+
-    '.qr{border:3px solid #006081;border-radius:8mm;padding:6mm;background:#fff}.qr svg{width:92mm;height:92mm;display:block}'+
-    '.mascota{height:120mm}.tipos{display:flex;flex-wrap:wrap;gap:3mm;margin:6mm 0}.tipos span{font-weight:700;font-size:12pt;padding:2mm 4mm;border-radius:3mm;color:#fff}'+
-    '.url{font-family:Consolas,monospace;font-size:12pt;color:#00475F;margin-top:3mm;word-break:break-all}.pasos{font-size:13pt;line-height:1.5;margin:0;padding-left:6mm}'+
-    '.pie{font-size:9pt;color:#7F939E;border-top:1px solid #E1E8EC;padding-top:3mm;line-height:1.4}.imprimir{position:fixed;top:10px;right:10px;padding:10px 16px;font:700 14px Barlow;background:#006081;color:#fff;border:0;border-radius:10px;cursor:pointer}'+
-    '@media print{.imprimir{display:none}}</style></head><body><button class="imprimir" onclick="print()">Imprimir</button><div class="hoja"><div class="franja"><i></i><i></i><i></i><i></i></div>'+
-    (logo ? '<img class="logo" src="'+logo+'" alt="MiRed IPS">' : '')+
-    '<h1>¿Cómo fue su atención?<br>Cuéntenos aquí</h1><p class="sub">Escanee el código con la cámara de su celular: peticiones, quejas, reclamos, sugerencias y felicitaciones.</p>'+
-    '<div class="centro"><div><div class="qr">'+qrSvg(t, 400)+'</div><div class="url">'+esc(t)+'</div>'+
-      '<div class="tipos"><span style="background:#8455B8">Felicitaciones</span><span style="background:#E20A31">Quejas</span><span style="background:#B98A00">Reclamos</span><span style="background:#006D93">Peticiones</span><span style="background:#00985A">Sugerencias</span></div>'+
-      '<ol class="pasos"><li>Abra la cámara y apunte al código.</li><li>Escriba su mensaje y su correo.</li><li>Reciba su número de radicado y la fecha de respuesta.</li></ol></div>'+
-      (window.IMG_MASCOTA ? '<img class="mascota" src="'+IMG_MASCOTA+'" alt="SIAU MiRed IPS">' : '')+'</div>'+
-    '<div class="pie"><b>Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</b><br>Si su situación pone en riesgo su vida o la de un menor de edad, además del formulario acérquese de inmediato al personal de la sede. '+
-    'Sus datos se tratan conforme a la Ley 1581 de 2012 solo para gestionar su solicitud.</div></div></body></html>');
-  w.document.close();
+  abrirAfiche(t, "qrAviso");
 });
+/* v8.4 · Ficha del formulario para técnicos y administradores (menú «Ficha del formulario») */
+function cargarFicha(){
+  $("fichaQr").innerHTML = esqueleto(1);
+  srvSilencioso("apiFichaFormulario").then(function(r){
+    APP.ficha = r || {};
+    var t = (r && r.url) || "";
+    $("fichaQr").innerHTML = t ? qrSvg(t, 240) : '<div class="vacio">'+ic("qr")+'<div>Sin enlace del formulario</div></div>';
+    $("fichaUrl").textContent = t;
+    aviso("fichaAviso", r && r.mensaje ? esc(r.mensaje) : "", "info");
+  }).catch(function(e){ aviso("fichaAviso", msgErr(e), "err"); });
+}
+function fichaUrl(){ return (APP.ficha && APP.ficha.url) || ""; }
+$("btnFichaImprimir").addEventListener("click", function(){ if(!fichaUrl()){ aviso("fichaAviso","Todavía no hay un formulario publicado.","err"); return; } abrirAfiche(fichaUrl(), "fichaAviso"); });
+$("btnFichaPng").addEventListener("click", function(){ if(!fichaUrl()){ aviso("fichaAviso","Todavía no hay un formulario publicado.","err"); return; } descargarQrPng(fichaUrl()); });
+$("btnFichaCopiar").addEventListener("click", function(){ if(fichaUrl()) copiarTexto(fichaUrl(), "Enlace del formulario copiado"); });
 $("btnCrearForm").addEventListener("click", function(){
   if(!window.confirm("Se creará un Google Form nuevo con la autorización de datos, las sedes y los servicios, vinculado a este consolidado. El formulario actual no se borra. ¿Continuar?")) return;
   var fin = ocupado("btnCrearForm","Creando formulario…");
@@ -241,6 +333,21 @@ $("btnFelicitacionesAhora").addEventListener("click", function(){
     .catch(function(e){ fin(); aviso("qrAviso", msgErr(e), "err"); });
 });
 
+/* ---------------- respaldo en Excel (v8.2) ---------------- */
+$("btnGuardarRespaldo").addEventListener("click", function(){
+  var fin = ocupado("btnGuardarRespaldo","Guardando…");
+  srv("apiGuardarAjustes", { respaldoDiario:$("aj_respaldoDiario").checked, respaldoCorreo:$("aj_respaldoCorreo").value })
+    .then(function(r){ fin(); if(r.ok===false){ aviso("respAviso", esc(r.mensaje), "err"); return; } pintarAjustes(r); aviso("respAviso","Respaldo guardado. Se aplica desde la próxima rutina de las 7:00 a.m.","ok"); })
+    .catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+$("btnRespaldarAhora").addEventListener("click", function(){
+  var fin = ocupado("btnRespaldarAhora","Respaldando… (puede tardar un minuto)");
+  srv("apiRespaldarAhora").then(function(r){
+    fin();
+    aviso("respAviso", esc(r.mensaje||"")+(r.url ? ' <a href="'+esc(r.url)+'" target="_blank" rel="noopener">Abrir en Drive</a>' : ""), r.ok===false ? "err" : "ok");
+  }).catch(function(e){ fin(); aviso("respAviso", msgErr(e), "err"); });
+});
+
 /* ---------------- diagnóstico ---------------- */
 $("btnDiagnostico").addEventListener("click", function(){
   $("diagCuerpo").innerHTML = '<div class="card" style="margin-bottom:16px">'+esqueleto(4)+'</div>';
@@ -257,7 +364,7 @@ $("btnDiagnostico").addEventListener("click", function(){
 function celebrar(){
   if(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches) return;
   var capa = document.createElement("div"); capa.className = "confeti";
-  var colores = ["#8455B8","#E20A31","#FEDC00","#009C4D","#006081","#0F7FA6"];
+  var colores = ["#009C4D","#E20A31","#FEDC00","#009C4D","#006081","#0F7FA6"];
   for(var i=0;i<70;i++){
     var p = document.createElement("i");
     p.style.left = (Math.random()*100)+"%"; p.style.background = colores[i % colores.length];
@@ -274,5 +381,32 @@ function alarmaVisual(suave){
   document.body.classList.remove("alarma", "alarma-suave"); void document.body.offsetWidth;
   document.body.classList.add(suave ? "alarma-suave" : "alarma");
   setTimeout(function(){ document.body.classList.remove("alarma", "alarma-suave"); }, suave ? 1600 : 3200);
+}
+</script>
+
+<script>
+/* v8.6 · Satisfacción de los usuarios (NPS): sale en el correo de respuesta final; aquí se ve el resultado. */
+function cargarNps(){
+  var cont = $("npsCard"); if(!cont) return;
+  srvSilencioso("apiNps").then(function(r){
+    if(!r || r.ok === false){ cont.innerHTML = ""; return; }
+    var color = function(n){ return n === null ? "var(--ink-3)" : n >= 50 ? "#009C4D" : n >= 0 ? "#F29D00" : "#E20A31"; };
+    var etiqueta = function(n){ return n === null ? "—" : (n > 0 ? "+" : "") + n; };
+    if(!r.total){
+      cont.innerHTML = '<div class="card nps"><h3>Satisfacción de los usuarios (NPS)</h3><p class="sub">Aún no hay respuestas. La pregunta «¿qué tan probable es que recomiende MiRed IPS?» (0 a 10) llega en el correo de respuesta final a cada usuario.</p></div>';
+      return;
+    }
+    var pc = function(n){ return Math.round(n * 100 / r.total); };
+    var fila = function(x){ return '<div class="nps-fila"><span class="nps-n">'+esc(x.nombre)+'</span><span class="nps-v" style="color:'+color(x.nps)+'">'+etiqueta(x.nps)+'</span><span class="nps-c">'+x.total+' resp.</span></div>'; };
+    var meses = (r.porMes||[]).map(function(m){ var h = m.nps === null ? 4 : Math.max(6, Math.round((m.nps + 100) * 0.26)); return '<div class="nps-mes" title="'+esc(m.nombre)+': '+etiqueta(m.nps)+' ('+m.total+')"><i style="height:'+h+'px;background:'+color(m.nps)+'"></i><span>'+esc(String(m.nombre).substring(5))+'</span></div>'; }).join("");
+    cont.innerHTML = '<div class="card nps"><div class="nps-cab"><div><h3>Satisfacción de los usuarios (NPS)</h3><p class="sub">Promotores (9–10) menos detractores (0–6), sobre '+r.total+' respuestas.</p></div>'+
+      '<div class="nps-gran" style="color:'+color(r.nps)+'">'+etiqueta(r.nps)+'</div></div>'+
+      '<div class="nps-barra" role="img" aria-label="Detractores '+pc(r.detractores)+'%, pasivos '+pc(r.pasivos)+'%, promotores '+pc(r.promotores)+'%">'+
+        '<i style="width:'+pc(r.detractores)+'%;background:#E20A31"></i><i style="width:'+pc(r.pasivos)+'%;background:#F29D00"></i><i style="width:'+pc(r.promotores)+'%;background:#009C4D"></i></div>'+
+      '<div class="nps-leyenda"><span><b style="background:#E20A31"></b>Detractores '+pc(r.detractores)+'%</span><span><b style="background:#F29D00"></b>Pasivos '+pc(r.pasivos)+'%</span><span><b style="background:#009C4D"></b>Promotores '+pc(r.promotores)+'%</span></div>'+
+      '<div class="nps-cols"><div><h4>Por sede</h4>'+(r.porSede||[]).map(fila).join("")+'</div>'+
+      ((r.porMotivo||[]).length ? '<div><h4>Por motivo específico</h4>'+r.porMotivo.map(fila).join("")+'</div>' : '')+
+      '<div><h4>Por mes</h4><div class="nps-meses">'+meses+'</div></div></div></div>';
+  }).catch(function(){ cont.innerHTML = ""; });
 }
 </script>

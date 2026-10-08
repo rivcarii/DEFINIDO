@@ -1,5 +1,12 @@
 <body>
 <div id="carga"></div>
+<div id="cargaPill" role="status" aria-live="polite"><span class="solar s"><span class="nucleo"></span><b></b><b></b></span><span id="cargaTexto">Cargando…</span></div>
+<div id="splash" role="status" aria-live="polite">
+  <div class="solar sp-sistema"><span class="nucleo"></span><b></b><b></b><b></b><div class="sp-mascota"><img id="splashMascota" alt=""></div></div>
+  <div><h1>Sistema de PQRS</h1><p id="splashTexto">Preparando todo para ti…</p></div>
+  <div class="sp-barra"><i></i></div>
+  <div class="sp-franja"><i></i><i></i><i></i><i></i></div>
+</div>
 
 <!-- Iconos de línea (símbolos, sin emojis) -->
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -56,34 +63,50 @@
 <div id="acceso" class="acceso" hidden>
   <div class="acceso-marca">
     <div>
-      <div class="acceso-logo"><img id="logoAcceso" alt="MiRed IPS" src=""></div>
-      <h1>Sistema de Gestión<br>de PQRS</h1>
-      <p>Todas las vías de ingreso en un solo lugar: formulario QR, correo institucional, EPS y entes de control, y la atención presencial de cada sede. Con términos, prioridades y trazabilidad a tiempo.</p>
-      <div class="canales">
-        <div class="canal"><svg class="ic"><use href="#i-qr"/></svg>Formulario QR</div>
-        <div class="canal"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS</div>
-        <div class="canal"><svg class="ic"><use href="#i-sede"/></svg>Sedes y ventanilla</div>
-        <div class="canal"><svg class="ic"><use href="#i-escudo"/></svg>Riesgo vital y prioritarias</div>
-        <div class="canal"><svg class="ic"><use href="#i-estrella"/></svg>Felicitaciones al equipo</div>
-      </div>
+      <div class="lockup"><img class="lk-mired" id="logoAcceso" alt="MiRed IPS" src=""><span class="lk-div"></span><img class="lk-calidad" id="calidadAcceso" alt="Gestión de la Calidad" src=""></div>
+      <img class="acceso-siau" id="siauAcceso" alt="SIAU" src="">
+      <h1>Sistema de Gestión de PQRS</h1>
+      <p class="acceso-lema">Cada opinión de nuestros usuarios nos ayuda a cuidar mejor de ellos.</p>
     </div>
-    <img class="acceso-mascota" id="mascotaAcceso" alt="" src="">
-    <div class="acceso-pie">Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
+    <div class="acceso-hero" aria-hidden="true">
+      <div class="hero-caja">
+        <div class="orbita"><div class="orb o4"><i>S</i></div><div class="orb o3"><i>R</i></div><div class="orb o2"><i>Q</i></div><div class="orb o1"><i>P</i></div></div>
+        <img id="mascotaHero" alt="" src="">
+        <span class="hero-pill">¡La mejora comienza contigo!</span>
+      </div>
+      <div class="hero-leyenda">Peticiones · Quejas · Reclamos · Sugerencias</div>
+    </div>
+    <div class="acceso-pie"><div class="vigilado"><img id="ssAcceso" alt="Vigilado Supersalud" src=""><img id="alcAcceso" alt="Alcaldía de Barranquilla" src=""></div>Oficina de Atención al Usuario (SIAU) · MiRed Barranquilla IPS S.A.S.</div>
   </div>
   <div class="acceso-form">
+    <div class="temas mini" role="group" aria-label="Apariencia"><span class="temas-tit">Apariencia</span>
+      <button type="button" data-tema="claro" aria-pressed="false"><i></i><span>Claro</span></button>
+      <button type="button" data-tema="oscuro" aria-pressed="false"><i></i><span>Oscuro</span></button>
+      <button type="button" data-tema="mono" aria-pressed="false"><i></i><span>Mono</span></button>
+      <button type="button" data-tema="calido" aria-pressed="false"><i></i><span>Cálido</span></button></div>
     <div class="form-card" id="formAcceso">
       <h2 id="accTitulo">Ingresar</h2>
       <p class="sub" id="accSub">Usa el usuario y la contraseña que te asignó el administrador.</p>
+      <div class="sin-conexion" id="sinConexion" hidden>
+        <b id="sinConexionTit">No pudimos conectar con la plataforma</b><span id="sinConexionTxt"></span>
+        <div class="acc"><button class="b pri mini" id="btnReintentar" type="button">Reintentar</button></div>
+        <div class="acc" id="sinConexionDir" hidden><input id="sinConexionUrl" type="url" inputmode="url" placeholder="https://script.google.com/macros/s/…/exec" aria-label="Dirección de la plataforma"><button class="b sec mini" id="btnCambiarServidor" type="button">Usar esta dirección</button></div>
+      </div>
       <div id="accAviso"></div>
       <div id="accCampos"></div>
       <button class="b pri" id="btnAcceso" type="button">Ingresar</button>
+      <button class="b sec instalar-app" id="btnInstalarAcceso" type="button" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
+      <p class="hint instalar-ios" id="instalarIos" hidden>En iPhone o iPad: toca <b>Compartir</b> y luego <b>Agregar a pantalla de inicio</b> para instalar la app.</p>
     </div>
   </div>
 </div>
 
 <div class="app" id="app" hidden>
 <aside class="lateral" id="lateral">
-  <div class="lat-marca"><img id="logo" alt="MiRed IPS" src=""><div class="marca">Gestión de PQRS<small>SIAU · MiRed IPS</small></div></div>
+  <div class="lat-marca">
+    <div class="lockup"><img class="lk-mired" id="logo" alt="MiRed IPS" src=""><span class="lk-div"></span><img class="lk-calidad" id="logoCalidad" alt="Gestión de la Calidad" src=""></div>
+    <div class="lat-app"><img id="logoSiau" alt="SIAU" src=""><span><b>Gestión de PQRS</b>Oficina de Atención al Usuario</span></div>
+  </div>
   <nav id="menu">
     <p class="grupo">Operación</p>
     <button class="on" data-v="inicio"><svg class="ic"><use href="#i-inicio"/></svg>Inicio</button>
@@ -91,10 +114,11 @@
     <button data-v="prioritarias"><svg class="ic"><use href="#i-escudo"/></svg>Prioritarias <span class="badge rojo" id="navPrio" hidden>0</span></button>
     <button data-v="correo" data-perm="correo"><svg class="ic"><use href="#i-correo"/></svg>Correo y EPS <span class="badge" id="navCorreo" hidden>0</span></button>
     <button data-v="radicar" data-perm="radicar"><svg class="ic"><use href="#i-radicar"/></svg>Radicar PQRS</button>
+    <button data-v="ficha" data-perm="radicar"><svg class="ic"><use href="#i-qr"/></svg>Ficha del formulario</button>
     <p class="grupo">Análisis</p>
     <button data-v="tablero"><svg class="ic"><use href="#i-tablero"/></svg>Tablero</button>
     <p class="grupo" data-perm="admin">Administración</p>
-    <button data-v="responsables" data-perm="admin"><svg class="ic"><use href="#i-area"/></svg>Áreas responsables</button>
+    <button data-v="responsables" data-perm="admin"><svg class="ic"><use href="#i-area"/></svg>Directorio de áreas</button>
     <button data-v="usuarios" data-perm="admin"><svg class="ic"><use href="#i-personas"/></svg>Usuarios y sedes</button>
     <button data-v="config" data-perm="admin"><svg class="ic"><use href="#i-ajustes"/></svg>Configuración</button>
   </nav>
@@ -124,6 +148,12 @@
   <div class="panel-flot menu-perfil" id="menuPerfil" hidden>
     <div class="cab"><span class="avatar" id="avatar2">?</span><div><b id="perfilNombre"></b><span id="perfilRol"></span></div></div>
     <button type="button" id="btnEscritorio"><svg class="ic s"><use href="#i-campana"/></svg>Activar avisos del escritorio</button>
+<div class="temas" role="group" aria-label="Apariencia"><span class="temas-tit">Apariencia</span>
+    <button type="button" data-tema="claro" aria-pressed="false"><i></i><span>Claro</span></button>
+    <button type="button" data-tema="oscuro" aria-pressed="false"><i></i><span>Oscuro</span></button>
+    <button type="button" data-tema="mono" aria-pressed="false"><i></i><span>Mono</span></button>
+    <button type="button" data-tema="calido" aria-pressed="false"><i></i><span>Cálido</span></button></div>
+    <button type="button" id="btnInstalarMenu" hidden><svg class="ic s"><use href="#i-descargar"/></svg>Instalar la app en este dispositivo</button>
     <button type="button" id="btnMiClave"><svg class="ic s"><use href="#i-candado"/></svg>Cambiar mi contraseña</button>
     <button type="button" class="peligro" id="btnSalir"><svg class="ic s"><use href="#i-salir"/></svg>Cerrar sesión</button>
   </div>
@@ -261,7 +291,7 @@
             <div><label class="req" for="r_tipoPqrs">Tipo de PQRS</label><select id="r_tipoPqrs"></select></div>
             <div><label for="r_entidad">Entidad presentada</label><select id="r_entidad"></select>
               <div class="hint">Define el término: sede 15 días hábiles, entes de control 24 y 72 horas.</div></div>
-            <div><label for="r_tipologia">Tipología</label><select id="r_tipologia"></select></div>
+            <div><label for="r_tipologia">Motivo específico (derecho vulnerado)</label><select id="r_tipologia"></select></div>
             <div class="full"><label class="req" for="r_descripcion">Descripción</label>
               <textarea id="r_descripcion" placeholder="Transcribe literalmente lo que manifiesta el usuario…"></textarea><div id="sugTipo"></div></div>
             <div class="full"><label for="r_observaciones">Observaciones internas</label><input id="r_observaciones"></div>
@@ -298,6 +328,26 @@
     </div>
   </section>
 
+  <!-- ===================== FICHA DEL FORMULARIO (técnicos y administradores) ===================== -->
+  <section id="v-ficha" hidden>
+    <div class="cab-vista"><div><h2 class="vista">Ficha del formulario</h2>
+      <p class="sub">Imprímela y ubícala en la sala de espera de tu sede: el usuario escanea el código con el celular y cuenta su experiencia.</p></div></div>
+    <div id="fichaAviso"></div>
+    <div class="card ficha-card">
+      <div class="ficha-qr"><div id="fichaQr" class="qr-img"></div></div>
+      <div class="ficha-info">
+        <h3>Ficha lista para imprimir</h3>
+        <p class="sub">Tamaño carta o A4, con el código QR, la mascota de MiRed y los pasos para el usuario. En la ventana que se abre elige «Imprimir» o «Guardar como PDF».</p>
+        <div class="acciones">
+          <button class="b pri" id="btnFichaImprimir" type="button"><svg class="ic s"><use href="#i-imprimir"/></svg>Abrir ficha para imprimir</button>
+          <button class="b sec" id="btnFichaPng" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Descargar solo el QR (PNG)</button>
+          <button class="b fant" id="btnFichaCopiar" type="button"><svg class="ic s"><use href="#i-link"/></svg>Copiar enlace</button>
+        </div>
+        <div class="hint" id="fichaUrl"></div>
+      </div>
+    </div>
+  </section>
+
   <!-- ===================== TABLERO ===================== -->
   <section id="v-tablero" hidden>
     <div class="cab-vista"><div><h2 class="vista">Tablero de gestión</h2>
@@ -313,14 +363,27 @@
       <div><label for="dSede">Sede</label><select id="dSede"><option value="">Todas</option></select></div>
       <div><label for="dServicio">Servicio</label><select id="dServicio"><option value="">Todos</option></select></div>
       <div><button class="b sec" id="btnRefrescarTablero" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div>
+      <div id="bloqueExcel" class="bloque-excel">
+        <button class="b pri" id="btnExportarExcel" type="button" hidden title="Todas las columnas, con datos de las personas (solo administradores)"><svg class="ic s"><use href="#i-descargar"/></svg>Consolidado completo (Excel)</button>
+        <button class="b sec" id="btnExportarIndicadores" type="button" title="Solo conteos por tipo, sede, mes, servicio y motivo: sin datos de las personas ni de los casos"><svg class="ic s"><use href="#i-descargar"/></svg><span id="txtIndicadores">Indicadores (Excel)</span></button>
+      </div>
     </div>
     <div id="tableroCuerpo"></div>
+    <div id="npsCard"></div>
   </section>
 
   <!-- ===================== RESPONSABLES ===================== -->
   <section id="v-responsables" hidden>
-    <div class="cab-vista"><div><h2 class="vista">Responsables de gestión</h2>
-      <p class="sub">A estos correos llega la solicitud interna cuando direccionas una PQRS. Edita directamente sobre la fila y guarda.</p></div></div>
+    <div class="cab-vista"><div><h2 class="vista">Directorio de áreas</h2>
+      <p class="sub">Las áreas y las personas que reciben las solicitudes cuando direccionas una PQRS.</p></div></div>
+    <details class="dir-guia" open>
+      <summary>¿Cómo funciona el directorio?</summary>
+      <div class="dir-pasos">
+        <div><b>1</b><div><strong>Cada fila es un área</strong><span>Escribe el nombre del área, quién responde y el <u>correo</u> donde recibirá el aviso. Sin correo no se le puede notificar.</span></div></div>
+        <div><b>2</b><div><strong>El sistema sugiere el área</strong><span>Si el servicio, la sede o las palabras clave de la manifestación coinciden con las <u>reglas</u> de la fila, esa área aparece sugerida al direccionar.</span></div></div>
+        <div><b>3</b><div><strong>Guarda tus cambios</strong><span>El botón <u>Guardar cambios</u> está siempre visible en la barra inferior y te dice cuántos cambios tienes pendientes.</span></div></div>
+      </div>
+    </details>
     <div class="card">
       <div id="respAviso"></div>
       <div class="resp-barra">
@@ -328,9 +391,10 @@
         <span class="resp-cont" id="respCont"></span>
       </div>
       <div class="resp-tabla" id="respLista"></div>
-      <div class="acciones">
+      <div class="barra-guardar" id="barraResp">
+        <span class="bg-estado" id="respEstado">Sin cambios por guardar</span>
+        <button class="b sec" id="btnNuevoResp" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar área</button>
         <button class="b pri" id="btnGuardarResp" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar cambios</button>
-        <button class="b sec" id="btnNuevoResp" type="button"><svg class="ic s"><use href="#i-mas"/></svg>Agregar área o responsable</button>
       </div>
     </div>
   </section>
@@ -343,7 +407,15 @@
     <div id="usrAviso"></div>
     <div id="usrEnlace"></div>
     <div class="resp-barra"><div class="buscar"><svg class="ic s"><use href="#i-buscar"/></svg><input id="usrBuscar" placeholder="Buscar por nombre, usuario o sede"></div><span class="resp-cont" id="usrCont"></span></div>
-    <div class="usr-lista" id="usrLista"></div>
+    <div class="ulista" id="usrLista"></div>
+    <div class="card" style="margin-top:18px">
+      <div class="cab-card" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:space-between;margin-bottom:10px">
+        <div><h3 style="margin:0">Auditoría de accesos y cambios</h3>
+          <p class="sub" style="margin:2px 0 0">Ingresos correctos y fallidos, bloqueos, cambios de contraseña, usuarios creados o modificados y exportaciones. No guarda contraseñas ni datos de los casos.</p></div>
+        <div style="display:flex;gap:8px;align-items:center"><input id="audBuscar" placeholder="Filtrar por usuario o evento" style="min-width:210px">
+          <button class="b sec mini" id="btnAudActualizar" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Actualizar</button></div></div>
+      <div class="aud" id="audLista"></div>
+    </div>
   </section>
 
   <!-- ===================== CONFIGURACIÓN ===================== -->
@@ -386,26 +458,64 @@
           <button class="b sec" id="btnFelicitacionesAhora" type="button"><svg class="ic s"><use href="#i-estrella"/></svg>Entregar felicitaciones pendientes ahora</button>
         </div>
       </fieldset>
+      <fieldset style="margin:16px 0 0"><legend>Exportar y respaldar en Excel</legend>
+        <p class="sub" style="margin:0 0 12px">Cada día a las 7:00 a.m. se guarda un Excel con todo el consolidado en la carpeta «PQRS · Respaldos (Excel)» del Drive de la cuenta SIAU (se conservan 14 días). Para tener una copia en otro Drive, escribe ese correo: la carpeta se comparte en solo lectura. El Excel incluye datos personales y de salud (Ley 1581 de 2012): compártelo solo con cuentas autorizadas, de preferencia institucionales. Para exportar un mes, sede o servicio usa el botón «Exportar a Excel» del Tablero.</p>
+        <div class="grid">
+          <label class="interruptor"><input type="checkbox" id="aj_respaldoDiario"><i></i>Respaldo diario en Drive (Excel)</label>
+          <div><label for="aj_respaldoCorreo">Compartir la carpeta con (opcional)</label><input id="aj_respaldoCorreo" type="email" placeholder="correo@dominio.com"></div>
+        </div>
+        <div class="acciones">
+          <button class="b pri" id="btnGuardarRespaldo" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar respaldo</button>
+          <button class="b sec" id="btnRespaldarAhora" type="button"><svg class="ic s"><use href="#i-descargar"/></svg>Respaldar ahora</button>
+        </div>
+        <div id="respAviso"></div>
+      </fieldset>
     </div>
     <div class="card" style="margin-bottom:16px">
       <div id="autoAviso"></div>
       <fieldset><legend>Automatización del canal correo</legend>
-        <p class="sub" style="margin:0 0 14px">Cada 5 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela o derecho de petición), se envía el acuse y se radica con sus adjuntos. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
+        <p class="sub" style="margin:0 0 14px">Cada 3 minutos se revisa el correo: se identifica la EPS o el ente de control por el dominio, se clasifica (riesgo vital, priorizado, simple, tutela, derecho de petición u otro requerimiento) y se radica con sus adjuntos. <b>A las EPS y entes de control el sistema no les escribe nada de forma automática</b>: lo muestra únicamente en la plataforma (Correo ▸ EPS y entes y la bandeja, con el análisis detallado) y la respuesta la envías tú. A los usuarios (por ejemplo, correos @gmail.com con pedidos de citas o de documentos) sí se les confirma la recepción. Lo que no se pueda clasificar queda en Correo ▸ EPS y entes.</p>
         <div class="grid">
           <label class="interruptor"><input type="checkbox" id="aj_autoInstitucional"><i></i>Radicar solo lo de EPS y entes de control</label>
-          <label class="interruptor"><input type="checkbox" id="aj_acuseInstitucional"><i></i>Acuse de recibo automático a EPS y entes</label>
           <label class="interruptor"><input type="checkbox" id="aj_autoUsuarios"><i></i>Radicar solas las PQRS claras de usuarios</label>
           <label class="interruptor"><input type="checkbox" id="aj_citasAuto"><i></i>Direccionar solas las solicitudes de citas</label>
+          <label class="interruptor"><input type="checkbox" id="aj_acuseUsuarios"><i></i>Confirmar a usuarios (Gmail, etc.) sus solicitudes de citas y documentos</label>
+          <label class="interruptor"><input type="checkbox" id="aj_avisosInstitucionales"><i></i>Avisar fuera de la plataforma lo de EPS y entes (correo, Chat y push)</label>
           <label class="interruptor"><input type="checkbox" id="aj_avisosSede"><i></i>Avisar por correo a los técnicos de cada sede</label>
         </div>
         <div class="grid" style="margin-top:14px">
           <div class="full"><label for="aj_webhookChat">Webhook de Google Chat (avisos fuera de la plataforma)</label>
             <input id="aj_webhookChat" placeholder="https://chat.googleapis.com/v1/spaces/…">
             <div class="hint">En el espacio de Google Chat del SIAU: Apps e integraciones ▸ Webhooks ▸ Agregar. Los avisos llegan al celular y al computador con sonido.</div></div>
+          <div class="full"><label for="aj_pushTema">Push al celular y al computador (ntfy)</label>
+            <div class="fila-push"><input id="aj_pushTema" placeholder="Tema secreto, p. ej. pqrs-miredips-x7k2m9q4" autocomplete="off" spellcheck="false">
+              <button class="b sec mini" id="btnGenerarPush" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Generar</button></div>
+            <div class="hint">Instala la app gratuita <b>ntfy</b> (Android o iPhone) o abre <b>ntfy.sh</b> en el navegador, toca «Suscribirse» y escribe este mismo tema. Cada correo de EPS o ente de control, las alertas de riesgo vital, priorizadas, tutelas y vencimientos llegan con sonido aunque la plataforma esté cerrada. Solo viajan radicado, tipo, prioridad, sede y fechas: nunca nombres ni descripciones. Quien conozca el tema puede leer esos avisos: usa uno largo y no lo compartas.</div></div>
+          <div><label for="aj_pushServidor">Servidor de ntfy</label><input id="aj_pushServidor" placeholder="https://ntfy.sh"></div>
           <div><label for="aj_chatModo">Qué enviar a Google Chat</label><select id="aj_chatModo"><option value="todas">Todas las PQRS nuevas y alertas</option><option value="prioritarias">Solo prioridad crítica y alta</option></select></div>
           <div><label for="aj_avisarA">Correos que reciben todos los avisos</label><input id="aj_avisarA" placeholder="lider.siau@miredips.org; calidad@miredips.org"></div>
           <div class="full"><label for="aj_alias">Cuenta que envía las notificaciones</label><select id="aj_alias"></select>
             <div class="hint" id="ajCuenta"></div></div>
+        </div>
+        <div class="wa-caja">
+          <h4><svg class="ic s"><use href="#i-enviar"/></svg>WhatsApp (accesos de usuarios y avisos a los técnicos)</h4>
+          <p class="hint">Usa la API oficial de WhatsApp Business (Meta). Cuando creas o restableces un usuario con número de WhatsApp, recibe su enlace, usuario y contraseña temporal; los avisos de PQRS llegan a los técnicos de cada sede <b>sin nombres, documentos ni descripción</b>: solo radicado, tipo, prioridad, sede, fechas y enlace. Guía paso a paso en <b>docs/DESPLIEGUE.md</b> (sección 6e).</p>
+          <div class="grid">
+            <div class="full" style="display:flex;gap:18px;flex-wrap:wrap">
+              <label class="interruptor"><input type="checkbox" id="aj_waActivo"><i></i>Enviar por WhatsApp</label>
+              <label class="interruptor"><input type="checkbox" id="aj_waIncluirClave"><i></i>Incluir la contraseña temporal en el mensaje de acceso</label>
+            </div>
+            <div><label for="aj_waAvisos">Avisos de PQRS por WhatsApp</label><select id="aj_waAvisos"><option value="prioritarias">Solo prioridad alta y crítica, y vencimientos cercanos</option><option value="todas">Todas las PQRS nuevas y alertas</option><option value="no">Ninguno (solo el acceso de usuarios)</option></select></div>
+            <div><label for="wa_phoneId">ID del número de teléfono (Meta)</label><input id="wa_phoneId" inputmode="numeric" autocomplete="off" placeholder="p. ej. 123456789012345"><div class="hint" id="waPhoneEstado"></div></div>
+            <div class="full"><label for="wa_token">Token de acceso permanente</label><input id="wa_token" type="password" autocomplete="new-password" spellcheck="false" placeholder="Pégalo aquí (no se vuelve a mostrar)"><div class="hint" id="waTokenEstado"></div></div>
+            <div><label for="wa_plantilla">Plantilla aprobada (opcional)</label><input id="wa_plantilla" autocomplete="off" placeholder="aviso_pqrs"><div class="hint">Con una variable {{1}}. Sin plantilla solo llegan mensajes dentro de las 24 h posteriores a que la persona te escribe.</div></div>
+            <div><label for="wa_idioma">Idioma de la plantilla</label><input id="wa_idioma" placeholder="es"></div>
+            <div><label for="wa_prueba">Enviar prueba a</label><input id="wa_prueba" type="tel" inputmode="tel" placeholder="3001234567"></div>
+          </div>
+          <div class="acciones">
+            <button class="b sec" id="btnGuardarWa" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar conexión</button>
+            <button class="b sec" id="btnProbarWa" type="button"><svg class="ic s"><use href="#i-enviar"/></svg>Enviar mensaje de prueba</button>
+          </div>
         </div>
         <div class="acciones">
           <button class="b pri" id="btnGuardarAjustes" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar automatización</button>

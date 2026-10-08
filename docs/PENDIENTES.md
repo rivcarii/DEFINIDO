@@ -18,12 +18,15 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
   - Leer solo las columnas necesarias en Inicio/Prioritarias.
 - `setFormulas` sobre 13.400 filas en la primera migración: 1–2 min (una sola vez).
 
+- **8.2 (hecho):** el final de los datos se halla por bloques desde el final de la hoja, el consecutivo se guarda en `ULTIMO_CONSECUTIVO` (tail-scan de respaldo) y el acuse, el aviso interno y el direccionamiento automático salen después de mostrar el radicado (`diferir` → `apiNotificarRadicacion`; red de seguridad cada 5 min). La lectura completa en Inicio/Bandeja/Tablero sigue pendiente.
+- Si Apps Script sigue siendo el cuello de botella con el volumen real, el siguiente paso es mover la radicación y la lectura a una base de datos (p. ej. Supabase/Firestore) y dejar Sheets como reporte; es un cambio de arquitectura, no un ajuste.
+
 ## P3 · Mejoras funcionales
 
-- Reportes exportables (Excel/PDF) por sede, tipo, oportunidad y nivel de riesgo (indicadores SOGCS y Supersalud).
+- ~~Exportar a Excel y respaldo en Drive~~ → hecho en 8.2 (Tablero ▸ Exportar a Excel; respaldo diario a las 7:00). Pendiente: PDF e informes con indicadores SOGCS/Supersalud ya calculados.
 - Tablero: gráfico por nivel de riesgo y tiempo de respuesta de las prioritarias en horas.
 - Encuesta de satisfacción automática al cerrar.
-- Recuperación de contraseña sin administrador; auditoría de ingresos.
+- Recuperación de contraseña sin administrador (la auditoría de ingresos ya existe desde 8.4); inicio de sesión con Google y segundo factor (ver `docs/SEGURIDAD.md` §6).
 - Redacción asistida con IA (Gemini de Google Workspace o Claude) **solo** con acuerdo de tratamiento de datos y anonimización; hoy el redactor es por reglas para no enviar datos de salud a terceros.
 
 ## P4 · Limitaciones conocidas (aceptadas)
@@ -32,3 +35,27 @@ Antes de cerrar cualquier punto: `npm run verificar` y su prueba.
 - Cuotas de Google: correos/día (Workspace ~1.500 destinatarios), 6 min por ejecución (la importación del formulario corta a los 4 min y sigue en la siguiente), UrlFetch.
 - El motor de riesgo es por palabras: puede fallar con textos ambiguos. Por eso muestra las señales, avisa al SIAU y permite ajustar.
 - La vista previa y las pruebas no evalúan fórmulas (el simulador del navegador las emula).
+
+## Pendientes v8.5
+
+- **Separar el consolidado en dos libros (PQRS / resto de hojas):** no implementado. Es un cambio estructural (Config, Festivos, Usuarios y Categorías se leen con `_h()` del mismo libro). Propuesta: `DATOS_ID` opcional, espejos de lectura y migración con respaldo previo. Mientras tanto, solo el administrador exporta y el Excel nunca lleva la hoja `Usuarios`; el control real es no compartir el libro con técnicos (ellos entran por la plataforma).
+- **Motivo específico:** la lista de Config «MOTIVO ESPECÍFICO» es una base (Ley 1751/2015 art. 10, Res. 13437/1991). Reemplazarla por el documento «Derechos y deberes» de MiRed cuando River lo comparta.
+- **Felicitaciones:** decidir si conservan radicado (hoy lo tienen y se cierran al entregarse al área).
+
+## Enlace de ingreso (v8.5)
+Los correos (bienvenida, avisos, resúmenes), el push y la sección «Usuarios y sedes» usan el **portal de GitHub Pages** (`URL_PORTAL_DEFECTO`, o la propiedad `URL_PORTAL`). El `/exec` de Apps Script sigue siendo la API que usa el portal (`portal/config.js`). El administrador puede cambiar el enlace desde Usuarios y sedes ▸ Cambiar enlace.
+
+## v8.6
+- **Aviso de vencimiento:** `_avisosVencimiento_` (desde `rutinaDiaria`): una vez por caso a los 5 días o menos de la fecha máxima, al área (si no ha respondido) y a los avisos de la sede. Ajuste opcional `diasAvisoVencimiento` (0 = apagado). Requiere el disparador diario (`instalarDisparadores`).
+- **NPS:** hoja oculta `Encuestas`; tarjeta en el Tablero. Pendiente: pregunta abierta de «por qué» (hoy solo puntaje) y la consulta pública de radicado (River: «aún no»).
+- **App (PWA):** solo el portal de GitHub Pages es instalable (Apps Script va en un iframe). Sin notificaciones push propias: los avisos siguen por correo, Google Chat y ntfy. Para offline real haría falta guardar datos locales (no se hace por privacidad).
+
+## v8.7
+- **Temas:** claro, oscuro, monocromático y cálido (menú del perfil y esquina del ingreso). Las etiquetas con colores propios en JS (`TIPO_COLOR`, `PAL`) se recalculan al cambiar el tema. Pendiente: revisar a mano las vistas de Configuración y el modal de radicación en oscuro y cálido cuando haya datos reales.
+- **Dispositivos:** iPhone (campos de 16 px sin zoom, barra de pestañas con zona segura), Android (ripple y áreas táctiles de 44 px), tabletas (rejilla de 2 columnas) y app instalada (zona segura superior).
+- **404 de GitHub Pages:** `404.html` en la raíz del repositorio lleva a la plataforma si una dirección del sitio ya no existe (por ejemplo, tras renombrar el repositorio). La dirección vieja `usuario.github.io/pqrs/` solo se arregla creando el repositorio `usuario.github.io` con un `404.html` que redirija a `/DEFINIDO/portal/`. Si Apps Script cambia de dirección (/exec), el portal muestra «La dirección de la plataforma cambió» y deja pegar la nueva.
+
+## v9.0 · Excel profesional
+- Ambas plantillas abren en la hoja **Panel** (encabezado de marca, 6 tarjetas de indicadores y 5 gráficos: tipo, semáforo, mes × tipo, sede y motivo). Las tablas que alimentan los gráficos están en **Datos**; el detalle por sede, mes, servicio, motivo y riesgo, con mapa de calor, en las hojas «Por …». El administrador además recibe **Consolidado** (encabezado fijo, filtros, filas alternas, anchos útiles y colores por semáforo, tipo, riesgo y oportunidad).
+- El libro se arma en Google Sheets y se exporta a .xlsx: Google convierte los gráficos a gráficos nativos de Excel, pero puede simplificar algunas opciones (por ejemplo, la dona se ve como pastel). Si algún estilo falla, el archivo sale igual (`_xl_`).
+- Pendiente de verificar con datos reales y en Excel de escritorio: aspecto de los gráficos y tiempo de generación con consolidados muy grandes (más de ~20.000 filas: exportar por año o mes).

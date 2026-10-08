@@ -17,7 +17,10 @@
       var args = Array.prototype.slice.call(arguments), ok = this._ok || function(){}, mal = this._mal || function(){};
       if(!API){ mal(new Error("Esta página no tiene configurada la dirección de la plataforma (URL que termina en /exec). Pídesela al administrador.")); return; }
       fetch(API, { method:"POST", redirect:"follow", headers:{ "Content-Type":"text/plain;charset=utf-8" }, body: JSON.stringify({ fn:fn, args:args }) })
-        .then(function(r){ if(!r.ok) throw new Error("La plataforma respondió con el código "+r.status+"."); return r.json(); })
+        .then(function(r){
+          if(!r.ok) throw new Error(r.status === 404 ? "La dirección de la plataforma ya no existe (error 404): se publicó otra versión con una dirección distinta." : "La plataforma respondió con el código "+r.status+".");
+          return r.json().catch(function(){ throw new Error("La plataforma no respondió como se esperaba: puede estar en mantenimiento o la dirección cambió."); });
+        })
         .then(function(j){ if(j && j.__error) mal(new Error(j.__error)); else ok(j ? j.r : null); })
         .catch(function(e){ mal(e && e.message && /fetch|network/i.test(e.message) ? new Error("Sin conexión con la plataforma. Revisa tu internet e inténtalo de nuevo.") : e); });
     };
@@ -61,8 +64,8 @@ var MESES=["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Se
 
 /* Colores por tipo de PQRS: paleta del logo MiRed (orden validado para daltonismo). */
 var TIPOS_ORDEN = ["Queja","Petición","Sugerencia","Felicitación","Reclamo","Tutela","Denuncia"];
-var TIPO_COLOR = { "queja":"#E20A31", "peticion":"#006D93", "sugerencia":"#00985A", "felicitacion":"#8455B8",
-                   "reclamo":"#B98A00", "tutela":"#3D5FA8", "denuncia":"#B4531A" };
+var TIPO_COLOR = { "queja":"#E20A31", "peticion":"#7B4FB8", "sugerencia":"#1F6FD1", "felicitacion":"#009C4D",
+                   "reclamo":"#F29D00", "tutela":"#374151", "denuncia":"#B4531A" };
 function colorTipo(t){ var k=norm(t); for(var p in TIPO_COLOR){ if(k.indexOf(p)===0) return TIPO_COLOR[p]; } return "#8398A3"; }
 function tipoTag(t){ return '<span class="tipo"><i style="background:'+colorTipo(t)+'"></i>'+esc(t||"Sin clasificar")+'</span>'; }
 function ordenarTipos(obj){
@@ -80,7 +83,7 @@ function aviso(cont, texto, tipo){
 
 /* Llamadas al servidor con indicador de carga global. */
 var enVuelo = 0;
-function carga(delta){ enVuelo=Math.max(0,enVuelo+delta); $("carga").classList.toggle("on", enVuelo>0); }
+function carga(delta){ enVuelo=Math.max(0,enVuelo+delta); $("carga").classList.toggle("on", enVuelo>0); if(window.pillCarga) window.pillCarga(enVuelo>0); }
 /* Toda llamada pasa por api(token, función, argumentos): el servidor valida sesión, rol y sede. */
 var TOKEN = null;
 try { TOKEN = sessionStorage.getItem("pqrs_token") || localStorage.getItem("pqrs_token"); } catch(e) {}
@@ -93,6 +96,7 @@ function llamar(fn, args, conCarga){
       if(conCarga) carga(-1);
       if(TOKEN !== token) return;
       if(x && x.__sesion === false){ sesionTerminada(x.mensaje); mal(new Error(x.mensaje)); return; }
+      if(x && x.__cambiarClave){ if($("modal").hidden) cambiarClave(true); mal(new Error(x.mensaje)); return; }   /* contraseña temporal: solo se puede cambiarla */
       ok(x);
     }).withFailureHandler(function(e){ if(conCarga) carga(-1); if(TOKEN !== token) return; mal(e); }).api(token, fn, args);
   });
@@ -126,14 +130,24 @@ function animarNumeros(raiz){ (raiz||document).querySelectorAll("[data-n]").forE
 
 /* ============================ navegación ============================ */
 var TITULOS = { inicio:["Inicio","Resumen de tus sedes"], bandeja:["Bandeja de PQRS","Gestión por etapas"], prioritarias:["Prioritarias","Riesgo vital, priorizadas y términos cortos"], correo:["Correo y EPS","Canal de correo unificado"],
-  detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], tablero:["Tablero","Indicadores por mes y sede"],
-  responsables:["Áreas responsables","Correos de notificación"], usuarios:["Usuarios y sedes","Accesos a la plataforma"], config:["Configuración","Automatización y canales"] };
+  detalle:["Detalle de la PQRS","Gestión y trazabilidad"], radicar:["Radicar PQRS","Ventanilla, buzón y teléfono"], ficha:["Ficha del formulario","Para imprimir y ubicar en tu sede"], tablero:["Tablero","Indicadores por mes y sede"],
+  responsables:["Directorio de áreas","Quién recibe cada solicitud"], usuarios:["Usuarios y sedes","Accesos a la plataforma"], config:["Configuración","Automatización y canales"] };
+/* Pastilla que se desliza hasta el apartado activo del menú (movimiento en lugar de saltos). */
+function moverPastilla(){
+  var menu = $("menu"); if(!menu) return;
+  var on = menu.querySelector("button.on"), p = menu.querySelector(".pastilla");
+  if(!on || !on.offsetHeight){ if(p) p.style.opacity = 0; return; }
+  if(!p){ p = document.createElement("i"); p.className = "pastilla"; menu.insertBefore(p, menu.firstChild); }
+  p.style.opacity = 1; p.style.height = on.offsetHeight + "px"; p.style.transform = "translateY(" + on.offsetTop + "px)";
+  menu.classList.add("con-pastilla");
+}
+window.addEventListener("resize", function(){ moverPastilla(); });
 function ver(v){
   var permitido = document.querySelector('#menu [data-v="'+v+'"]');
   if(permitido && permitido.hidden) v = "inicio";
   if(TITULOS[v]){ $("tituloVista").textContent = TITULOS[v][0]; $("subVista").textContent = TITULOS[v][1]; }
   cerrarLateral();
-  ["inicio","bandeja","prioritarias","correo","detalle","radicar","tablero","responsables","usuarios","config"].forEach(function(x){
+  ["inicio","bandeja","prioritarias","correo","detalle","radicar","ficha","tablero","responsables","usuarios","config"].forEach(function(x){
     var s=$("v-"+x); if(!s) return;
     s.hidden = (x!==v);
     if(x===v){ s.classList.remove("anim"); void s.offsetWidth; s.classList.add("anim"); }
@@ -143,7 +157,9 @@ function ver(v){
   });
   $("menuPerfil").hidden = true;
   $("centro").hidden = true;
+  moverPastilla();
   if(v==="inicio") cargarInicio();
+  if(v==="ficha") cargarFicha();
   if(v==="tablero") cargarTablero();
   if(v==="prioritarias") cargarPrioritarias();
   if(v==="correo"){ $("vistaHilo").hidden = true; $("vistaLista").hidden = false; if(!APP.correosCargados) buscarCorreos(); }
@@ -151,6 +167,7 @@ function ver(v){
   if(v==="usuarios") cargarUsuarios();
   if(v==="config"){ cargarAjustes(); cargarQR(); }
   window.scrollTo({top:0});
+  try { if(window.riverinoVista) window.riverinoVista(v); } catch(e) {}
 }
 document.querySelectorAll("nav button[data-v]").forEach(function(b){
   b.addEventListener("click", function(){ ver(b.dataset.v); if(b.dataset.v==="bandeja") cargarBandeja(); });
@@ -163,7 +180,7 @@ function arrancar(d){
   APP.categorias = d.categorias || [];
   aplicarSesion();
   APP.desde = d.ahora || Date.now();
-  if(d.logo) $("logo").src = "data:image/png;base64," + d.logo;
+  if(d.logo && !window.IMG_MIRED) $("logo").src = "data:image/png;base64," + d.logo;
   $("quien").textContent = APP.sesion.nombre || d.usuario || "";
   var L = APP.listas;
   var canalesManual = ["Presencial","Buzón de sugerencias","Telefónico","Correspondencia física","Correo electrónico","Redes sociales","WhatsApp"];
@@ -174,7 +191,7 @@ function arrancar(d){
   llenar("r_eps", L["EPS / PRESTADOR"]); llenar("r_regimen", L["RÉGIMEN"]);
   llenar("r_sede", L["SEDE"]); llenar("r_servicio", L["SERVICIO"]);
   llenar("r_modalidad", L["MODALIDAD DE ATENCIÓN"]); llenar("r_tipoPqrs", L["TIPO DE PQRS"]);
-  llenar("r_entidad", L["ENTIDAD PRESENTADA"]); llenar("r_tipologia", L["TIPOLOGÍA"]);
+  llenar("r_entidad", L["ENTIDAD PRESENTADA"]); llenar("r_tipologia", L["MOTIVO ESPECÍFICO"] || L["TIPOLOGÍA"]);
   llenar("fEstado", L["ESTADO"], false); llenar("fCanal", L["CANAL"], false);
   $("fEstado").insertBefore(new Option("Todos",""), $("fEstado").firstChild); $("fEstado").value="";
   $("fCanal").insertBefore(new Option("Todos",""), $("fCanal").firstChild); $("fCanal").value="";
@@ -187,12 +204,18 @@ function arrancar(d){
   $("leyendaTipos").innerHTML = TIPOS_ORDEN.map(tipoTag).join("");
   $("arranque").hidden = true;
   ver("inicio");
+  if($("bloqueExcel")){   /* administradores: consolidado completo + indicadores; técnicos y consulta: solo indicadores (sin datos de casos) */
+    var esAdm = !!(d.sesion && d.sesion.puede && d.sesion.puede.admin);
+    $("btnExportarExcel").hidden = !esAdm;
+    $("txtIndicadores").textContent = esAdm ? "Indicadores sin datos de casos (Excel)" : "Descargar indicadores (Excel)";
+  }
   if(d.migracion && d.migracion.hecho) toast({ tipo:"area", titulo:"Consolidado actualizado", texto:d.migracion.mensaje, dur:12000 });
   else if(d.migracion && d.migracion.mensaje) toast({ tipo:"err", titulo:"Revisión pendiente", texto:d.migracion.mensaje, dur:12000 });
   srvSilencioso("apiPlantillas").then(function(pl){ APP.plantillas = pl || []; });
   if(CICLO) clearInterval(CICLO);
   CICLO = setInterval(sondear, 60000);
   abrirEnlaceDirecto();
+  try { if(window.riverinoIniciar) window.riverinoIniciar(); } catch(e) {}
 }
 /* Enlace de los avisos: …/exec?pqrs=SIAU-2026-09-0001 abre ese radicado después de ingresar. */
 function abrirEnlaceDirecto(){
@@ -238,7 +261,7 @@ function toast(o){
   var t = setTimeout(quitar, dur);
   el.querySelector(".x").addEventListener("click", function(){ clearTimeout(t); quitar(); });
   if(o.accion && o.alPulsar) el.querySelector(".ir").addEventListener("click", function(){ clearTimeout(t); quitar(); o.alPulsar(); });
-  while($("toasts").children.length > 4) $("toasts").removeChild($("toasts").firstChild);
+  while($("toasts").children.length > 3) $("toasts").removeChild($("toasts").firstChild);
 }
 function notificar(n){
   n.hora = new Date(); n.nueva = true;
@@ -398,6 +421,7 @@ function pintarInicio(r){
           '<button class="cr" type="button" data-cat="area"><b data-n="'+c.area+'">'+c.area+'</b><span>Respuestas de áreas</span></button>'+
           '<button class="cr" type="button" data-cat="usuario"><b data-n="'+c.usuario+'">'+c.usuario+'</b><span>Usuarios con radicado</span></button>'+
           '<button class="cr" type="button" data-cat="cita"><b data-n="'+(c.cita||0)+'">'+(c.cita||0)+'</b><span>Solicitudes de citas</span></button>'+
+          '<button class="cr" type="button" data-cat="documento"><b data-n="'+(c.documento||0)+'">'+(c.documento||0)+'</b><span>Solicitudes de documentos</span></button>'+
           '<button class="cr" type="button" data-cat="curso"><b data-n="'+(c.curso||0)+'">'+(c.curso||0)+'</b><span>En conversación</span></button>'+
           '<button class="cr'+(c.rebote?" alerta":"")+'" type="button" data-cat="rebote"><b data-n="'+c.rebote+'">'+c.rebote+'</b><span>No entregados</span></button>'+
         '</div>'+
@@ -615,6 +639,7 @@ var CATS = [
   { k:"institucional", t:"EPS y entes",      i:"escudo",     d:"Correos de EPS y entes de control que no se pudieron clasificar solos. Elige la categoría y radica: el término y la prioridad se calculan." },
   { k:"pqrs",    t:"Posibles PQRS",          i:"correo",     d:"Correos de usuarios que parecen una PQRS nueva. Ábrelos para radicarlos, pedir datos o direccionarlos." },
   { k:"cita",    t:"Solicitudes de citas",   i:"calendario", d:"No son PQRS: direcciónalas al área de citas. Si faltan datos, pídelos en la misma conversación." },
+  { k:"documento", t:"Solicitudes de documentos", i:"correo", d:"Historias clínicas, órdenes médicas, resultados de laboratorio o radiología. No son PQRS: verifica la identidad del titular y direcciónalas al área que los entrega." },
   { k:"curso",   t:"En conversación",        i:"responder",  d:"Conversaciones que ya gestionaste: se pidieron datos, se remitieron a un área o se respondió al usuario." },
   { k:"area",    t:"Respuestas de áreas",    i:"area",       d:"Un responsable contestó sobre un radicado: regístralo con un clic." },
   { k:"usuario", t:"Usuarios con radicado",  i:"usuario",    d:"El usuario escribe sobre una PQRS que ya existe." },
@@ -667,7 +692,7 @@ function pintarCorreos(){
         '<span class="extracto">'+esc((c.respuesta||c.cuerpo||"").replace(/\s+/g," ").slice(0,170))+'</span>'+
         '<div class="claves">'+nuevo+estado+(c.codigo?'<span class="clave cod">'+esc(c.codigo)+'</span>':'')+
           (c.mensajes>1?'<span class="clave gris">'+c.mensajes+' mensajes</span>':'')+
-          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
+          (c.categoria==="pqrs"||c.categoria==="otro"||c.categoria==="cita"||c.categoria==="documento"?(c.claves||[]):[]).slice(0,4).map(function(k){ return '<span class="clave">'+esc(k)+'</span>'; }).join("")+'</div></div>'+
         '<em>'+esc(c.fecha)+'</em></div></button>';
   }).join("")+'</div>';
   $("listaCorreos").querySelectorAll(".hilo").forEach(function(b){
@@ -824,7 +849,7 @@ function pintarHilo(){
       '<span class="clave gris">'+h.mensajes.length+' mensaje(s)</span>'+(todosAdjuntos().length?'<span class="clave gris">'+todosAdjuntos().length+' adjunto(s)</span>':'')+'</div></div>'+
       '<div class="hilo-acc"><button class="b sec mini" type="button" id="btnHAtendida">'+ic("check","s")+'Marcar atendida</button>'+
       (h.codigo?'':'<button class="b fant mini" type="button" id="btnHDescartar">No es PQRS ni cita</button>')+'</div></div>'+
-      '<div id="hiloAviso"></div>'+
+      '<div id="hiloAviso"></div>'+(h.analisis ? htmlAnalisis(h.analisis) : '')+
       '<div class="hilo-cols"><div><p class="sub-tit">Conversación</p><div class="mensajes">'+mensajes+'</div></div>'+
       '<div><div class="tabs-acc">'+tabs.map(function(t){ return '<button type="button" data-tab="'+t[0]+'" class="'+(t[0]===tabIni?"on":"")+'">'+ic(t[2],"s")+t[1]+'</button>'; }).join("")+'</div>'+
         '<div class="panel" data-panel="radicar"'+(tabIni==="radicar"?"":" hidden")+'><h4>'+ic("radicar","s")+'Radicar como PQRS</h4>'+

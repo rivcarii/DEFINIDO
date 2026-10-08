@@ -73,7 +73,7 @@ var LISTAS={"SEDE":SEDES,"SERVICIO":SERV,"EPS / PRESTADOR":["Nueva EPS","Sanitas
   "TIPO DE PQRS":TIPOS,"TIPO SOLICITANTE":["Usuario","Familiar","Acompañante"],"TIPO DOCUMENTO":["CC","TI","CE","RC","PA"],
   "ENTIDAD PRESENTADA":["SEDE MIRED","SUPER SALUD","SECRETARIA DE SALUD"],"ESTADO":["Recibida","En análisis","En gestión","Respondida - Cerrada"],
   "SEXO":["Femenino","Masculino"],"RÉGIMEN":["Contributivo","Subsidiado"],"POBLACIÓN DIFERENCIAL":["Ninguna","Adulto mayor","Discapacidad"],
-  "MODALIDAD DE ATENCIÓN":["Intramural","Domiciliaria","Telemedicina"],"TIPOLOGÍA":["Oportunidad en citas","Trato del personal","Entrega de medicamentos","Infraestructura"]};
+  "MODALIDAD DE ATENCIÓN":["Intramural","Domiciliaria","Telemedicina"],"MOTIVO ESPECÍFICO":["Acceso oportuno a los servicios (citas, procedimientos)","Trato digno, respetuoso y humanizado","Acceso a medicamentos e insumos","Calidad y seguridad de la atención"]};
 Object.keys(LISTAS).forEach(function(k,j){ cfg.poner(43,j+1,k); LISTAS[k].forEach(function(v,i){ cfg.poner(44+i,j+1,v); }); });
 
 var semilla=7; function azar(){ semilla=(semilla*9301+49297)%233280; return semilla/233280; }
@@ -194,26 +194,35 @@ var GmailApp={ getUserLabelByName:function(){ return null; }, createLabel:functi
   getThreadById:function(id){ return HMAP[id] ? HMAP[id].t : null; },
   getMessageById:function(id){ for(var k in HMAP){ var ms=HMAP[k].msgs; for(var j=0;j<ms.length;j++) if(ms[j].getId()===id) return ms[j]; } throw new Error("Correo no encontrado"); },
   sendEmail:function(para,asunto){ console.log("[correo simulado] a "+para+": "+asunto); } };
-var DriveApp=(function(){ var carpetas={}; function mk(n){ return { getUrl:function(){ return "https://drive.google.com/drive/folders/demo"; },
+var DriveApp=(function(){ var carpetas={}; function mk(n){ var c={ archivos:[], getUrl:function(){ return "https://drive.google.com/drive/folders/demo"; },
   getFoldersByName:function(m){ var k=n+"/"+m; return { hasNext:function(){ return !!carpetas[k]; }, next:function(){ return carpetas[k]; } }; },
-  createFolder:function(m){ return (carpetas[n+"/"+m]=mk(n+"/"+m)); },
-  createFile:function(){ var f={ setName:function(){ return f; }, getUrl:function(){ return "https://drive.google.com/file/d/demo"; } }; return f; } }; }
-  return mk(""); })();
+  createFolder:function(m){ return (carpetas[n+"/"+m]=mk(n+"/"+m)); }, addViewer:function(){ return c; },
+  createFile:function(b){ var f={ nombre:(b&&b.getName&&b.getName())||"", creado:new Date(), borrado:false, setName:function(){ return f; }, getName:function(){ return f.nombre; },
+    getUrl:function(){ return "https://drive.google.com/file/d/demo"; }, setTrashed:function(v){ f.borrado=v; return f; }, getDateCreated:function(){ return f.creado; } }; c.archivos.push(f); return f; },
+  getFilesByName:function(nm){ var l=c.archivos.filter(function(a){ return !a.borrado && a.nombre===nm; }), i=0; return { hasNext:function(){ return i<l.length; }, next:function(){ return l[i++]; } }; },
+  getFiles:function(){ var l=c.archivos.filter(function(a){ return !a.borrado; }), i=0; return { hasNext:function(){ return i<l.length; }, next:function(){ return l[i++]; } }; } };
+  return c; }
+  var raiz=mk(""); raiz.getFileById=function(){ return { setTrashed:function(){} }; }; return raiz; })();
 var hojas={"Consolidado_PQRS":cons,"Trazabilidad":traza,"Responsables":resp,"Config":cfg,"Mapeo_Formulario":mapeo};
 var respForm=new Hoja("Respuestas de formulario 1"); respForm.formUrl="https://docs.google.com/forms/d/x/edit"; respForm.poner(1,1,"Marca temporal"); hojas[respForm.getName()]=respForm;
 var ss={ getSheetByName:function(nm){ return hojas[nm]||null; }, getSheets:function(){ return Object.keys(hojas).map(function(k){ return hojas[k]; }); },
   getSpreadsheetTimeZone:function(){ return TZ; }, insertSheet:function(nm){ return (hojas[nm]=new Hoja(nm)); } };
 var props={};
 var entorno={
-  SpreadsheetApp:{ getActiveSpreadsheet:function(){ return ss; }, flush:function(){ recalcular(); }, getUi:function(){ throw new Error("sin UI"); } },
+  SpreadsheetApp:{ getActiveSpreadsheet:function(){ return ss; }, flush:function(){ recalcular(); }, getUi:function(){ throw new Error("sin UI"); },
+    create:function(nombre){ var hs={}, h0=new Hoja("Hoja 1"); h0.setName=function(n){ this.nombre=n; hs[n]=this; };
+      return { getId:function(){ return "tmp"; }, getSheets:function(){ return [h0]; }, insertSheet:function(n){ return (hs[n]=new Hoja(n)); } }; } },
   Session:{ getScriptTimeZone:function(){ return TZ; }, getActiveUser:function(){ return {getEmail:function(){ return "siau@miredips.org"; }}; },
             getEffectiveUser:function(){ return {getEmail:function(){ return "siau@miredips.org"; }}; } },
   Utilities:Utilities, Logger:{ log:function(){} },
   PropertiesService:{ getScriptProperties:function(){ return { getProperty:function(k){ return props[k]||null; }, setProperty:function(k,v){ props[k]=String(v); } }; } },
   LockService:{ getScriptLock:function(){ return { tryLock:function(){ return true; }, waitLock:function(){}, releaseLock:function(){} }; } },
-  ScriptApp:{ getProjectTriggers:function(){ return ["alEnviarFormulario","procesarCorreoEntrante","revisarAlertas","rutinaDiaria"].map(function(n){ return { getHandlerFunction:function(){ return n; } }; }); }, getService:function(){ return {getUrl:function(){return "https://script.google.com/macros/s/AKfycb…/exec";}}; } },
+  ScriptApp:{ getOAuthToken:function(){ return "demo"; }, getProjectTriggers:function(){ return ["alEnviarFormulario","procesarCorreoEntrante","revisarAlertas","rutinaDiaria"].map(function(n){ return { getHandlerFunction:function(){ return n; } }; }); }, getService:function(){ return {getUrl:function(){return "https://script.google.com/macros/s/AKfycb…/exec";}}; } },
   CacheService:(function(){ var m={}; var c={ get:function(k){ return k in m ? m[k] : null; }, put:function(k,v){ m[k]=String(v); }, remove:function(k){ delete m[k]; } }; return { getScriptCache:function(){ return c; } }; })(),
-  UrlFetchApp:{ fetch:function(u,op){ console.log("[Google Chat simulado] "+JSON.parse(op.payload).text); return {}; } },
+  UrlFetchApp:{ fetch:function(u,op){
+    if(/\/export\?format=xlsx/.test(u)){ var bytes=[80,75,3,4,0,0,0,0], blob={ setName:function(n){ blob.n=n; return blob; }, getName:function(){ return blob.n; }, getBytes:function(){ return bytes; } };
+      return { getResponseCode:function(){ return 200; }, getBlob:function(){ return blob; } }; }
+    console.log("[Google Chat simulado] "+JSON.parse(op.payload).text); return {}; } },
   GmailApp:GmailApp, DriveApp:DriveApp, HtmlService:{}, FormApp:{}
 };
 var nombres=Object.keys(entorno);

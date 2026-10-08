@@ -50,7 +50,7 @@ npx clasp create-deployment -d "v8"   # la primera vez; luego: npx clasp update-
 
 1. Abre el `/exec`, crea el **primer administrador** (tu usuario). La primera carga actualiza el consolidado a la versión 8 (fórmulas, festivos, categorías de riesgo, entes de control y directorio). Con 13.000 filas puede tardar 1–2 minutos.
 2. En la hoja aparece el menú **PQRS** (recarga la hoja si no lo ves):
-   - **Instalar disparadores** → formulario al enviarse, correo cada 5 min, alertas cada 30 min (riesgo vital 8 h/24 h), rutina diaria 7:00 (vencidas + resumen de felicitaciones por área).
+   - **Instalar disparadores** → formulario al enviarse, correo cada 3 min, alertas cada 30 min (riesgo vital 8 h/24 h), rutina diaria 7:00 (vencidas + resumen de felicitaciones por área).
    - **Diagnóstico de la puesta en marcha** → lista lo que falta y cómo resolverlo (también en Configuración ▸ Diagnóstico).
 3. **Formulario QR**:
    - Formulario actual: en el Google Form ▸ Respuestas ▸ ⋮ ▸ **Seleccionar destino de las respuestas ▸ hoja existente ▸ este consolidado**. Google copia todas las respuestas antiguas, pero **solo se radican las posteriores al corte** (Config B20 = 23/09/2026 20:34:53, la última respuesta migrada). El mapeo de preguntas ya viene configurado.
@@ -75,12 +75,47 @@ La misma interfaz puede publicarse como página (sin el marco de Google, con son
 1. `npm run portal` genera `portal/index.html`.
 2. Edita `portal/config.js`: `window.PQRS_API = "https://script.google.com/macros/s/…/exec";`
 3. En GitHub: Settings ▸ Pages ▸ Source: **GitHub Actions**. El flujo `.github/workflows/portal.yml` publica al hacer push a `main` (repositorio público o plan con Pages privado).
-4. Enlace para los técnicos: `https://<usuario>.github.io/pqrs/`. Sigue exigiendo usuario y contraseña; la URL /exec no es secreta.
+4. Enlace para los técnicos: `https://<usuario>.github.io/<nombre-del-repositorio>/`. Sigue exigiendo usuario y contraseña; la URL /exec no es secreta.
    Para probar sin publicar: abre `portal/index.html?api=<URL /exec>`.
 
 ## 6. Actualizar a una versión nueva
 
 `clasp push` (o pegar los archivos) actualiza el código de `/dev`. Para los técnicos: **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Versión: Nueva versión ▸ Implementar** (el enlace /exec no cambia). Volver atrás: el mismo camino eligiendo la versión anterior.
+
+## 6b. Actualizar a la 8.2 (Excel, respaldo y radicación rápida)
+
+1. En el editor de Apps Script, copia el `Codigo.gs` actual a un archivo de respaldo (por si quieres volver atrás).
+2. Reemplaza todo `Codigo.gs` por el de `entrega/Codigo.gs` y todo `Index.html` por el de `entrega/Index.html`. Guarda.
+3. **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** (el enlace /exec no cambia).
+4. La primera vez que alguien pulse «Exportar a Excel» o «Respaldar ahora» como administrador, Google puede pedir permisos de Drive/Hojas a la cuenta SIAU: ejecuta una vez `rutinaDiaria` desde el editor y acéptalos.
+5. Configuración ▸ Exportar y respaldar en Excel: deja activo el respaldo diario y, si quieres verlo en otro Drive, escribe ese correo (la carpeta se comparte en solo lectura).
+
+## 6c. Actualizar a la 8.3 (EPS y entes, push, correos nuevos)
+
+1. Reemplaza `Codigo.gs` e `Index.html` por los de `entrega/` y publica **Nueva versión** de la misma implementación.
+2. **Vuelve a ejecutar «Instalar disparadores»** (menú PQRS de la hoja): el correo pasa a revisarse cada 3 minutos.
+3. Configuración ▸ Automatización ▸ **Push**: pulsa «Generar», guarda, instala la app **ntfy** en los celulares, suscríbete a ese tema y prueba con «Enviar aviso de prueba».
+4. El portal de GitHub Pages usa `entrega/portal_index.html` (ya trae la URL de tu implementación).
+
+## 6d. Actualizar a la 8.4 (seguridad)
+
+1. Reemplaza `Codigo.gs` e `Index.html` (y `portal/index.html` en GitHub) por los de `entrega/` y publica **Nueva versión**.
+2. Las contraseñas **existentes siguen funcionando**; la nueva política (10 caracteres, mayúscula, minúscula, número) aplica a las que se creen o cambien desde ahora.
+3. Entra como administrador ▸ **Configuración ▸ Diagnóstico** y corrige lo que salga en rojo en «Seguridad ·» (acceso general del consolidado «Restringido», editores, administradores, usuarios sin uso).
+4. Activa la verificación en dos pasos en la cuenta SIAU de Google y lee `docs/SEGURIDAD.md` con el equipo.
+
+## 6e. WhatsApp (accesos de usuarios y avisos a los técnicos)
+
+Usa la **API oficial de WhatsApp Business (Cloud API de Meta)**. Es gratuito conectarla; Meta cobra por los mensajes de plantilla fuera de la ventana de 24 h (consulta los precios vigentes en Meta). Necesitas una cuenta de Facebook Business y un número de celular que **no** esté registrado en WhatsApp normal (o el número de prueba que Meta regala).
+
+1. Entra a **developers.facebook.com ▸ Mis apps ▸ Crear app** (tipo *Empresa*) y agrega el producto **WhatsApp**.
+2. En **WhatsApp ▸ Configuración de la API** copia el **Identificador del número de teléfono** (solo dígitos). Con el número de prueba, agrega abajo los celulares que recibirán mensajes (máximo 5); para escribirle a todos los técnicos registra tu número real y verifica la empresa en *Business Settings ▸ Centro de seguridad*.
+3. **Token permanente:** *Business Settings ▸ Usuarios ▸ Usuarios del sistema ▸ Agregar* (rol Administrador) ▸ *Asignar activos* (tu app) ▸ *Generar token* con los permisos `whatsapp_business_messaging` y `whatsapp_business_management`. Cópialo: no se vuelve a mostrar.
+4. **Plantilla** (necesaria para escribir sin que la persona te haya escrito antes): *WhatsApp Manager ▸ Plantillas de mensajes ▸ Crear*: categoría **Utilidad**, idioma **Español**, nombre `aviso_pqrs`, texto `Aviso del Sistema de PQRS SIAU: {{1}}`, con un ejemplo en la variable. Meta la aprueba en minutos u horas.
+5. En la plataforma: **Configuración ▸ Automatización ▸ WhatsApp**: pega el ID y el token, escribe `aviso_pqrs` como plantilla, **Guardar conexión**, activa **Enviar por WhatsApp**, **Guardar automatización** y **Enviar mensaje de prueba** a tu celular.
+6. En **Usuarios y sedes ▸ editar** escribe el WhatsApp de cada persona (10 dígitos o con 57). Al crear o restablecer un usuario con WhatsApp, recibe su enlace, usuario y contraseña temporal.
+
+Notas: el token se guarda en las propiedades del proyecto de Apps Script (nunca en la hoja ni en GitHub). Los avisos de PQRS solo llevan radicado, tipo, prioridad, sede, fechas y enlace. Si apagas **Incluir la contraseña temporal**, el mensaje de acceso solo trae el enlace y el usuario. Sin plantilla, WhatsApp solo entrega el mensaje si la persona te escribió en las últimas 24 horas (sirve para pruebas).
 
 ## 7. Problemas típicos
 

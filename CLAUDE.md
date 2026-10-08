@@ -2,7 +2,7 @@
 
 Aplicación web en **Google Apps Script** (también publicable como portal estático que llama a `doPost`) que opera sobre un **Google Sheets** (el "consolidado") de la cuenta del SIAU (Oficina de Atención al Usuario). Unifica en un solo lugar las PQRS (peticiones, quejas, reclamos, sugerencias, felicitaciones, denuncias y tutelas) que llegan por formulario QR, correo institucional (EPS y entes de control) y atención presencial en cada sede. La plataforma **radica**, calcula términos legales y semáforo, **direcciona** al área responsable, registra la respuesta del área, **responde** al usuario y deja **trazabilidad** de todo.
 
-Versión actual: **8.1**. Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
+Versión actual: **9.3** (9.3: Riverino, la guía de la plataforma: recorrido de bienvenida para usuarios nuevos, consejos de primera vez por apartado y asistente que responde y lleva a cada opción · 9.2: EPS y entes solo se ven en la plataforma (sin correo, Chat ni push; opcional), confirmación por correo a usuarios de Gmail con citas y pedidos de documentos y categoría «Solicitudes de documentos» · 9.1.3: gráficos del Excel nativos de Excel y con etiquetas de datos · 9.1.2: el ingreso muestra «Pantalla X · Servidor Y» para detectar publicaciones desactualizadas · 9.1: ícono de la app y de la pestaña con la medalla dorada del SIAU sobre fondo MiRed · 9.0: Excel profesional con panel, gráficos, formato condicional y tablas con estilo de marca · 8.9: pulido visual: avisos compactos, indicadores en cuadrícula pareja, lectura más cómoda y movimiento fino · 8.8: WhatsApp (accesos y avisos a técnicos) y Excel por plantilla · 8.7: temas claro/oscuro/monocromático/cálido, pantalla de inicio y animaciones de carga, ajustes para iPhone, Android y tabletas, fondo sin franja blanca y aviso de «sin conexión» · 8.6: aviso 5 días antes del vencimiento, encuesta de satisfacción NPS en la respuesta final y portal instalable como app (PWA) · 8.5: motivo específico (derecho vulnerado) en lugar de tipología, ficha del formulario para técnicos, clave predeterminada con correo de bienvenida y mascota en el ingreso · 8.4: seguridad: política escrita en `docs/SEGURIDAD.md`, contraseñas de 10 caracteres, auditoría, sesión de 12 h, protección contra inyección de fórmulas y CSP en el portal · 8.2: radicación rápida, Excel y respaldo en Drive · 8.3: EPS y entes sin correos automáticos con análisis detallado, revisión cada 3 min, push con ntfy, correos e ingreso rediseñados, logos nuevos del SIAU). Historia, requisitos y decisiones: `docs/CONTEXTO.md`. Mapa del código: `docs/ARQUITECTURA.md`. Instalación y despliegue: `docs/DESPLIEGUE.md`. Pendientes y riesgos: `docs/PENDIENTES.md` (léelo antes de cambiar algo grande).
 
 ## Con quién trabajas
 
@@ -26,6 +26,7 @@ frontend/           ← fuente de la interfaz, se concatena en orden alfabético
   3bz_v8_prioritarias_qr.html             v8: prioritarias, banda de riesgo, áreas sugeridas, redactor, QR y afiche, diagnóstico, confeti y alarma
   vendor/                                 qrcode-generator.js (MIT) e imagenes.js (mascota, generada por tools/imagenes.py); se incrustan con <!-- VENDOR x -->
   3c_acceso_usuarios_ajustes.html         ingreso/sesión, sonido y avisos, usuarios, configuración, arranque
+  3e_riverino.html                        Riverino: base de ayuda (KB), asistente, recorrido de bienvenida y consejos de primera vez
 tests/
   harness.js            simula SpreadsheetApp, GmailApp, DriveApp, CacheService… en Node (vm)
   pruebas_backend.js    110 verificaciones del backend real (escribe muestras en tests/salida/)
@@ -65,12 +66,14 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 1. **Seguridad de la API.** En Apps Script, cualquier función global sin `_` al final se puede llamar desde el navegador. Por eso:
    - Todo lo interno termina en `_`. El navegador entra **solo** por `api(token, nombre, args)`, que valida sesión, rol (`_permitido_`) y sede (`"codigo"` / `"sede"` en `RUTAS`).
    - Una API nueva es una función `apiAlgo_` + una entrada en `RUTAS` con su permiso. El frontend la llama con `srv("apiAlgo", …)`; `srvSilencioso` no muestra la animación de carga.
-   - Funciones públicas permitidas: `doGet, doPost, onOpen, mostrarUrl, instalarDisparadores, alEnviarFormulario, importarFormulario, rutinaDiaria, repararFechasYFormulas, estadoAcceso, crearPrimerAdministrador, iniciarSesion, cerrarSesion, api, procesarCorreoEntrante, revisarAlertas, identificarPrioritarias, crearFormularioPQRS, diagnosticoPlataforma, verificarCuenta`. `verificarCuenta` solo responde si se ejecuta desde el editor (usuario activo = efectivo). Las de menú llaman `SpreadsheetApp.getUi()` como guarda. `doPost` solo despacha lo que está en `PUERTA_PORTAL` (las mismas funciones públicas de google.script.run). No agregues otras.
+   - Funciones públicas permitidas: `doGet, doPost, onOpen, mostrarUrl, instalarDisparadores, alEnviarFormulario, importarFormulario, rutinaDiaria, repararFechasYFormulas, estadoAcceso, crearPrimerAdministrador, iniciarSesion, cerrarSesion, api, procesarCorreoEntrante, revisarAlertas, identificarPrioritarias, crearFormularioPQRS, diagnosticoPlataforma, verificarCuenta`. `verificarCuenta` solo responde si se ejecuta desde el editor (usuario activo = efectivo). Las de menú llaman `SpreadsheetApp.getUi()` como guarda. `doPost` solo despacha lo que está en `PUERTA_PORTAL` (las mismas funciones públicas de google.script.run). No agregues otras. `doGet` también atiende `?nps=…` (encuesta del correo de respuesta): enlace firmado con `NPS_SECRETO`, pide confirmar y registra un voto por radicado; es la única entrada pública sin sesión.
    - Las funciones internas con sufijo `_` que reciben datos (p. ej. `_estadoFormulario_(datos)`) nunca se exponen en `RUTAS` con esa firma.
 2. **Roles (la plataforma es un puente).** El **Técnico** (SIAU de sede) radica o tabula y consulta **solo sus sedes asignadas**. El **Administrador** direcciona a las áreas, responde al usuario, gestiona el correo, los usuarios y la configuración. **Consulta** solo ve. Permisos: `P_LEER`, `P_RADICAR`, `P_GESTION`, `P_CORREO`, `P_ADMIN` en `_permitido_`. Toda lectura se filtra con `_sedeVisible_` / `_filaVisible_`.
 3. **Confidencialidad (Ley 1581 de 2012 y reserva de historia clínica).**
-   - Los avisos a técnicos, Google Chat y notificaciones del sistema operativo **nunca** llevan nombre, documento, descripción ni el asunto original: solo radicado, tipo, prioridad, sede y fechas, más un enlace a la plataforma.
+   - **A las EPS y entes de control el sistema nunca les escribe de forma automática** (acuse, «en trámite»…): `_esInstitucional_` (marca de la observación o dominio del correo en Entidades_Correo). Lo de ellos se ve solo en la plataforma: sin correo interno, Chat ni push salvo el ajuste `avisosInstitucionales`. A usuarios (p. ej. @gmail.com) con citas o documentos se les confirma la recepción (`_acuseSolicitud_`, ajuste `acuseUsuarios`). Solo el administrador les responde.
+   - Los avisos a técnicos, Google Chat, push (ntfy), **WhatsApp** y notificaciones del sistema operativo **nunca** llevan nombre, documento, descripción ni el asunto original: solo radicado, tipo, prioridad, sede y fechas, más un enlace a la plataforma.
    - Todo texto del usuario va escapado (`_html_`, `_parrafos_`, `esc()` en el frontend).
+   - **Seguridad (`docs/SEGURIDAD.md`).** Todo texto externo que se escriba en la hoja pasa por `_seguroCelda_` (inyección de fórmulas: `_escribir`, `_traza`, y cada `setValue` de texto que venga de un usuario o de un correo). Los eventos de seguridad se registran con `_auditar_` (sin contraseñas ni datos de casos). Contraseñas: `_claveValida_` (10 caracteres, mayúscula, minúscula y número). El servidor, no la pantalla, exige el cambio de contraseña temporal. Un cambio de seguridad necesita su prueba en `tests/pruebas_v8.js` y su línea en `docs/SEGURIDAD.md`.
    - Nunca pongas datos reales en pruebas, capturas, commits ni ejemplos. Usa nombres ficticios y correos `@correo.com` o `@miredips.org` genéricos. El consolidado real no entra al repo (`.gitignore` bloquea `*.xlsx`).
 4. **No muevas la hoja.** `Consolidado_PQRS` tiene 57 columnas fijas (mapa `C`; v8 agregó BB:BE al final), encabezados en la fila 4 y datos desde la fila 5 **sin tope**: el final lo calcula `_finDatos_()` (`CFG.FILA_FIN` es una propiedad calculada) y `_proximaFila` siempre agrega al final. Lee todo con `_datos_()` y busca radicados con `_filaDe` (usa `_codigos_()` en memoria). `Config` se lee **por posición**: términos A6:D9 (fila 9 = EPS), parámetros B11:B22 (`_param(i)` = B(11+i); 8 prefijo FEL, 9 corte del formulario, 10 política de datos, 11 enlace del QR), listas con encabezados en la fila 43 (hasta 150 valores). Festivos en la hoja **Festivos** (se completa sola). Si cambias la estructura, sube `ESQUEMA` (hoy "8.1") y agrega el paso en `_migrar_` / `_estructuraV8_` (idempotente).
    - **Una sola estructura de radicado (v8.1, pedido explícito de River):** `SIAU-AAAA-MM-NNNN` para todos los tipos y canales, con un único consecutivo que continúa el histórico (base en Config B11; `_siguienteConsecutivo` toma el mayor). No crees series paralelas. `_unificarRadicados_` (migración 8.1) convierte cualquier otro prefijo y deja el anterior en OBSERVACIONES.
@@ -82,7 +85,8 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 7. **Correos.** Todos salen de `_correoDiseno_` (a través de `_plantilla` para radicados y `_correoHilo_` para los hilos de Gmail). Convierte el texto con `_parrafos_`: Gmail y Outlook ignoran `white-space:pre-wrap` y los párrafos se pegan. Las felicitaciones tienen diseño propio (sin términos ni vencimiento). Los correos internos llevan la advertencia de confidencialidad. Se envían con `_enviar` / `_opcionesCorreo_`, que respetan el alias "Enviar como" configurado.
 8. **Frontend en el iframe de Apps Script o como portal.**
    - Nada de `location.reload()`: deja la página en blanco. El cierre de sesión se hace en sitio (`salir()` / `limpiarApp()`).
-   - `localStorage` solo guarda el token y la preferencia de sonido.
+   - `localStorage` solo guarda el token, la preferencia de sonido, el tema (`pqrs_tema`), qué partes de la guía de Riverino ya vio cada usuario (`pqrs_guia_<usuario>`, sin datos de casos) y, en el portal, la dirección del servidor (`pqrs_api`).
+   - **Temas y dispositivo:** `html[data-tema]` (claro · oscuro · mono · calido), `data-so` (ios · android · escritorio) y `data-form` (movil · tablet · escritorio) los pone el script del `<head>`. Los temas solo cambian variables CSS (`frontend/1b_temas_dispositivos.html`); no pongas colores fijos nuevos en componentes: usa `var(--surface)`, `var(--ink)`, `--panel`, etc. El fondo va en `html::before` (fijo): no vuelvas a pintarlo en `body`.
    - Cada respuesta del servidor se descarta si cambió la sesión (`llamar()` compara el token).
    - Las notificaciones del escritorio pueden estar bloqueadas; el aviso externo confiable es Google Chat.
    - Fuera de Apps Script, el bloque «v8 · PORTAL» al inicio de 3a crea un `google.script.run` equivalente con `fetch` a `window.PQRS_API` (portal/config.js o `?api=`). No uses otras APIs de `google.script` sin agregarlas ahí.
@@ -91,16 +95,22 @@ npm run push                # ensamblar + lint + test + clasp push (requiere .cl
 
    | Tipo | Color |
    |---|---|
-   | Queja | `#E20A31` |
-   | Petición | `#006D93` |
-   | Sugerencia | `#00985A` |
-   | Felicitación | `#8455B8` |
-   | Reclamo | `#B98A00` |
-   | Tutela | `#3D5FA8` |
+   | Queja | `#E20A31` (rojo) |
+   | Reclamo | `#F29D00` (amarillo-naranja) |
+   | Sugerencia | `#1F6FD1` (azul) |
+   | Felicitación | `#009C4D` (verde) |
+   | Petición | `#7B4FB8` |
+   | Tutela | `#374151` |
    | Denuncia | `#B4531A` |
 
-   Marca MiRed: teal `#006081` / `#00475F` y franja rojo `#E20A31`, amarillo `#FEDC00` y verde `#009C4D`. Fuentes: Barlow / Barlow Semi Condensed en la web, "Volkswagen Serial" con respaldo en los correos.
+   Los cuatro primeros son los del logo de MiRed y los fijó River; se aplican en TODO el sistema (interfaz, correos, ficha, gráficos). Fuente única en `COLOR_TIPO`/`FONDO_TIPO` (Codigo.gs), `TIPO_COLOR` (3a) y `--t-*` (CSS). No uses violeta para felicitaciones ni verde para sugerencias.
+
+   Marca MiRed: teal `#006081` / `#00475F` y franja rojo `#E20A31`, amarillo `#FEDC00` y verde `#009C4D`. **Tipografía (regla de la institución):** cuerpo de cualquier apartado e imagen = **Volkswagen Serial**; títulos = **Volkswagen Serial Black**. Van primero en la pila (`--sans`, `--display`, `FF`, `FT`, ficha) y solo si no están instaladas cae a Barlow / Barlow Semi Condensed (lo más parecido libre). No uses otras fuentes. Mascotas: ingreso y ficha usan `IMG_MASCOTA_SIAU` (camiseta SIAU con megáfono), sin deformarla.
 10. **Despliegue.** `clasp push` solo actualiza el código (el enlace /dev). Para que los técnicos vean el cambio hay que ir a **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión** en la misma implementación (el enlace /exec no cambia). La implementación debe estar en **Ejecutar como: Yo (cuenta SIAU)** y **Quién tiene acceso: Cualquier persona**.
+
+## Riverino (guía de la plataforma)
+
+`frontend/3e_riverino.html`. Botón flotante con la mascota del SIAU. Tres piezas: **asistente** (busca en `KB` por palabras clave y ofrece «Llévame»), **recorrido de bienvenida** (se abre solo cuando un usuario nuevo cambia su contraseña temporal; también desde el panel) y **consejos de primera vez** por apartado (`TIPS`, se activan al hacer el recorrido). Reglas: es solo frontend, sin datos de casos; cada opción nueva de la plataforma necesita su entrada en `KB` (con `p` = permiso si no la ven todos) y, si es un apartado, su consejo en `TIPS`; ganchos: `riverinoIniciar` (fin de `arrancar`), `riverinoVista` (fin de `ver`), `riverinoCerrar` (`limpiarApp`) y `riverinoBienvenida` (tras el cambio obligatorio de contraseña).
 
 ## Glosario rápido
 
