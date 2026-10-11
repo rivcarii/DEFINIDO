@@ -604,18 +604,56 @@ assert(G._categoriaTexto_("Pregunta", "buenos dias, quiero saber el horario") ==
 { const fx = cons.d.length; const r = G.apiRadicar_({ descripcion: "Reclamo remitido por EPS.", fechaRecepcion: "2026-09-23", fechaRadicacion: "2026-09-23", tipoPqrs: "RECLAMO", sede: "C. LA PLAYA", correo: "jefe@sura.com.co" });
   const ac = G._acuseRecepcion_(fila(r.codigo)); assert(/no aplica/.test(ac), "un correo de dominio de EPS se trata como institucional en cualquier canal: " + ac); }
 
-console.log("---- v9.8: Seguimiento SIAU solo para administradores ----");
-assert(G.RUTAS.apiSeguimiento[1] === "admin" && G.RUTAS.apiGuardarSeguimiento[1] === "admin", "el enlace de Seguimiento SIAU y su configuración son solo del administrador");
+console.log("---- v9.8 / v9.10.1: Seguimiento SIAU (solo administradores), marco y diagnóstico ----");
+assert(G.RUTAS.apiSeguimiento[1] === "admin" && G.RUTAS.apiGuardarSeguimiento[1] === "admin" && G.RUTAS.apiProbarSeguimiento[1] === "admin", "el enlace de Seguimiento SIAU, su configuración y su diagnóstico son solo del administrador");
 G.SESION = null;
+const SEG_DOM = "https://script.google.com/a/miredips.org/macros/s/AKfycbxkOjX1IUSh8U5tLrganZyizzipvK-K00MhP_0gbLP6sZyKKvrqcUEM8PHROb2JNF-U/exec";
+const SEG_COM = "https://script.google.com/macros/s/AKfycbxkOjX1IUSh8U5tLrganZyizzipvK-K00MhP_0gbLP6sZyKKvrqcUEM8PHROb2JNF-U/exec";
+const SEG_OBS = "AKfycbwgDCf6Jdza2uEb6tLoXKUFaTYvfasHgC5Yzi8QgYhAKyJE8h_qqBDuP0wce7karLvY";
 const seg0 = G.apiSeguimiento_();
-assert(seg0.ok && /^https:\/\/script\.google\.com\/(a\/[A-Za-z0-9.-]+\/)?macros\/s\/[A-Za-z0-9_-]+\/exec$/.test(seg0.visor) && seg0.visor === "https://script.google.com/a/miredips.org/macros/s/AKfycbxkOjX1IUSh8U5tLrganZyizzipvK-K00MhP_0gbLP6sZyKKvrqcUEM8PHROb2JNF-U/exec" && seg0.admin === seg0.visor + "?pagina=admin" && !seg0.personalizado, "el administrador recibe el enlace del visor y del administrador");
+assert(seg0.ok && seg0.visor === SEG_DOM && seg0.admin === SEG_DOM + "?pagina=admin" && !seg0.personalizado && !seg0.guardadaObsoleta, "el administrador recibe el enlace del visor y del administrador");
+assert(seg0.version === G.VERSION_CODIGO.split(" ")[0] && /^9\.10\.1$/.test(seg0.version), "el servidor informa su versión: la pantalla puede avisar si está desactualizado");
+assert(seg0.visorAlt === SEG_COM && seg0.adminAlt === SEG_COM + "?pagina=admin", "el marco usa la dirección de dominio tal cual (la misma que abre en la pestaña); la común queda solo como alternativa para probar");
+assert(seg0.visorEmbed === SEG_DOM && seg0.adminEmbed === SEG_DOM + "?pagina=admin", "alias para pantallas 9.10 (visorEmbed/adminEmbed): con un servidor nuevo y una pantalla vieja el módulo sigue abriendo, con la dirección tal cual");
 assert(G.apiGuardarSeguimiento_("https://ejemplo.com/exec").ok === false && G.apiGuardarSeguimiento_("http://script.google.com/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec").ok === false && G.apiGuardarSeguimiento_("https://script.google.com/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/dev").ok === false, "solo se aceptan direcciones /exec de Apps Script");
 const seg1 = G.apiGuardarSeguimiento_("https://script.google.com/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec");
-assert(seg1.ok && seg1.personalizado && /AKfycbAAAAAAAAAAAAAAAAAAAAAA/.test(seg1.visor), "se puede cambiar la dirección");
+assert(seg1.ok && seg1.personalizado && /AKfycbAAAAAAAAAAAAAAAAAAAAAA/.test(seg1.visor) && seg1.visorAlt === "", "se puede cambiar la dirección (la común no tiene alternativa)");
 assert(G.apiGuardarSeguimiento_("").personalizado === false, "se puede volver a la predeterminada");
 assert(G._permitido_({ rol: "Técnico" }, "admin") === false && G._permitido_({ rol: "Consulta" }, "admin") === false && G._permitido_({ rol: "Administrador" }, "admin") === true, "técnico y consulta no pasan el permiso de administración");
-assert(!G.UrlFetchApp.llamadas.some(l => /script\.google\.com\/macros/.test(l.url || "")), "el servidor nunca llama a la otra plataforma: solo se redirige");
 assert(G.apiGuardarSeguimiento_("https://script.google.com/a/miredips.org/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec").ok === true && G.apiGuardarSeguimiento_("https://script.google.com/a/otro_dominio!/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec").ok === false, "se acepta la dirección de dominio (/a/miredips.org/…) y se rechazan las malformadas");
+assert(G.apiGuardarSeguimiento_("https://script.google.com/a/macros/miredips.org/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec").ok === true, "también la forma inversa (/a/macros/miredips.org/s/…)");
 G.apiGuardarSeguimiento_("");
-assert(seg0.visorEmbed === "https://script.google.com/macros/s/AKfycbxkOjX1IUSh8U5tLrganZyizzipvK-K00MhP_0gbLP6sZyKKvrqcUEM8PHROb2JNF-U/exec" && seg0.adminEmbed === seg0.visorEmbed + "?pagina=admin" && !/\/a\//.test(seg0.visorEmbed), "la dirección para incrustar no lleva el tramo de dominio (/a/miredips.org)");
-assert(G._urlIncrustable_("https://script.google.com/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec") === "https://script.google.com/macros/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec", "la dirección común se deja igual");
+// una dirección guardada de la implementación anterior no pisa la nueva (pasó en 9.8/9.9)
+G.__props.SEGUIMIENTO_URL = "https://script.google.com/macros/s/" + SEG_OBS + "/exec";
+{ const o = G.apiSeguimiento_(); assert(o.visor === SEG_DOM && o.guardadaObsoleta === true && !o.personalizado, "la dirección guardada de una implementación anterior se ignora y se avisa"); }
+assert(G.apiGuardarSeguimiento_("https://script.google.com/a/miredips.org/macros/s/" + SEG_OBS + "/exec").ok === false && G.apiGuardarSeguimiento_("https://script.google.com/macros/s/" + SEG_OBS + "/exec").ok === false, "no se puede volver a guardar una dirección obsoleta");
+G.apiGuardarSeguimiento_("");
+assert(G.apiGuardarSeguimiento_(SEG_DOM).personalizado === false && G.__props.SEGUIMIENTO_URL === undefined, "guardar la dirección predeterminada no deja una copia que luego la pise");
+// diagnóstico: el servidor le pregunta a Google, sin sesión y solo por las dos direcciones configuradas
+const sondear = (fn) => { G.UrlFetchApp.llamadas.length = 0; G.UrlFetchApp.sondeo = fn; try { return G.apiProbarSeguimiento_(); } finally { G.UrlFetchApp.sondeo = null; } };
+{ const r = sondear(() => null);
+  assert(r.ok && r.veredicto === "publica" && !r.bloqueaMarco && r.resultados.length === 2 && r.resultados.every(x => x.tipo === "publica" && x.http === 200), "diagnóstico: una implementación pública se reconoce");
+  const ll = G.UrlFetchApp.llamadas.filter(l => l.sondeo);
+  assert(ll.length === 2 && ll[0].url === SEG_DOM && ll[1].url === SEG_DOM + "?pagina=admin" && ll.every(l => l.op.followRedirects === false && l.op.muteHttpExceptions === true && !l.op.headers && !l.op.payload),
+    "el diagnóstico consulta solo las dos direcciones configuradas, sin credenciales ni datos, y sin seguir redirecciones"); }
+{ const r = sondear(() => ({ codigo: 302, cabeceras: { Location: "https://accounts.google.com/ServiceLogin?continue=x" } }));
+  assert(r.veredicto === "login" && r.resultados[0].destino === "accounts.google.com", "diagnóstico: una redirección al inicio de sesión de Google se reconoce"); }
+assert(sondear(() => ({ codigo: 200, cuerpo: "<html><head><title>Sign in - Google Accounts</title></head>" })).veredicto === "login", "diagnóstico: una página de inicio de sesión con código 200 también");
+assert(sondear(() => ({ codigo: 200, cuerpo: "<html><script>var a='https://accounts.google.com/x'</script><title>Evidencias SIAU</title>" })).veredicto === "publica", "falso positivo: la página normal que nombra accounts.google.com en un script no es un inicio de sesión");
+assert(sondear(() => ({ codigo: 404 })).veredicto === "no_encontrada" && sondear(() => ({ codigo: 200, cuerpo: "No se pudo abrir el archivo en este momento" })).veredicto === "no_encontrada", "diagnóstico: implementación inexistente o archivada");
+assert(sondear(() => ({ codigo: 403 })).veredicto === "restringida" && sondear(() => ({ codigo: 500 })).veredicto === "error_google" && sondear(() => ({ lanza: "sin red" })).veredicto === "sin_respuesta", "diagnóstico: 403, error de Google y consulta fallida");
+{ const r = sondear(() => ({ codigo: 200, cabeceras: { "X-Frame-Options": "SAMEORIGIN" } }));
+  assert(r.veredicto === "publica" && r.bloqueaMarco === true && r.resultados[0].xfo === "SAMEORIGIN", "diagnóstico: X-Frame-Options SAMEORIGIN se reporta como «prohíbe el marco»"); }
+const cab = (h) => sondear(() => ({ codigo: 200, cabeceras: h })).bloqueaMarco;
+assert(cab({ "content-security-policy": "frame-ancestors 'self'" }) === true && cab({ "content-security-policy": "frame-ancestors 'none'" }) === true, "diagnóstico: frame-ancestors 'self' o 'none' prohíbe el marco");
+assert(cab({ "content-security-policy": "frame-ancestors https://example.com" }) === true && cab({ "content-security-policy": "frame-ancestors 'self' https://docs.google.com *.example.com" }) === true && cab({ "content-security-policy": "frame-ancestors https://script.google.com" }) === true,
+  "diagnóstico: un origen https ajeno (o solo script.google.com, sin googleusercontent) NO cuenta como permitido");
+assert(cab({ "Content-Security-Policy": "frame-ancestors https://script.google.com https://*.googleusercontent.com" }) === false && cab({ "content-security-policy": "frame-ancestors *" }) === false && cab({ "content-security-policy": "frame-ancestors https:" }) === false && cab({ "X-Frame-Options": "ALLOWALL" }) === false && cab({ "content-security-policy": "default-src 'self'; script-src https://x.com" }) === false,
+  "falso positivo: frame-ancestors que admite el marco, ALLOWALL, o una CSP sin frame-ancestors no bloquean");
+assert(cab({ "X-Frame-Options": ["SAMEORIGIN", "SAMEORIGIN"] }) === true && cab({ "X-Frame-Options": "DENY" }) === true, "diagnóstico: X-Frame-Options repetido (llega como arreglo) o DENY prohíben el marco");
+assert(cab({ "content-security-policy": ["frame-ancestors 'self'", "script-src https://x.com"] }) === true && cab({ "content-security-policy": ["script-src https://x.com", "frame-ancestors *"] }) === false, "diagnóstico: varias políticas CSP se evalúan una por una, sin mezclar sus fuentes");
+assert(sondear(() => ({ codigo: 302, cabeceras: { Location: "https://script.google.com/a/macros/miredips.org/s/AKfycbAAAAAAAAAAAAAAAAAAAAAA/exec" } })).veredicto === "redireccion" && sondear(() => ({ codigo: 204 })).veredicto === "publica" && sondear(() => ({ codigo: 100 })).veredicto === "otra", "diagnóstico: redirección a otra dirección de Google, 2xx sin contenido y códigos inesperados");
+assert(sondear(() => null).direccion === "AKfycbxkOj…2JNF-U" && !JSON.stringify(sondear(() => null)).includes(SEG_DOM), "el diagnóstico indica qué dirección comprobó sin devolverla completa");
+{ const r = sondear(u => (/pagina=admin/.test(u) ? { codigo: 302, cabeceras: { location: "https://accounts.google.com/x" } } : null));
+  assert(r.veredicto === "login" && r.resultados[0].tipo === "publica" && r.resultados[1].tipo === "login", "diagnóstico: si una página pide inicio de sesión y la otra no, manda el problema"); }
+assert(!JSON.stringify(sondear(() => ({ codigo: 200, cuerpo: "Juan Pérez 123456 historia clínica" }))).includes("Juan"), "el diagnóstico no devuelve el contenido de la página, solo códigos y cabeceras");

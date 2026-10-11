@@ -114,6 +114,12 @@ function crear(hojas, gmail) {
         const blob = { setName(n) { blob.nombre = n; return blob; }, getName: () => blob.nombre, getBytes: () => bytes };
         return { getResponseCode: () => (process.env.XLSX_FALLA ? 500 : 200), getBlob: () => blob };
       }
+      if (/^https:\/\/script\.google\.com\//.test(url)) {   // diagnóstico del módulo: GET sin sesión; this.sondeo(url) decide qué responde «Google»
+        this.llamadas.push({ url, sondeo: true, op });
+        const c = (this.sondeo && this.sondeo(url)) || { codigo: 200, cabeceras: {}, cuerpo: "<!doctype html><title>Evidencias SIAU</title><script>var f=1</script>" };
+        if (c.lanza) throw new Error(c.lanza);
+        return { getResponseCode: () => c.codigo, getHeaders: () => c.cabeceras || {}, getContentText: () => c.cuerpo || "" };
+      }
       if (/graph\.facebook\.com/.test(url)) {   // WhatsApp Cloud API
         const j = JSON.parse(op.payload), falla = this.waFalla;
         this.llamadas.push({ url, headers: op.headers, texto: (j.text && j.text.body) || "", json: j, whatsapp: true });

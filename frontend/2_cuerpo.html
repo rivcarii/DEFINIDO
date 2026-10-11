@@ -434,14 +434,18 @@
       <h2 class="vista" id="modTitulo">Módulo</h2>
       <div class="mod-tabs" id="modTabs" role="tablist"></div>
       <span class="mod-acciones">
+        <button class="b sec mini" id="btnModProbar" type="button"><svg class="ic s"><use href="#i-pulso"/></svg>Comprobar acceso</button>
+        <button class="b sec mini" id="btnModAlterna" type="button" hidden><svg class="ic s"><use href="#i-actualizar"/></svg><span id="txtModAlterna">Probar otra forma de la dirección</span></button>
         <button class="b sec mini" id="btnModRecargar" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Recargar</button>
         <a class="b sec mini" id="btnModPestana" href="#" target="_blank" rel="noopener noreferrer"><svg class="ic s"><use href="#i-externo"/></svg>Otra pestaña</a>
       </span>
     </div>
+    <div id="modDiag" class="mod-diag" aria-live="polite"></div>
     <div class="mod-marco" id="modMarco">
       <div class="mod-carga" id="modCarga"><span class="solar"><span class="nucleo"></span><b></b><b></b></span><span>Abriendo el módulo…</span></div>
+      <div class="mod-fallo" id="modFallo" role="alert" hidden></div>
     </div>
-    <p class="hint mod-ayuda">Si aquí aparece un aviso de acceso o queda en blanco, usa «Otra pestaña» y revisa que la implementación del módulo esté en «Ejecutar como: yo» y «Cualquier persona».</p>
+    <p class="hint mod-ayuda">¿Se ve en blanco, con un aviso de acceso o «rechazó la conexión»? Pulsa «Comprobar acceso» (la plataforma le pregunta a Google qué responde esa dirección) o abre el módulo en «Otra pestaña». <span id="modDireccion"></span></p>
   </section>
 
   <!-- ===================== CONFIGURACIÓN ===================== -->
@@ -568,7 +572,8 @@
         <label for="segUrl">Seguimiento SIAU · dirección de la aplicación web (termina en /exec)</label>
         <input id="segUrl" spellcheck="false" autocomplete="off">
         <div class="acciones"><button class="b pri" id="btnSegGuardar" type="button"><svg class="ic s"><use href="#i-check"/></svg>Guardar dirección</button>
-          <button class="b sec" id="btnSegRestablecer" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Usar la predeterminada</button></div>
+          <button class="b sec" id="btnSegRestablecer" type="button"><svg class="ic s"><use href="#i-actualizar"/></svg>Usar la predeterminada</button>
+          <button class="b sec" id="btnSegProbar" type="button"><svg class="ic s"><use href="#i-pulso"/></svg>Comprobar acceso</button></div>
         <div id="segAviso"></div>
       </fieldset>
       <fieldset><legend>Estado del canal QR</legend>

@@ -1,4 +1,4 @@
-# Entrega v9.10 — qué pegar y dónde
+# Entrega v9.10.1 — qué pegar y dónde
 
 Apps Script y GitHub son cosas separadas: el repositorio no se sincroniza solo con Apps Script. Hay que pegar estos archivos (o usar clasp, ver docs/DESPLIEGUE.md §2).
 
@@ -10,7 +10,14 @@ Apps Script y GitHub son cosas separadas: el repositorio no se sincroniza solo c
 | `favicon.png`, `apple-touch-icon.png` | GitHub: carpeta `portal/` |
 
 Después, en Apps Script: **Implementar ▸ Administrar implementaciones ▸ lápiz ▸ Nueva versión ▸ Implementar**.
-En el ingreso debe decir **«Pantalla 9.10 · Servidor 9.10»**; si no coinciden, falta pegar o publicar versión nueva.
+En el ingreso debe decir **«Pantalla 9.10.1 · Servidor 9.10.1»**; si no coinciden, falta pegar o publicar versión nueva.
+
+## Novedades 9.10.1 (el módulo no abría)
+- **Ya no falla en silencio.** Si el servidor no está actualizado, si falta la dirección o si Google rechaza el marco, la pantalla lo dice.
+- **Usa la dirección tal cual** (la de dominio `/a/miredips.org/…` que abre en tu navegador). Si antes guardaste una dirección en Configuración ▸ Módulos externos, la de la implementación anterior se ignora.
+- **Comprobar acceso** (dentro del módulo y en Configuración ▸ Módulos externos): la plataforma le pregunta a Google qué responde cada página del módulo y te explica la causa (no es pública, no existe, prohíbe marcos…). Se ejecuta sola al abrir el módulo.
+- **Probar otra forma de la dirección**: botón para cargar la forma común en el marco si la de dominio no abre.
+- Para que esto funcione, **pega los dos archivos**: el diagnóstico vive en `Codigo.gs`; si solo pegas `Index.html`, el módulo igual abre pero verás el aviso «el servidor está en una versión anterior».
 
 ## Novedades 9.10
 - **Seguimiento SIAU se ejecuta dentro de la plataforma** (solo administradores): Módulos ▸ Seguimiento SIAU ▸ Visor / Administrador. Se abre en un marco aislado con pestañas, «Recargar» y «Otra pestaña».

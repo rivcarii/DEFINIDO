@@ -14,7 +14,7 @@ function activarVerClave(raiz){
     b.addEventListener("click", function(){ var i=$(b.dataset.verClave); i.type = i.type==="password" ? "text" : "password"; });
   });
 }
-var FRONT_VERSION = "9.10";
+var FRONT_VERSION = "9.10.1";
 function pintarVersion(estado){
   var el = $("accVersion");
   if(!el){ el = document.createElement("div"); el.id = "accVersion"; el.className = "hint"; el.style.cssText = "text-align:center;margin-top:10px;font-size:12px";
@@ -69,7 +69,7 @@ function mostrarAcceso(estado, mensaje){
   }, 50);
 }
 function sesionTerminada(msg){
-  borrarToken();
+  borrarToken(); cerrarMarcoModulo();
   pub("estadoAcceso").then(function(e){ mostrarAcceso(e, msg || "Tu sesión terminó. Vuelve a ingresar."); });
 }
 function iniciales(n){ return String(n||"?").trim().split(/\s+/).slice(0,2).map(function(x){ return x.charAt(0).toUpperCase(); }).join("") || "?"; }
@@ -217,7 +217,7 @@ var MODULOS = [
     desc:"Peticiones, quejas, reclamos, sugerencias y felicitaciones: radicar, direccionar, responder y vigilar los términos." },
   { id:"seguimiento", nombre:"Seguimiento SIAU", icono:"camara", tipo:"embebido", perm:"admin", insignia:"Se ejecuta aquí", api:"apiSeguimiento",
     desc:"Evidencias del SIAU y de la Asociación de Usuarios: cumplimiento de cada sede, fototeca, personal y rotación.",
-    vistas:[ { k:"visor", t:"Visor", url:"visorEmbed", ext:"visor" }, { k:"admin", t:"Administrador", url:"adminEmbed", ext:"admin" } ] }
+    vistas:[ { k:"visor", t:"Visor", url:"visor", alt:"visorAlt" }, { k:"admin", t:"Administrador", url:"admin", alt:"adminAlt" } ] }
 ];
 var MOD_DATOS = {};   /* direcciones ya recibidas del servidor, por módulo */
 function cargarHub(){
@@ -250,7 +250,9 @@ function cargarHub(){
     }).catch(function(e){ var c = document.querySelector('[data-hub-enlaces="'+m.id+'"]'); if(c) c.innerHTML = '<span class="hint">'+msgErr(e)+'</span>'; });
   });
 }
-/* Abre un módulo propio dentro de la plataforma: marco aislado (sandbox), sin permiso para cambiar la página principal. */
+/* Abre un módulo propio dentro de la plataforma: marco aislado (sandbox), sin permiso para cambiar la página principal.
+   Usa la dirección TAL CUAL la entrega el servidor (la misma que abre en «Otra pestaña»). Nunca falla en silencio: si algo no cuadra, lo dice. */
+function esDirApps(x){ return /^https:\/\/script\.google\.com\//.test(String(x || "")); }
 function abrirModulo(id, vista){
   var m = MODULOS.filter(function(x){ return x.id === id; })[0], d = MOD_DATOS[id]; if(!m || !d) return;
   var v = m.vistas.filter(function(x){ return x.k === vista; })[0] || m.vistas[0];
@@ -259,36 +261,122 @@ function abrirModulo(id, vista){
   $("modTitulo").textContent = m.nombre;
   $("modTabs").innerHTML = m.vistas.length > 1 ? m.vistas.map(function(x){ return '<button type="button" role="tab" aria-selected="'+(x.k===v.k)+'" data-mod-vista="'+esc(x.k)+'">'+esc(x.t)+'</button>'; }).join("") : "";
   $("modTabs").querySelectorAll("[data-mod-vista]").forEach(function(b){ b.addEventListener("click", function(){ abrirModulo(id, b.dataset.modVista); }); });
-  ponerMarco(d[v.url], d[v.ext]);
+  ponerMarco(d[v.url], d[v.alt]);
+  /* Servidor y pantalla en versiones distintas: se dice (antes quedaba mudo) */
+  var cv = d.version ? cmpVersion(d.version, FRONT_VERSION) : -1;
+  if(cv < 0) aviso("modDiag", (d.version ? "El servidor está en la versión "+esc(d.version) : "El servidor es anterior a la 9.10.1")+" y la pantalla en la "+esc(FRONT_VERSION)+". Pega el Codigo.gs más reciente en Apps Script y publica «Nueva versión» para tener el diagnóstico completo.", "info");
+  else {
+    if(cv > 0) $("modDireccion").textContent += " La pantalla ("+FRONT_VERSION+") es anterior al servidor ("+d.version+"): actualiza la página (Ctrl+F5) o pega el Index.html más reciente.";
+    sondearModulo(id);
+  }
 }
-function ponerMarco(src, ext){
-  if(!/^https:\/\/script\.google\.com\//.test(String(src))) return;   /* solo Apps Script */
-  var marco = $("modMarco"), f = $("modFrame");
+/* Compara versiones «9.10.1» numéricamente: -1 si a < b, 1 si a > b, 0 si son iguales. */
+function cmpVersion(a, b){
+  var x = String(a || "").split("."), y = String(b || "").split("."), i, n;
+  for(i = 0; i < Math.max(x.length, y.length); i++){ n = (parseInt(x[i], 10) || 0) - (parseInt(y[i], 10) || 0); if(n) return n < 0 ? -1 : 1; }
+  return 0;
+}
+function ponerMarco(src, alt){
+  var marco = $("modMarco"), f = $("modFrame"), bAlt = $("btnModAlterna");
+  $("btnModPestana").href = esDirApps(src) ? src : "#";
+  bAlt.hidden = !esDirApps(alt); bAlt.dataset.base = esDirApps(src) ? src : ""; bAlt.dataset.alt = esDirApps(alt) ? alt : ""; bAlt.dataset.usaAlt = "0"; $("txtModAlterna").textContent = "Probar otra forma de la dirección";
+  $("modFallo").hidden = true; $("modFallo").innerHTML = ""; $("modDiag").innerHTML = "";
+  var id = (/\/s\/([A-Za-z0-9_-]{20,})\/exec/.exec(String(src)) || [])[1];
+  $("modDireccion").textContent = id ? "Dirección en uso: …/s/" + id.slice(0, 10) + "…" + id.slice(-6) + "/exec" : "";
+  if(!esDirApps(src)){
+    if(f && f.parentNode) f.parentNode.removeChild(f);
+    $("modCarga").classList.add("fuera");
+    $("modFallo").innerHTML = '<b>No llegó la dirección del módulo.</b><span>Revisa Configuración ▸ Módulos externos, o pega el Codigo.gs más reciente en Apps Script y publica «Nueva versión».</span>';
+    $("modFallo").hidden = false;
+    return false;
+  }
   if(!f){
     f = document.createElement("iframe"); f.id = "modFrame"; f.title = "Módulo";
     f.setAttribute("sandbox", "allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-downloads allow-modals");
     f.setAttribute("referrerpolicy", "no-referrer");
-    f.addEventListener("load", function(){ $("modCarga").classList.add("fuera"); });
-    marco.appendChild(f);
-  }
-  if(f.dataset.src !== src){ $("modCarga").classList.remove("fuera"); f.dataset.src = src; f.src = src; }
-  $("btnModPestana").href = String(ext).indexOf("https://script.google.com/") === 0 ? ext : src;
+    f.addEventListener("load", function(){ $("modCarga").classList.add("fuera"); });   /* load también ocurre cuando Google rechaza el marco: por eso hay un diagnóstico aparte */
+    f.dataset.src = src; f.src = src;   /* src ANTES de agregarlo: así no hay una carga vacía (about:blank) que quite el velo antes de tiempo */
+    $("modCarga").classList.remove("fuera"); marco.appendChild(f);
+  } else if(f.dataset.src !== src){ $("modCarga").classList.remove("fuera"); f.dataset.src = src; f.src = src; }
+  return true;
 }
 function cerrarMarcoModulo(){
   var f = $("modFrame"); if(f && f.parentNode) f.parentNode.removeChild(f);
   if($("modCarga")) $("modCarga").classList.remove("fuera");
+  if($("modFallo")){ $("modFallo").hidden = true; $("modFallo").innerHTML = ""; }
+  if($("modDiag")) $("modDiag").innerHTML = "";
   MOD_DATOS = {};
 }
+/* Diagnóstico: el servidor le pregunta a Google (sin sesión) qué responde cada página del módulo. */
+var TXT_SONDEO = { publica:"Google responde sin pedir inicio de sesión.", login:"Google pide iniciar sesión para abrirla.", restringida:"Google la rechaza: no es pública.",
+  no_encontrada:"Google dice que esa implementación no existe o está archivada.", redireccion:"Google la redirige a otra dirección.", error_google:"Google no pudo responder.",
+  sin_respuesta:"No se pudo consultar a Google.", otra:"Respuesta inesperada." };
+function textoSondeo(d){
+  var filas = d.resultados.map(function(r){
+    var datos = "HTTP " + r.http + (r.destino ? " → " + r.destino : "") + (r.xfo ? " · X-Frame-Options: " + r.xfo : "") + (r.frameAncestors ? " · frame-ancestors " + r.frameAncestors : "") + (r.detalle ? " · " + r.detalle : "");
+    return '<li><b>' + (r.pagina === "admin" ? "Administrador" : "Visor") + ':</b> ' + esc(TXT_SONDEO[r.tipo] || TXT_SONDEO.otra) + ' <span class="mod-dato">' + esc(datos) + '</span></li>';
+  }).join("");
+  var resumen, guia;
+  if(d.veredicto === "login" || d.veredicto === "restringida"){
+    resumen = "El módulo no es público: Google pide iniciar sesión";
+    guia = "La implementación del módulo no es pública: Google exige iniciar sesión y un marco no puede mostrar esa pantalla. En el proyecto Seguimiento SIAU: Implementar ▸ Administrar implementaciones ▸ lápiz ▸ «Ejecutar como: Yo (siau@miredips.org)» y «Quién tiene acceso: Cualquier persona» ▸ Versión nueva. Mientras tanto, usa «Otra pestaña».";
+  } else if(d.veredicto === "no_encontrada"){
+    resumen = "Google no encuentra esa implementación";
+    guia = "Google no encuentra esa implementación (archivada o con otra dirección). Copia la de la implementación activa en Configuración ▸ Módulos externos.";
+  } else if(d.veredicto === "publica" && d.bloqueaMarco){
+    resumen = "El módulo prohíbe mostrarse dentro de otra página";
+    guia = "Google responde, pero la página prohíbe mostrarse dentro de otra (X-Frame-Options o frame-ancestors). Las páginas del módulo deben usar setXFrameOptionsMode(ALLOWALL) y publicarse como versión nueva. Mientras tanto, usa «Otra pestaña».";
+  } else if(d.veredicto === "publica"){
+    resumen = "Desde el servidor Google responde bien. ¿El marco sigue en blanco? Despliega para ver qué revisar";
+    guia = "Google no pide iniciar sesión y no prohíbe el marco. Si aun así se ve en blanco: cierra otras cuentas de Google en este navegador (o usa un perfil solo con la cuenta del SIAU), permite las cookies de terceros para script.google.com, o prueba «otra forma de la dirección».";
+  } else if(d.veredicto === "redireccion"){
+    resumen = "Google redirige a otra dirección";
+    guia = "Google redirige a otra dirección: comprueba que sea la de la implementación activa (Configuración ▸ Módulos externos).";
+  } else { resumen = "No se pudo comprobar ahora"; guia = "Vuelve a pulsar «Comprobar acceso»."; }
+  var sana = d.veredicto === "publica" && !d.bloqueaMarco;   /* el servidor no puede saber si el marco cargó de verdad: no se celebra en verde */
+  return { resumen: resumen, plegable: sana,
+    html: '<ul class="mod-sondeo">' + filas + '</ul><div>' + esc(guia) + '</div>' + (d.direccion ? '<span class="mod-dato">Dirección comprobada: …/s/' + esc(d.direccion) + '/exec</span>' : ''),
+    tipo: (sana || d.veredicto === "sin_respuesta" || d.veredicto === "error_google") ? "info" : "err" };
+}
+/* Todo bien: una línea que se despliega. Algo mal: abierto, bien a la vista (va ENCIMA del marco, no debajo). */
+function pintarSondeo(d, destino){
+  var t = textoSondeo(d), plegado = t.plegable && !destino;   /* en Configuración siempre abierto */
+  aviso(destino || "modDiag", plegado ? '<details class="mod-det"><summary>' + esc(t.resumen) + '</summary>' + t.html + '</details>' : '<b>' + esc(t.resumen) + '.</b>' + t.html, t.tipo);
+}
+/* Cada pregunta a Google lleva un número: una respuesta tardía de una pregunta anterior (otra pestaña, otro módulo, sesión cerrada) no pisa la actual. Sin caché: corregir Google y volver a mirar siempre da el estado real. */
+function sondearModulo(id, destino){
+  destino = destino || "modDiag";
+  APP.sondeoN = APP.sondeoN || {}; var n = APP.sondeoN[destino] = (APP.sondeoN[destino] || 0) + 1;
+  var vigente = function(){ return APP.sondeoN && APP.sondeoN[destino] === n && !!APP.sesion && (destino !== "modDiag" || (APP.modulo && APP.modulo.id === id)); };
+  aviso(destino, "Preguntándole a Google qué responde esa dirección…", "info");
+  return srvSilencioso("apiProbarSeguimiento").then(function(r){
+    if(!vigente()) return;
+    if(!r || r.ok === false){ aviso(destino, esc((r && r.mensaje) || "No se pudo comprobar."), "err"); return; }
+    pintarSondeo(r, destino === "modDiag" ? null : destino);
+  }).catch(function(e){ if(vigente()) aviso(destino, msgErr(e) + " Si dice que la función no existe, falta pegar el Codigo.gs más reciente y publicar «Nueva versión».", "err"); });
+}
 (function(){
-  var volver = $("btnModVolver"), rec = $("btnModRecargar");
+  var volver = $("btnModVolver"), rec = $("btnModRecargar"), probar = $("btnModProbar"), alterna = $("btnModAlterna");
   if(volver) volver.addEventListener("click", function(){ ver("hub"); });
   if(rec) rec.addEventListener("click", function(){
-    var f = $("modFrame"); if(!f) return; var s = f.dataset.src; $("modCarga").classList.remove("fuera"); f.src = "about:blank"; setTimeout(function(){ f.src = s; }, 60);
+    var f = $("modFrame"); if(!f) return; var s = f.dataset.src; $("modCarga").classList.remove("fuera");
+    try { f.contentWindow.location.replace(s); } catch(e) { f.src = s; }   /* sin pasar por about:blank: su carga vacía quitaba el velo antes de tiempo */
+    if(APP.modulo) sondearModulo(APP.modulo.id);
+  });
+  if(probar) probar.addEventListener("click", function(){ if(APP.modulo) sondearModulo(APP.modulo.id); });
+  if(alterna) alterna.addEventListener("click", function(){
+    var f = $("modFrame"); if(!f) return;
+    var usaAlt = alterna.dataset.usaAlt === "1", dest = usaAlt ? alterna.dataset.base : alterna.dataset.alt; if(!esDirApps(dest)) return;
+    alterna.dataset.usaAlt = usaAlt ? "0" : "1"; $("txtModAlterna").textContent = usaAlt ? "Probar otra forma de la dirección" : "Volver a la dirección original";
+    $("modCarga").classList.remove("fuera"); f.dataset.src = dest; f.src = dest;
   });
 })();
 /* Configuración ▸ Módulos externos: dirección de Seguimiento SIAU */
 function cargarModulosExternos(){
-  srvSilencioso("apiSeguimiento").then(function(r){ if(r && r.visor && $("segUrl")) $("segUrl").value = r.visor; }).catch(function(){});
+  srvSilencioso("apiSeguimiento").then(function(r){
+    if(r && r.visor && $("segUrl")) $("segUrl").value = r.visor;
+    if(r && r.guardadaObsoleta) aviso("segAviso", "Había guardada una dirección de una implementación anterior: se ignora y se usa la predeterminada.", "info");
+  }).catch(function(){});
   var guardar = function(valor, btn){
     var fin = ocupado(btn, "Guardando…");
     srv("apiGuardarSeguimiento", valor).then(function(x){ fin();
@@ -298,6 +386,7 @@ function cargarModulosExternos(){
   };
   $("btnSegGuardar").onclick = function(){ guardar($("segUrl").value, "btnSegGuardar"); };
   $("btnSegRestablecer").onclick = function(){ guardar("", "btnSegRestablecer"); };
+  $("btnSegProbar").onclick = function(){ sondearModulo("seguimiento", "segAviso"); };
 }
 function cargarUsuarios(){
   $("usrLista").innerHTML = esqueleto(3);

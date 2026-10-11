@@ -215,11 +215,12 @@ var entorno={
   Session:{ getScriptTimeZone:function(){ return TZ; }, getActiveUser:function(){ return {getEmail:function(){ return "siau@miredips.org"; }}; },
             getEffectiveUser:function(){ return {getEmail:function(){ return "siau@miredips.org"; }}; } },
   Utilities:Utilities, Logger:{ log:function(){} },
-  PropertiesService:{ getScriptProperties:function(){ return { getProperty:function(k){ return props[k]||null; }, setProperty:function(k,v){ props[k]=String(v); } }; } },
+  PropertiesService:{ getScriptProperties:function(){ return { getProperty:function(k){ return props[k]||null; }, setProperty:function(k,v){ props[k]=String(v); }, deleteProperty:function(k){ delete props[k]; } }; } },
   LockService:{ getScriptLock:function(){ return { tryLock:function(){ return true; }, waitLock:function(){}, releaseLock:function(){} }; } },
   ScriptApp:{ getOAuthToken:function(){ return "demo"; }, getProjectTriggers:function(){ return ["alEnviarFormulario","procesarCorreoEntrante","revisarAlertas","rutinaDiaria"].map(function(n){ return { getHandlerFunction:function(){ return n; } }; }); }, getService:function(){ return {getUrl:function(){return "https://script.google.com/macros/s/AKfycb…/exec";}}; } },
   CacheService:(function(){ var m={}; var c={ get:function(k){ return k in m ? m[k] : null; }, put:function(k,v){ m[k]=String(v); }, remove:function(k){ delete m[k]; } }; return { getScriptCache:function(){ return c; } }; })(),
   UrlFetchApp:{ fetch:function(u,op){
+    if(/^https:\/\/script\.google\.com\//.test(u)) return { getResponseCode:function(){ return 200; }, getHeaders:function(){ return {}; }, getContentText:function(){ return "<!doctype html><title>Evidencias</title>"; } };   // diagnóstico del módulo: Google responde público
     if(/\/export\?format=xlsx/.test(u)){ var bytes=[80,75,3,4,0,0,0,0], blob={ setName:function(n){ blob.n=n; return blob; }, getName:function(){ return blob.n; }, getBytes:function(){ return bytes; } };
       return { getResponseCode:function(){ return 200; }, getBlob:function(){ return blob; } }; }
     console.log("[Google Chat simulado] "+JSON.parse(op.payload).text); return {}; } },

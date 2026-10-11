@@ -2450,7 +2450,7 @@ function _terminoTexto_(termino, tipoDia, entidad) {
 // MIGRACIÓN AUTOMÁTICA (se ejecuta una sola vez al abrir la plataforma)
 // ---------------------------------------------------------------------------
 var ESQUEMA = "8.5";
-var VERSION_CODIGO = "9.10 · Módulos propios dentro de la plataforma";
+var VERSION_CODIGO = "9.10.1 · El módulo muestra por qué no abre";
 
 function repararFechasYFormulas() {   // también disponible en el menú PQRS
   SpreadsheetApp.getUi();
@@ -3962,7 +3962,7 @@ var RUTAS = {
   // v8.2
   apiExportarExcel: [apiExportarExcel_, P_LEER], apiAuditoria: [apiAuditoria_, P_ADMIN], apiRespaldarAhora: [apiRespaldarAhora_, P_ADMIN],
   apiAjustes: [apiAjustes_, P_ADMIN], apiGuardarAjustes: [apiGuardarAjustes_, P_ADMIN],
-  apiSeguimiento: [apiSeguimiento_, P_ADMIN], apiGuardarSeguimiento: [apiGuardarSeguimiento_, P_ADMIN],
+  apiSeguimiento: [apiSeguimiento_, P_ADMIN], apiGuardarSeguimiento: [apiGuardarSeguimiento_, P_ADMIN], apiProbarSeguimiento: [apiProbarSeguimiento_, P_ADMIN],
   apiGuardarEntidad: [apiGuardarEntidad_, P_ADMIN], apiGuardarCategoria: [apiGuardarCategoria_, P_ADMIN], apiWhatsappEstado: [apiWhatsappEstado_, P_ADMIN], apiGuardarWhatsapp: [apiGuardarWhatsapp_, P_ADMIN], apiProbarWhatsapp: [apiProbarWhatsapp_, P_ADMIN],
   apiProbarAvisoExterno: [apiProbarAvisoExterno_, P_ADMIN],
 
@@ -4870,30 +4870,105 @@ var URL_PLATAFORMA_DEFECTO = "https://script.google.com/macros/s/AKfycbygfb4GL4h
 /** v9.8 · Plataforma de evidencias del SIAU y la Asociación de Usuarios (proyecto aparte: su propia hoja, su propia carpeta de fotos y sus propios accesos). */
 var URL_SEGUIMIENTO_DEFECTO = "https://script.google.com/a/miredips.org/macros/s/AKfycbxkOjX1IUSh8U5tLrganZyizzipvK-K00MhP_0gbLP6sZyKKvrqcUEM8PHROb2JNF-U/exec";
 var REPO_SEGUIMIENTO = "https://github.com/rivcarii/SEGUIMIENTO-SIAU-ASOUSUARIOS";
-/** Dirección de una aplicación web de Apps Script: la común (…/macros/s/ID/exec) o la de dominio (…/a/miredips.org/macros/s/ID/exec). */
-var RE_URL_APPS_SCRIPT_ = /^https:\/\/script\.google\.com\/(a\/[A-Za-z0-9.-]+\/)?macros\/s\/[A-Za-z0-9_-]{20,}\/exec$/;
+/** Dirección de una aplicación web de Apps Script. Formas válidas: la común (…/macros/s/ID/exec), la de dominio (…/a/miredips.org/macros/s/ID/exec) y la inversa (…/a/macros/miredips.org/s/ID/exec). El grupo 1 es el ID de la implementación. */
+var RE_URL_APPS_SCRIPT_ = /^https:\/\/script\.google\.com\/(?:macros\/s|a\/[A-Za-z0-9.-]+\/macros\/s|a\/macros\/[A-Za-z0-9.-]+\/s)\/([A-Za-z0-9_-]{20,})\/exec$/;
+/** v9.10.1 · IDs de implementaciones anteriores de Seguimiento SIAU: si una dirección guardada los trae, se ignora (River cambió la implementación). */
+var ID_SEGUIMIENTO_OBSOLETOS_ = ["AKfycbwgDCf6Jdza2uEb6tLoXKUFaTYvfasHgC5Yzi8QgYhAKyJE8h_qqBDuP0wce7karLvY"];
+/** ¿La dirección guardada en la propiedad SEGUIMIENTO_URL es de una implementación anterior? */
+function _seguimientoGuardadaObsoleta_() {
+  var u = ""; try { u = String(PropertiesService.getScriptProperties().getProperty("SEGUIMIENTO_URL") || "").trim(); } catch (e) {}
+  var m = RE_URL_APPS_SCRIPT_.exec(u);
+  return !!(m && ID_SEGUIMIENTO_OBSOLETOS_.indexOf(m[1]) >= 0);
+}
+/** Dirección en uso: la guardada en Configuración ▸ Módulos externos si es válida y vigente; si no, la predeterminada. */
 function _urlSeguimiento_() {
   var u = ""; try { u = String(PropertiesService.getScriptProperties().getProperty("SEGUIMIENTO_URL") || "").trim(); } catch (e) {}
-  return RE_URL_APPS_SCRIPT_.test(u) ? u : URL_SEGUIMIENTO_DEFECTO;
+  var m = RE_URL_APPS_SCRIPT_.exec(u);
+  return (m && ID_SEGUIMIENTO_OBSOLETOS_.indexOf(m[1]) < 0) ? u : URL_SEGUIMIENTO_DEFECTO;
 }
-/** Direcciones del módulo «Seguimiento SIAU» (otro proyecto de Apps Script del mismo dueño). Se abre dentro de la plataforma, en un marco propio, y también en otra pestaña; no se comparten datos ni sesiones. Solo el administrador las recibe. */
-/** Quita el tramo de dominio (/a/miredips.org) de una dirección de Apps Script: la forma común sirve para incrustar la aplicación en un marco. */
-function _urlIncrustable_(u) { return String(u || "").replace(/^(https:\/\/script\.google\.com)\/a\/[A-Za-z0-9.-]+\/macros\//, "$1/macros/"); }
+/** Forma común (…/macros/s/ID/exec) de una dirección de Apps Script; vacío si la dirección ya es esa. Es una alternativa que River puede probar en el marco: no se supone cuál sirve mejor. */
+function _urlComun_(u) {
+  var m = RE_URL_APPS_SCRIPT_.exec(String(u || ""));
+  if (!m) return "";
+  var c = "https://script.google.com/macros/s/" + m[1] + "/exec";
+  return c === u ? "" : c;
+}
+/**
+ * Direcciones del módulo «Seguimiento SIAU» (otro proyecto de Apps Script del mismo dueño). Se abre dentro de la plataforma, en un marco propio,
+ * y también en otra pestaña; no se comparten datos ni sesiones. Solo el administrador las recibe. El marco usa la dirección TAL CUAL (la misma que
+ * abre en la pestaña); visorAlt/adminAlt traen la forma común para que se pueda probar si la de dominio no abre.
+ */
 function apiSeguimiento_() {
-  var u = _urlSeguimiento_(), e = _urlIncrustable_(u);
-  return { ok: true, visor: u, admin: u + "?pagina=admin", visorEmbed: e, adminEmbed: e + "?pagina=admin", repo: REPO_SEGUIMIENTO, personalizado: u !== URL_SEGUIMIENTO_DEFECTO };
+  var u = _urlSeguimiento_(), alt = _urlComun_(u);
+  return { ok: true, version: String(VERSION_CODIGO).split(" ")[0], visor: u, admin: u + "?pagina=admin", visorAlt: alt, adminAlt: alt ? alt + "?pagina=admin" : "",
+    visorEmbed: u, adminEmbed: u + "?pagina=admin",   // alias: la pantalla 9.10 los lee; la dirección va tal cual (sin normalizar)
+    repo: REPO_SEGUIMIENTO, personalizado: u !== URL_SEGUIMIENTO_DEFECTO, guardadaObsoleta: _seguimientoGuardadaObsoleta_() };
 }
-/** Cambia la dirección de la plataforma de evidencias (solo https://script.google.com/macros/s/…/exec). Texto vacío = la predeterminada. */
+/** Cambia la dirección de la plataforma de evidencias (solo https://script.google.com/…/macros/s/…/exec). Texto vacío o igual a la predeterminada = la predeterminada (no se guarda nada). */
 function apiGuardarSeguimiento_(url) {
   if (url && typeof url === "object") url = url.url;
   url = String(url || "").trim();
   var p = PropertiesService.getScriptProperties();
-  if (!url) { p.deleteProperty("SEGUIMIENTO_URL"); _auditar_("Enlace de Seguimiento SIAU", SESION ? SESION.usuario : "sistema", "Restablecido al predeterminado"); return apiSeguimiento_(); }
-  if (!RE_URL_APPS_SCRIPT_.test(url))
+  if (!url || url === URL_SEGUIMIENTO_DEFECTO) { p.deleteProperty("SEGUIMIENTO_URL"); _auditar_("Enlace de Seguimiento SIAU", SESION ? SESION.usuario : "sistema", "Restablecido al predeterminado"); return apiSeguimiento_(); }
+  var m = RE_URL_APPS_SCRIPT_.exec(url);
+  if (!m)
     return { ok: false, mensaje: "Pega la dirección de la aplicación web de la plataforma de evidencias: empieza por https://script.google.com/ y termina en /exec." };
+  if (ID_SEGUIMIENTO_OBSOLETOS_.indexOf(m[1]) >= 0)
+    return { ok: false, mensaje: "Esa dirección es de una implementación anterior del módulo. Copia la de la implementación activa (Implementar ▸ Administrar implementaciones) o usa la predeterminada." };
   p.setProperty("SEGUIMIENTO_URL", url);
   _auditar_("Enlace de Seguimiento SIAU", SESION ? SESION.usuario : "sistema", "Dirección actualizada");
   return apiSeguimiento_();
+}
+/**
+ * v9.10.1 · Diagnóstico del módulo: el servidor (que sí llega a Google) pide cada página del módulo SIN sesión, como la vería un marco, y reporta lo que
+ * Google responde: código, a dónde redirige, y las cabeceras que prohíben mostrarla dentro de otra página. La dirección sale de la configuración
+ * (nunca de quien llama) y no se envían credenciales ni datos. Es orientativo: dice qué respondió Google, no sustituye abrir la pestaña.
+ */
+/** ¿La lista de fuentes de frame-ancestors admite que se muestre dentro de Apps Script (*.googleusercontent.com) o del portal? Se lee por token: «https://otro.com» no basta. */
+function _frameAncestorsPermite_(fa) {
+  return String(fa || "").toLowerCase().split(/\s+/).some(function (t) {
+    t = t.replace(/^https:\/\//, "");
+    return t === "*" || t === "https:" || t === "*.googleusercontent.com" || t === "rivcarii.github.io";
+  });
+}
+function _sondearUrl_(url) {
+  var r;
+  try { r = UrlFetchApp.fetch(url, { method: "get", followRedirects: false, muteHttpExceptions: true }); }
+  catch (e) { return { tipo: "sin_respuesta", http: 0, detalle: String(e && e.message || e).slice(0, 160) }; }
+  var http = Number(r.getResponseCode()) || 0, h = {}, cab = {};
+  try { h = r.getHeaders() || {}; } catch (e) {}
+  Object.keys(h).forEach(function (k) { var v = h[k]; cab[String(k).toLowerCase()] = (v instanceof Array) ? v.join(", ") : String(v); });   // una cabecera repetida llega como arreglo
+  var cuerpo = ""; try { cuerpo = String(r.getContentText() || "").slice(0, 6000); } catch (e) {}
+  var xfo = (cab["x-frame-options"] || "").trim();
+  var bloqueaXfo = xfo.split(",").some(function (x) { return /^(deny|sameorigin)$/i.test(x.trim()); });
+  var fa = "", bloqueaCsp = false;   // cada política (separadas por coma) debe admitir el marco
+  String(cab["content-security-policy"] || "").split(",").forEach(function (pol) {
+    var m = /(?:^|;)\s*frame-ancestors\s+([^;]+)/i.exec(pol);
+    if (m && !_frameAncestorsPermite_(m[1])) { bloqueaCsp = true; if (!fa) fa = m[1]; }
+    else if (m && !fa) fa = m[1];
+  });
+  var bloqueaMarco = bloqueaXfo || bloqueaCsp;
+  var destino = ""; if (cab["location"]) { var d = /^https?:\/\/([^\/?#]+)/i.exec(cab["location"]); destino = d ? d[1].toLowerCase() : "(relativa)"; }
+  var tipo;
+  if (http >= 300 && http < 400) tipo = /(^|\.)accounts\.google\.com$/.test(destino) ? "login" : "redireccion";
+  else if (http === 404) tipo = "no_encontrada";
+  else if (http === 401 || http === 403) tipo = "restringida";
+  else if (http >= 500 || http === 0) tipo = "error_google";
+  else if (http >= 200 && http < 300) {
+    if (/<title>\s*(Sign in|Iniciar sesi[oó]n|Acceder)/i.test(cuerpo) || /action="https:\/\/accounts\.google\.com/i.test(cuerpo) || /http-equiv="refresh"[^>]*accounts\.google\.com/i.test(cuerpo)) tipo = "login";   // solo señales fuertes: la página normal puede nombrar accounts.google.com en sus scripts
+    else if (/No se pudo abrir el archivo|unable to open the file|no se encontr[oó] la p[aá]gina/i.test(cuerpo)) tipo = "no_encontrada";
+    else tipo = "publica";
+  } else tipo = "otra";
+  return { tipo: tipo, http: http, destino: destino, xfo: xfo.slice(0, 60), frameAncestors: String(fa).trim().slice(0, 120), bloqueaMarco: bloqueaMarco };
+}
+function apiProbarSeguimiento_() {
+  var u = _urlSeguimiento_();
+  var res = [{ pagina: "visor", url: u }, { pagina: "admin", url: u + "?pagina=admin" }].map(function (x) { var r = _sondearUrl_(x.url); r.pagina = x.pagina; return r; });
+  var orden = ["login", "restringida", "no_encontrada", "error_google", "sin_respuesta", "redireccion", "otra"], veredicto = "publica";
+  for (var i = 0; i < orden.length; i++) { if (res.some(function (r) { return r.tipo === orden[i]; })) { veredicto = orden[i]; break; } }
+  var id = (RE_URL_APPS_SCRIPT_.exec(u) || [])[1] || "";   // solo lectura: no escribe en la hoja ni en la auditoría (cada apertura del módulo lo usa)
+  return { ok: true, version: String(VERSION_CODIGO).split(" ")[0], veredicto: veredicto, bloqueaMarco: res.some(function (r) { return r.bloqueaMarco; }), resultados: res,
+    personalizado: u !== URL_SEGUIMIENTO_DEFECTO, direccion: id ? id.slice(0, 10) + "…" + id.slice(-6) : "" };
 }
 /**
  * v8.5 · Enlace de ingreso que se entrega a las personas: el portal publicado en GitHub Pages

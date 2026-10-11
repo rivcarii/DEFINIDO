@@ -62,20 +62,69 @@ require("fs").mkdirSync(CAP, { recursive: true });
       await p.click('#hubCuerpo [data-hub-enlaces="seguimiento"] button[data-vista="visor"]');
       await p.waitForSelector("#v-modulo:not([hidden]) #modFrame", { timeout: 8000 }).catch(() => errores.push(w + " el módulo no se abre dentro de la plataforma"));
       const marco = await p.$eval("#modFrame", e => ({ src: e.getAttribute("src"), sb: e.getAttribute("sandbox"), ref: e.getAttribute("referrerpolicy") })).catch(() => ({}));
-      if (!/^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/.test(marco.src || "")) errores.push(w + " el marco no apunta a la dirección incrustable: " + marco.src);
+      const DOM = /^https:\/\/script\.google\.com\/a\/miredips\.org\/macros\/s\/[^/]+\/exec$/, COM = /^https:\/\/script\.google\.com\/macros\/s\/[^/]+\/exec$/;
+      if (!DOM.test(marco.src || "")) errores.push(w + " el marco debe usar la dirección de dominio tal cual (la que abre en la pestaña): " + marco.src);
       if (!/allow-scripts/.test(marco.sb || "") || /allow-top-navigation/.test(marco.sb || "") || marco.ref !== "no-referrer") errores.push(w + " el marco no está aislado como se espera: " + JSON.stringify(marco));
-      if (!/^https:\/\/script\.google\.com\/a\/miredips\.org\/macros\//.test(await p.getAttribute("#btnModPestana", "href"))) errores.push(w + " «Otra pestaña» no conserva la dirección original");
+      if ((await p.getAttribute("#btnModPestana", "href")) !== marco.src) errores.push(w + " «Otra pestaña» no abre la misma dirección que el marco");
       const dentro = await (await p.$("#modFrame")).contentFrame(); await dentro.waitForSelector("#ok", { timeout: 6000 }).catch(() => errores.push(w + " el contenido del módulo no se ejecutó dentro del marco"));
+      if (!/Dirección en uso: …\/s\/AKfycbxkOj/.test(await p.textContent("#modDireccion"))) errores.push(w + " el módulo no muestra qué dirección está usando");
+      // v9.10.1 · diagnóstico automático: el servidor le pregunta a Google y la pantalla lo cuenta (aquí «Google» responde público)
+      await p.waitForFunction(() => /Google no pide iniciar sesión/.test((document.getElementById("modDiag") || {}).textContent || ""), null, { timeout: 8000 }).catch(() => errores.push(w + " el módulo no muestra el diagnóstico de acceso"));
+      if (/El servidor (está en la versión|es anterior)/.test(await p.textContent("#modDiag"))) errores.push(w + " avisa versión desactualizada con servidor y pantalla iguales");
       if ((await p.$$("#modTabs button")).length !== 2) errores.push(w + " faltan las pestañas Visor y Administrador del módulo");
+      // otra forma de la dirección (común) para probar si la de dominio no abre
+      if (await p.$eval("#btnModAlterna", e => e.hidden)) errores.push(w + " falta el botón para probar la otra forma de la dirección");
+      else {
+        await p.click("#btnModAlterna"); await p.waitForTimeout(200);
+        if (!COM.test(await p.getAttribute("#modFrame", "src"))) errores.push(w + " «otra forma de la dirección» no cambia el marco a la forma común");
+        if ((await p.getAttribute("#btnModPestana", "href")) !== marco.src) errores.push(w + " «Otra pestaña» no debe cambiar al probar la otra forma");
+        await p.click("#btnModAlterna"); await p.waitForTimeout(200);
+        if ((await p.getAttribute("#modFrame", "src")) !== marco.src) errores.push(w + " no vuelve a la dirección original");
+      }
+      await p.click("#btnModProbar"); await p.waitForFunction(() => /Google no pide iniciar sesión/.test(document.getElementById("modDiag").textContent), null, { timeout: 8000 }).catch(() => errores.push(w + " «Comprobar acceso» no responde"));
       await p.click('#modTabs button[data-mod-vista="admin"]'); await p.waitForTimeout(300);
-      if (!/\?pagina=admin$/.test(await p.getAttribute("#modFrame", "src"))) errores.push(w + " la pestaña Administrador no cambia el marco");
+      if (!/\/a\/miredips\.org\/.*\?pagina=admin$/.test(await p.getAttribute("#modFrame", "src"))) errores.push(w + " la pestaña Administrador no cambia el marco (con la dirección de dominio)");
       await desb("modulo"); if (w === 1366 || w === 390) await p.screenshot({ path: CAP + `z_${w}_modulo_abierto.png` });
+      // el texto del diagnóstico para cada respuesta de Google (inicio de sesión, no existe, prohíbe marcos)
+      const textos = await p.evaluate(() => {
+        var R = function(v, t, extra){ return textoSondeo(Object.assign({ veredicto: v, bloqueaMarco: false, resultados: [{ pagina: "visor", tipo: t, http: 302, destino: "accounts.google.com" }] }, extra || {})); };
+        return { login: R("login", "login"), noexiste: R("no_encontrada", "no_encontrada"), bloquea: R("publica", "publica", { bloqueaMarco: true }), sinR: R("sin_respuesta", "sin_respuesta") };
+      });
+      if (textos.login.tipo !== "err" || !/no es pública/.test(textos.login.html) || !/Cualquier persona/.test(textos.login.html)) errores.push(w + " el aviso de «Google pide iniciar sesión» no explica qué hacer");
+      if (textos.noexiste.tipo !== "err" || !/archivada/.test(textos.noexiste.html) || textos.bloquea.tipo !== "err" || !/ALLOWALL/.test(textos.bloquea.html) || textos.sinR.tipo !== "info") errores.push(w + " avisos del diagnóstico incompletos");
+      // nunca en silencio: si el servidor no entrega la dirección (servidor desactualizado), la pantalla lo dice y «Otra pestaña» no queda muerto sin explicación
+      await p.evaluate(() => { window.__seg = MOD_DATOS.seguimiento; MOD_DATOS.seguimiento = { ok: true, visor: "", admin: "" }; abrirModulo("seguimiento", "visor"); });
+      await p.waitForSelector("#modFallo:not([hidden])", { timeout: 4000 }).catch(() => errores.push(w + " sin dirección del módulo la pantalla queda muda"));
+      if (!/No llegó la dirección/.test(await p.textContent("#modFallo")) || !/El servidor es anterior a la 9\.10\.1/.test(await p.textContent("#modDiag")) || (await p.$("#modFrame"))) errores.push(w + " el aviso de servidor desactualizado no aparece");
+      await p.evaluate(() => { MOD_DATOS.seguimiento = window.__seg; });
+      // servidor 9.9 (sin visorEmbed): el marco igual abre con visor/admin
+      await p.evaluate(() => { var o = Object.assign({}, window.__seg); delete o.version; delete o.visorAlt; delete o.adminAlt; MOD_DATOS.seguimiento = o; abrirModulo("seguimiento", "visor"); });
+      await p.waitForSelector("#modFrame", { timeout: 4000 }).catch(() => errores.push(w + " con un servidor anterior el marco no abre"));
+      if (!/es anterior a la 9\.10\.1/.test(await p.textContent("#modDiag")) || !(await p.$eval("#btnModAlterna", e => e.hidden))) errores.push(w + " con un servidor anterior no se avisa la versión o muestra la forma alternativa");
+      await p.evaluate(() => { MOD_DATOS.seguimiento = window.__seg; });
+      // versiones: se comparan como números (9.10 es MAYOR que 9.9), y un servidor más nuevo que la pantalla no salta el diagnóstico
+      { const cv = await p.evaluate(() => [cmpVersion("9.9", "9.10"), cmpVersion("9.10.2", "9.10.1"), cmpVersion("9.10.1", "9.10.1"), cmpVersion("9.10", "9.10.1")]);
+        if (JSON.stringify(cv) !== "[-1,1,0,-1]") errores.push(w + " la comparación de versiones no es numérica: " + JSON.stringify(cv)); }
+      await p.evaluate(() => { var o = Object.assign({}, window.__seg); o.version = "9.10.9"; MOD_DATOS.seguimiento = o; abrirModulo("seguimiento", "visor"); });
+      await p.waitForFunction(() => /Google no pide iniciar sesión/.test(document.getElementById("modDiag").textContent), null, { timeout: 8000 }).catch(() => errores.push(w + " con un servidor más nuevo no se hace el diagnóstico"));
+      if (!/es anterior al servidor/.test(await p.textContent("#modDireccion")) || /Pega el Codigo\.gs/.test(await p.textContent("#modDiag"))) errores.push(w + " con un servidor más nuevo se da el consejo equivocado");
+      if (!/Dirección comprobada: …\/s\/AKfycbxkOj/.test(await p.textContent("#modDiag"))) errores.push(w + " el diagnóstico no dice qué dirección comprobó");
+      if (await p.$eval("#modDiag .aviso", e => e.classList.contains("ok"))) errores.push(w + " el servidor no puede saber si el marco cargó: no se celebra en verde");
+      // la respuesta tardía de una pregunta anterior no pisa a la actual
+      await p.evaluate(() => { var o = Object.assign({}, window.__seg); MOD_DATOS.seguimiento = o; window.__srv = srvSilencioso; var lento = true;
+        srvSilencioso = function(fn){ if(fn !== "apiProbarSeguimiento") return window.__srv.apply(null, arguments); var viejo = lento; lento = false;
+          return new Promise(function(res){ setTimeout(function(){ res({ ok: true, veredicto: viejo ? "login" : "publica", bloqueaMarco: false, resultados: [{ pagina: "visor", tipo: viejo ? "login" : "publica", http: viejo ? 302 : 200 }], direccion: "x" }); }, viejo ? 700 : 50); }); };
+        abrirModulo("seguimiento", "visor"); sondearModulo("seguimiento"); });
+      await p.waitForTimeout(1300);
+      if (/no es público|Google pide iniciar sesión/.test(await p.textContent("#modDiag"))) errores.push(w + " una respuesta tardía de una pregunta anterior pisó el diagnóstico actual");
+      await p.evaluate(() => { srvSilencioso = window.__srv; MOD_DATOS.seguimiento = window.__seg; });
       await p.click("#btnModVolver"); await p.waitForSelector("#v-hub:not([hidden])", { timeout: 5000 }).catch(() => errores.push(w + " «Módulos» no vuelve al inicio general"));
       await p.click('#hubCuerpo [data-hub-ir="inicio"]'); await p.waitForSelector("#v-inicio:not([hidden]) .hero", { timeout: 10000 }).catch(() => errores.push(w + " «Abrir PQRS» no abre el inicio de PQRS"));
       // configuración de la dirección: solo acepta direcciones /exec de Apps Script
       await p.evaluate(() => ver("config")); await p.waitForSelector("#segUrl", { timeout: 6000 }); await p.waitForFunction(() => document.getElementById("segUrl").value.length > 20, null, { timeout: 6000 });   // espera a que llegue la dirección guardada
       await p.fill("#segUrl", "https://ejemplo.com/exec"); await p.click("#btnSegGuardar");
       await p.waitForSelector("#segAviso .aviso.err", { timeout: 5000 }).catch(() => errores.push(w + " Módulos externos acepta una dirección que no es de Apps Script"));
+      await p.click("#btnSegProbar"); await p.waitForFunction(() => /Google no pide iniciar sesión/.test(document.getElementById("segAviso").textContent), null, { timeout: 8000 }).catch(() => errores.push(w + " Configuración ▸ «Comprobar acceso» no responde"));
       await p.evaluate(() => ver("inicio")); await p.waitForSelector("#v-inicio:not([hidden]) .hero", { timeout: 10000 }); await p.waitForSelector("#meses .mes", { timeout: 15000 }); await p.waitForTimeout(500);
     }
     // v9.3 · Riverino: botón, búsqueda, «Llévame», recorrido de bienvenida y consejos de primera vez
