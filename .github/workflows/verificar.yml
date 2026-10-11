@@ -1,0 +1,28 @@
+# Verificación en cada cambio: lint, pruebas del backend y revisión de que no se suban datos ni secretos.
+name: Verificar
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  verificar:
+    runs-on: ubuntu-latest
+    env:
+      PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - name: Que no se suban datos reales ni secretos
+        run: |
+          set -e
+          if git ls-files | grep -E '\.(xlsx|xls|csv)$' | grep -v '^plantilla_libro/'; then echo "::error::Hay hojas de cálculo con posibles datos de usuarios."; exit 1; fi
+          if git ls-files | grep -E '(^|/)(\.env|\.clasprc\.json|.*\.pem|.*\.key)$'; then echo "::error::Hay archivos de credenciales."; exit 1; fi
+          if git grep -n -I -E 'AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|AIza[0-9A-Za-z_-]{35}|-----BEGIN [A-Z ]*PRIVATE KEY-----|xox[bp]-[0-9A-Za-z-]{10,}' -- . ':!legacy'; then echo "::error::Parece haber una llave o token."; exit 1; fi

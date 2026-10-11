@@ -32,3 +32,7 @@ npm run preview        # tests/salida/Vista_Previa_Plataforma.html · usuarios d
 | `docs/CONTEXTO.md` | Requisitos por versión y decisiones |
 | `docs/PENDIENTES.md` | Riesgos y próximos pasos |
 | `CLAUDE.md` | Reglas del proyecto para Claude Code |
+
+## Seguridad
+
+Política de seguridad, cifrado, auditoría y respuesta a incidentes: [`docs/SEGURIDAD.md`](docs/SEGURIDAD.md).

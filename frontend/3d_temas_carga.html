@@ -1,0 +1,91 @@
+<script>
+/* v8.7 · TEMAS, PANTALLA DE INICIO, CARGA Y SIN CONEXIÓN */
+(function(){
+  var TEMAS = ["claro","oscuro","mono","calido"];
+  var BARRA = { claro:"#006081", oscuro:"#0A1319", mono:"#222222", calido:"#B5541C" };
+  function el(id){ return document.getElementById(id); }
+  function css(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim(); }
+
+  /* ----- temas ----- */
+  function sincronizar(){
+    var t = document.documentElement.getAttribute("data-tema") || "claro";
+    document.querySelectorAll(".temas button").forEach(function(b){ b.setAttribute("aria-pressed", String(b.dataset.tema === t)); });
+    var m = document.querySelector('meta[name="theme-color"]');
+    if(!m){ m = document.createElement("meta"); m.name = "theme-color"; document.head.appendChild(m); }
+    m.content = BARRA[t] || BARRA.claro;
+    /* logos: en oscuro se usan las versiones blancas */
+    var oscuro = t === "oscuro";
+    [["logo", oscuro ? window.IMG_MIRED_B : window.IMG_MIRED], ["logoCalidad", oscuro ? window.IMG_CALIDAD_B : window.IMG_CALIDAD], ["logoSiau", oscuro ? window.IMG_SIAU_B : window.IMG_SIAU]]
+      .forEach(function(x){ var i = el(x[0]); if(i && x[1]) i.src = x[1]; });
+    /* colores de los tipos y de los gráficos siguen al tema */
+    if(window.TIPO_COLOR) ["queja","peticion","sugerencia","felicitacion","reclamo","tutela","denuncia"].forEach(function(k){ var v = css("--t-" + k); if(v) TIPO_COLOR[k] = v; });
+    if(window.PAL){
+      PAL.teal = css("--teal") || PAL.teal; PAL.teal2 = css("--teal-2") || PAL.teal2; PAL.ok = css("--ok") || PAL.ok; PAL.star = css("--star") || PAL.star;
+      PAL.tinta = css("--ink-2") || PAL.tinta; PAL.tinta3 = css("--ink-3") || PAL.tinta3; PAL.linea = css("--surface-3") || PAL.linea; PAL.superficie = css("--surface") || PAL.superficie;
+      if(window.Chart) Chart.defaults.color = PAL.tinta3;
+    }
+  }
+  window.aplicarTema = function(t){
+    if(TEMAS.indexOf(t) < 0) t = "claro";
+    document.documentElement.setAttribute("data-tema", t);
+    try { localStorage.setItem("pqrs_tema", t); } catch(e) {}
+    sincronizar();
+    var tab = el("v-tablero"); if(tab && !tab.hidden && typeof cargarTablero === "function") cargarTablero();   /* los gráficos se pintan de nuevo */
+  };
+  document.addEventListener("click", function(ev){
+    var b = ev.target.closest && ev.target.closest(".temas button[data-tema]");
+    if(b){ window.aplicarTema(b.dataset.tema); var mp = el("menuPerfil"); if(mp && !mp.hidden) { /* se deja abierto para ver el cambio */ } }
+  });
+  document.addEventListener("DOMContentLoaded", sincronizar);
+
+  /* ----- pantalla de inicio: se va cuando aparece el ingreso o la aplicación ----- */
+  var inicio = Date.now(), splash = el("splash");
+  function ocultarSplash(){
+    if(!splash || splash.classList.contains("fuera")) return;
+    var falta = Math.max(0, 900 - (Date.now() - inicio));
+    setTimeout(function(){ splash.classList.add("fuera"); setTimeout(function(){ splash.hidden = true; }, 700); }, falta);
+  }
+  if(splash){
+    var mi = el("splashMedalla"); if(mi && window.IMG_MEDALLA_DORADA) mi.src = window.IMG_MEDALLA_DORADA;
+    var listo = function(){ var a = el("acceso"), p = el("app"); return (a && !a.hidden) || (p && !p.hidden); };
+    if(listo()) ocultarSplash();   /* en el portal el ingreso puede aparecer antes de que cargue este script */
+    else {
+      var obs = new MutationObserver(function(){ if(listo()){ ocultarSplash(); obs.disconnect(); } });
+      ["acceso","app"].forEach(function(id){ if(el(id)) obs.observe(el(id), { attributes:true, attributeFilter:["hidden"] }); });
+    }
+    setTimeout(function(){ var t = el("splashTexto"); if(t && !splash.classList.contains("fuera")) t.textContent = "Esto está tardando un poco más de lo normal…"; }, 6000);
+    setTimeout(ocultarSplash, 15000);
+  }
+
+  /* ----- aviso flotante cuando una consulta tarda ----- */
+  var pillT = null;
+  window.pillCarga = function(activa){
+    var p = el("cargaPill"); if(!p) return;
+    clearTimeout(pillT);
+    if(activa) pillT = setTimeout(function(){ p.classList.add("on"); }, 550); else p.classList.remove("on");
+  };
+
+  /* ----- sin conexión con el servidor (404, mantenimiento o internet) ----- */
+  window.mostrarSinConexion = function(err){
+    var a = el("acceso"); if(a) a.hidden = false;
+    var msg = (err && err.message) || String(err || "");
+    var es404 = /404|ya no existe/.test(msg);
+    var caja = el("sinConexion"); if(!caja) return;
+    el("sinConexionTit").textContent = es404 ? "La dirección de la plataforma cambió" : "No pudimos conectar con la plataforma";
+    el("sinConexionTxt").textContent = es404
+      ? "Se publicó una versión nueva con otra dirección o la anterior ya no está disponible. Pide al administrador la dirección actual (la que termina en /exec) y pégala aquí."
+      : msg + " Revisa tu internet y vuelve a intentar.";
+    caja.hidden = false;
+    el("sinConexionDir").hidden = !(window.PQRS_PORTAL && (es404 || /dirección|configurada/.test(msg)));
+  };
+  document.addEventListener("click", function(ev){
+    var id = ev.target.closest && ev.target.closest("button") && ev.target.closest("button").id;
+    if(id === "btnReintentar"){ location.assign(location.pathname + location.search); }
+    if(id === "btnCambiarServidor"){
+      var u = (el("sinConexionUrl").value || "").trim();
+      if(!/^https:\/\/script\.google\.com\/(a\/macros\/[^\/]+|macros)\/s\/[A-Za-z0-9_-]{20,}\/exec$/.test(u)){ el("sinConexionTxt").textContent = "Esa no parece la dirección de la plataforma. Debe empezar por https://script.google.com/ y terminar en /exec."; return; }
+      location.assign(location.pathname + "?api=" + encodeURIComponent(u));
+    }
+  });
+})();
+</script>

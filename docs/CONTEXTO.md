@@ -78,7 +78,7 @@ Antes del sistema, las PQRS llegaban por tres vías desconectadas: formulario QR
 - Normas de protección de datos (Ley 1581 de 2012, Decreto 1377 de 2013) en las notificaciones.
 - **QR** para los usuarios.
 - Transcribir todo 2026 al consolidado nuevo **hasta el último radicado** del «Histórico consolidado de opiniones del usuario 2026» (SIAU-2026-09-3514).
-- Apariencia de plataforma de sistema de gestión integrado (solo PQRS). Logo MiRed IPS y mascota del SIAU.
+- Apariencia de plataforma de sistema de gestión integrado (solo PQRS). Logo MiRed IPS y logo del SIAU (portafolio de imagen).
 
 **Resultado de la migración (24/09/2026):** 13.200 registros, todos con radicado SIAU-AAAA-MM-NNNN: 335 PQRS conservan su radicado (3179–3514, falta el 3422 en el histórico); 12.745 felicitaciones (9.214 del histórico + 3.531 del QR no tabuladas), 119 quejas/reclamos/sugerencias del QR gestionadas solo en la hoja del formulario y 1 del histórico sin código reciben SIAU 3515–16379 en orden cronológico. 109 respuestas del QR ya estaban en el histórico y se omitieron. Siguiente radicado: 16380.
 

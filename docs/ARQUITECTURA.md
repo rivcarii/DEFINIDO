@@ -7,7 +7,7 @@
 ```
                     ┌──────────────────── Google Sheets «consolidado» (Drive de la cuenta SIAU) ─────────────────────┐
  Formulario QR ──►  │ Respuestas de formulario 1 ─(alEnviarFormulario / importar + Mapeo_Formulario)─┐               │
- Correo (Gmail) ─►  │ procesarCorreoEntrante (cada 5 min) · módulo Correo en la plataforma ──────────┼─► Consolidado_PQRS
+ Correo (Gmail) ─►  │ procesarCorreoEntrante (cada 3 min) · módulo Correo en la plataforma ──────────┼─► Consolidado_PQRS
  Presencial ─────►  │ Radicar PQRS (plataforma, técnico de sede) ─────────────────────────────────────┘   (1 fila = 1 PQRS)
                     │ Trazabilidad · Responsables · Config · Plantillas · Usuarios · Entidades_Correo ·            │
                     │ Categorias_Correo · Gestion_Correo · Mapeo_Formulario · LÉEME                                │
@@ -22,7 +22,7 @@ Disparadores (`instalarDisparadores`, menú PQRS de la hoja):
 | Disparador | Función | Qué hace |
 |---|---|---|
 | Al enviar el formulario | `alEnviarFormulario` | Radica la respuesta del QR, aplica el clasificador y envía el acuse |
-| Cada 5 min | `procesarCorreoEntrante` | Automatización del correo (§5) |
+| Cada 1 min (corre cada ~3 min) | `procesarCorreoEntrante` | Automatización del correo (§5) |
 | Cada hora | `revisarAlertas` | Tutela o Derecho de Petición sin direccionar después de la meta interna (8 h). Una sola alerta por radicado |
 | Diario 7:00 | `rutinaDiaria` | Correo "Control diario" con vencidas y por vencer |
 
@@ -70,7 +70,7 @@ Disparadores (`instalarDisparadores`, menú PQRS de la hoja):
 | 2973 | Términos: Circular Externa Supersalud 2023151000000010-5 de 2023 (vital 24 h, priorizado 48 h, simple 72 h); |
 | 3065 | Ajustes de la automatización (Configuración ▸ Automatización) |
 | 3129 | Avisos fuera de la plataforma: Google Chat y correo |
-| 3195 | Proceso automático (disparador cada 5 minutos) |
+| 3195 | Proceso automático (disparador cada minuto, trabaja cada ~3) |
 | 3321 | Alerta de meta interna (Tutela y Derecho de petición: 8 horas desde la recepción) |
 | 3371 | v7.1 · NOTIFICACIONES POR CORREO: diseño único, párrafos reales y confidencialidad |
 
@@ -276,7 +276,7 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
 | 2 Direccionamiento | «Su solicitud está en trámite» | Solicitud interna (con prefijo de riesgo en el asunto y copias del directorio) |
 | 3 Respuesta | Respuesta formal (botón Redactar: `apiRedactarRespuesta_`) y cierre | — |
 | 4 Cierre | — | «Se respondió al usuario y el caso quedó cerrado» (`_avisoCierreArea_`) |
-| Felicitación | Solo acuse (con la mascota) | Reconocimiento (inmediato o resumen diario) |
+| Felicitación | Solo acuse (con la medalla del SIAU) | Reconocimiento (inmediato o resumen diario) |
 
 ### 10.6 Entes de control
 `Entidades_Correo` H = CATEGORÍA POR DEFECTO. Procuraduría, Personería, Defensoría, Contralorías, MinSalud, ICBF → REQUERIMIENTO ENTE DE CONTROL (10 días hábiles); juzgados (`@cendoj.ramajudicial.gov.co`) → TUTELA. Cada correo de un ente deja la traza «Correo de ente de control», que la plataforma convierte en alarma.
@@ -297,3 +297,33 @@ Mecánica común: los hilos de Gmail usan `reply`/`forward` con `_opcionesCorreo
 
 ### 10.9 Migración del histórico
 `tools/migrar_historico.py` usa el propio `Codigo.gs` (vía `tests/harness.js`) para las fórmulas, festivos, categorías, entidades y directorio, de modo que el libro migrado es idéntico a lo que escribiría la plataforma. Deduplica el formulario contra el histórico (documento, descripción, teléfono; felicitaciones por documento y fecha ±1 día). Fechas con errores de digitación (0206, 16/062026, 2027) se corrigen o se estiman por el mes y se marcan en OBSERVACIONES.
+
+## 11. Versión 8.2: radicación rápida, Excel y respaldo
+
+- **Radicado seguro y rápido.** `_reservarRadicado_` toma el candado del documento (no el del script, que mantiene el proceso del correo), reserva fila y consecutivo y escribe; así dos técnicos que radican a la vez nunca repiten número. `_finDatos_` lee solo el último bloque de 400 filas; `_siguienteConsecutivo` usa la propiedad `ULTIMO_CONSECUTIVO` más el final de ambas hojas (primera vez: recorrido completo).
+- **Avisos en segundo plano.** `apiRadicar` con `diferir: true` (la interfaz lo envía) devuelve el radicado y deja el código en la cola `COLA_AVISOS`. La interfaz llama enseguida a `apiNotificarRadicacion` (acuse, aviso interno/Chat, direccionamiento automático); si el navegador se cierra, `procesarCorreoEntrante` (cada 5 min) la vacía pasado 1 minuto. `_sacarDeCola_` garantiza que los avisos no se envíen dos veces.
+- **Excel.** `apiExportarExcel` (solo administrador) arma un libro temporal con los valores del consolidado (nunca la hoja Usuarios), lo convierte con la exportación de Google (`/export?format=xlsx` + token OAuth), lo guarda en la carpeta «PQRS · Respaldos (Excel)» y, si pesa ≤ 6 MB, lo entrega para descargar. Filtros: año, mes, sede, servicio; respeta `_filaVisible_`.
+- **Respaldo.** `rutinaDiaria` (7:00) llama a `_respaldoExcel_`: un archivo `Respaldo_diario_AAAA-MM-DD.xlsx` por día, retención de 14 días solo para esos archivos y, si `respaldoCorreo` está definido, la carpeta se comparte en solo lectura con esa cuenta. Los fallos quedan en Trazabilidad («Respaldo en Drive falló») y no detienen la rutina.
+- Pruebas: sección «v8.2» de `tests/pruebas_v8.js`; la vista previa y el recorrido e2e cubren el radicado en dos pasos, el botón del Tablero y «Respaldar ahora».
+
+## 12. Versión 8.3: EPS y entes, push, correos e ingreso
+
+- **A EPS y entes no se les escribe solos.** Se eliminó `_acuseInstitucional_`. `_esInstitucional_(f)` (marca «Remitente institucional:» en OBSERVACIONES) bloquea el acuse de radicación (`_acuseRecepcion_`) y el aviso «en trámite» al enviar al área. La respuesta a la entidad solo sale cuando el administrador la envía desde «Responder al usuario».
+- **Revisión cada 3 minutos.** Apps Script solo permite disparadores de 1, 5, 10, 15 o 30 min: el disparador corre cada minuto y `procesarCorreoEntrante(e)` se salta las corridas con evento de disparador (`e.triggerUid`) que llegan antes de `INTERVALO_CORREO_MS` (170 s). Las llamadas manuales (sin evento) siempre corren. Hay que volver a ejecutar «Instalar disparadores» para pasar de 5 min a 1 min.
+- **Push (ntfy).** `_avisoPush_` publica en ntfy (JSON) con el tema `pushTema` y el servidor `pushServidor`; `_avisoChat_(texto, prio)` envía a Chat y, si recibe prioridad 1-5, también push. Llegan: todo correo de EPS o ente (3), prioridad Alta (4) y Crítica (5), alertas de riesgo y de meta, y correos por clasificar. Mismas reglas de confidencialidad que Chat: solo radicado, tipo, prioridad, sede y fechas. GitHub no envía push; ntfy (app móvil o web) sí.
+- **Análisis detallado.** `_analisisCorreo_` resume categoría, norma, término legal (con fecha: `_sumarHabiles_` descuenta fines de semana y la hoja Festivos), meta interna, plazos y referencias que cita el texto, riesgo y población, datos del usuario, adjuntos, áreas sugeridas y acciones. Se entrega en `apiHilo_` y `apiDetalle_` (solo con sesión) y se pinta con `htmlAnalisis` (frontend 3bz).
+- **Mismo hilo.** `_enviarAreaCaso_`: si el radicado vino de un correo (`ID_CORREO`), la notificación al área se reenvía dentro del hilo original (mismo asunto, con los adjuntos); si no, sale como correo nuevo.
+- **Correos.** `_correoDiseno_` rehecho: cabecera con los logos blancos de MiRed y SIAU sobre el teal, franja roja/amarilla/verde, banda de prioridad (roja para crítica), tarjeta de plazo, fechas en una columna en celular (`@media max-width:540px`), botón a todo el ancho y mensaje de gratitud con la medalla. Imágenes en `tools/imagenes_siau.py` (`LOGO_SIAU_B_BASE64`, `LOGO_SIAU_BASE64`, `LOGO_MIRED_B_BASE64`, `LOGO_SIAU_MEDALLA_BASE64`). `tests/render_correos.js` captura cada muestra en 680 y 375 px.
+- **Interfaz.** Logos nuevos del SIAU (`assets/siau`, `frontend/vendor/imagenes_siau.js`), ingreso proporcionado (una pantalla en escritorio; formulario primero en celular), afiche del QR rediseñado (`htmlAficheQR`).
+
+## 13. Versión 8.4: seguridad
+
+Política completa en `docs/SEGURIDAD.md`. En el código:
+
+- `_claveValida_(c, usuario)` + `_msgClave_`: 10 caracteres, mayúscula, minúscula, número; sin el usuario ni `CLAVES_COMUNES`.
+- `_iniciarSesion_`: formato de usuario validado, mismo mensaje y mismo costo para usuario inexistente o contraseña incorrecta, bloqueo de 15 min tras `MAX_INTENTOS`, todo auditado. `_sesion_`: tope absoluto `SESION_MAX_MS` (12 h) además de los 6 h de inactividad. `api()`: con `debeCambiar` solo pasan `appBootstrap` y `apiCambiarMiClave` (el frontend lo atiende en `llamar()` con `__cambiarClave`).
+- `_auditar_` / `apiAuditoria_` (hoja oculta `Auditoria`, vista en *Usuarios y sedes*). Eventos: ingresos, fallos, bloqueos, cierres, acciones denegadas, contraseñas, usuarios, exportaciones.
+- `_seguroCelda_`: antepone `'` a los textos que empiezan por `= + - @` (inyección de fórmulas) en `_escribir`, `_traza`, `_guardarHilo_`, respuestas del área y del usuario, observaciones y exportaciones a Excel.
+- `_chequeosSeguridad_` (dentro del diagnóstico): acceso general y editores del consolidado, carpeta de respaldos, administradores, contraseñas temporales, usuarios sin uso, tema del push.
+- Portal: `tools/construir_portal.mjs` agrega CSP (`connect-src` solo a `script.google.com` y `script.googleusercontent.com`) y `referrer: no-referrer`. `doPost` rechaza cuerpos de más de 30 MB.
+

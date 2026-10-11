@@ -35,10 +35,20 @@ const API = "https://script.google.com/macros/s/PRUEBA/exec";
   await p.waitForSelector("#a_nombre", { timeout: 15000 });   // sin usuarios: pide crear el administrador
   await p.fill("#a_nombre", "Admin Portal"); await p.fill("#a_usuario", "admin.portal"); await p.fill("#a_correo", "admin@correo.com");
   await p.fill("#a_clave", "Portal2026"); await p.fill("#a_clave2", "Portal2026"); await p.click("#btnAcceso");
-  await p.waitForSelector("#v-inicio:not([hidden]) .hero", { timeout: 20000 }).catch(async (e) => { errores.push("no cargó el inicio: " + (await p.textContent("#accAviso"))); });
+  await p.waitForSelector("#v-hub:not([hidden]) .hub-card", { timeout: 20000 }).catch(async (e) => { errores.push("no cargó el inicio: " + (await p.textContent("#accAviso"))); });
   const r = await p.evaluate(() => fetch("https://script.google.com/macros/s/PRUEBA/exec", { method: "POST", body: JSON.stringify({ fn: "_hash_", args: ["x", "y"] }) }).then(x => x.json()));
   if (!r.__error) errores.push("el portal permitió llamar una función interna");
   if (llamadas < 3) errores.push("pocas llamadas al backend: " + llamadas);
+  // v8.6 · app instalable (PWA): manifiesto con íconos, service worker que no toca Apps Script y CSP que los permite
+  const fs = require("fs"), raiz = path.join(__dirname, "..", "portal");
+  const man = JSON.parse(fs.readFileSync(path.join(raiz, "manifest.webmanifest"), "utf8"));
+  if (man.display !== "standalone" || !man.icons.some(i => i.purpose === "maskable") || man.icons.some(i => !fs.existsSync(path.join(raiz, i.src)))) errores.push("el manifiesto de la app está incompleto");
+  const html = fs.readFileSync(path.join(raiz, "index.html"), "utf8"), sw = fs.readFileSync(path.join(raiz, "sw.js"), "utf8");
+  if (!/frame-src https:\/\/script\.google\.com/.test(html)) errores.push("la CSP del portal no permite abrir los módulos propios en un marco");
+  if (!/rel="manifest"/.test(html) || !/manifest-src 'self'; worker-src 'self'/.test(html)) errores.push("el portal no declara el manifiesto o la CSP no lo permite");
+  try { new Function(sw); } catch (e) { errores.push("sw.js no es JavaScript válido: " + e.message); }
+  if (!/u\.origin !== self\.location\.origin\) return/.test(sw) || /script\.google\.com/.test(sw)) errores.push("el service worker podría interceptar las llamadas a Apps Script");
+  if (await p.isVisible("#btnInstalarAcceso")) errores.push("el botón de instalar se muestra sin que el navegador lo permita");
   await p.screenshot({ path: path.join(__dirname, "salida", "capturas", "z_portal.png") });
   await b.close();
   console.log(errores.length ? errores.join("\n") : "PORTAL SIN ERRORES (" + llamadas + " llamadas por doPost)");

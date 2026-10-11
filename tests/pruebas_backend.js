@@ -94,7 +94,7 @@ const fr = cons.celda(5, 5);
 assert(Utilities.formatDate(fr, TZ, "HH:mm") === "00:00" && Utilities.formatDate(fr, TZ, "dd") === "03", "fecha desplazada corregida a medianoche del día correcto (" + Utilities.formatDate(fr, TZ, "yyyy-MM-dd HH:mm") + ")");
 const finDatos = 4 + n;   // último registro del libro de prueba
 assert(Object.keys(cons.formulas).length === (finDatos + 200 - 4) * 6, "fórmulas hasta el último registro + 200 filas de colchón: " + Object.keys(cons.formulas).length);
-assert(G.__props.ESQUEMA === "8.1", "versión de esquema guardada");
+assert(G.__props.ESQUEMA === "8.5", "versión de esquema guardada");
 assert(cons.formulas["5:34"].indexOf("Festivos!$A$2:$A$400") !== -1, "fecha máxima con la hoja de festivos");
 assert(G.appBootstrap_().migracion.hecho === false, "la migración no se repite");
 fs.writeFileSync(__dirname + "/salida/formulas_muestra.json", JSON.stringify({ AF: cons.formulas["5:32"], AG: cons.formulas["5:33"], AH: cons.formulas["5:34"], AI: cons.formulas["5:35"], AJ: cons.formulas["5:36"], AT: cons.formulas["5:46"] }, null, 1));
@@ -222,6 +222,11 @@ assert(nu.ok && nu.usuarios.length === 2, "administrador crea un técnico con se
 const lt = G.iniciarSesion("tecnico1", "Tecnico2026");
 assert(lt.ok && lt.usuario.debeCambiar, "el técnico ingresa (debe cambiar la contraseña temporal)");
 const t1 = lt.token;
+assert(G.api(t1, "apiBandeja", [{ etapa: "todas" }]).__cambiarClave === true, "con contraseña temporal el servidor solo deja cambiarla");
+assert(G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "tecnico1Clave2026"]).ok === false, "la contraseña no puede contener el usuario");
+assert(G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "corta1A"]).ok === false && G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "sinmayuscula2026"]).ok === false, "política: mínimo 10 caracteres con mayúscula, minúscula y número");
+assert(G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "Tecnico2026"]).ok === false, "la nueva contraseña debe ser distinta de la actual");
+assert(G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "NuevaClave99x"]).ok, "el técnico cambia su contraseña temporal");
 const band = G.api(t1, "apiBandeja", [{ etapa: "todas" }]);
 assert(band.length > 0 && band.every(x => x.sede === sedes[1]), "el técnico solo ve su sede (" + band.length + " PQRS)");
 const ajena = cons.celda(5, 1), sedeAjena = cons.celda(5, 22);
@@ -242,9 +247,9 @@ const dash = G.api(t1, "apiDashboard", [{ anio: "", mes: 0 }]);
 assert(dash.total === G.api(t1, "apiBandeja", [{ etapa: "todas" }]).length, "tablero del técnico = sus sedes (" + dash.total + ")");
 const hoyT = G.api(t1, "apiResumenHoy", []);
 assert(Object.keys(hoyT.porSede).length === 1 && hoyT.sinCorreo, "inicio del técnico: distribución de su sede, sin correo");
-assert(G.api(t1, "apiCambiarMiClave", ["Tecnico2026", "NuevaClave99"]).ok, "el técnico cambia su contraseña");
+assert(G.api(t1, "apiCambiarMiClave", ["NuevaClave99x", "OtraClave2026x"]).ok, "el técnico vuelve a cambiar su contraseña");
 for (let i = 0; i < 5; i++) G.iniciarSesion("tecnico1", "mala");
-assert(/Demasiados intentos/.test(G.iniciarSesion("tecnico1", "NuevaClave99").mensaje), "bloqueo tras 5 intentos fallidos");
+assert(/Demasiados intentos/.test(G.iniciarSesion("tecnico1", "OtraClave2026x").mensaje), "bloqueo tras 5 intentos fallidos");
 G.api(T, "apiRestablecerClave", ["tecnico1", "Temporal2026"]);
 G.api(T, "apiGuardarUsuario", [{ usuario: "tecnico1", editar: true, nombre: "Técnica La Playa", rol: "Técnico", sedes: [sedes[1]], activo: false }]);
 assert(/inactivo/.test(G.iniciarSesion("tecnico1", "Temporal2026").mensaje), "usuario inactivado no puede ingresar");
@@ -264,14 +269,15 @@ assert(fq.tipo === "Queja" && fq.confianza === "alta", "«felicitación» con co
 assert(G._formulasFila_(5).bloque[0].indexOf("Categorias_Correo") !== -1, "el término toma primero la categoría del correo");
 
 // correo automático
-G.__props.AJUSTES = JSON.stringify({ desde: 1, webhookChat: "https://chat.googleapis.com/v1/spaces/X/messages?key=k", avisarA: "siau.lider@miredips.org" });
+G.__props.AJUSTES = JSON.stringify({ desde: 1, avisosInstitucionales: true, webhookChat: "https://chat.googleapis.com/v1/spaces/X/messages?key=k", avisarA: "siau.lider@miredips.org" });
 G.SESION = null;
 const antes = enviadosHilo.length;
 const pr = G.procesarCorreoEntrante();
 console.log("   " + pr.mensaje);
 const fe1 = G._filaDe(pr.codigos.find(c => { const f = G._filaDe(c); return cons.celda(f, 52) === "e1"; }) || "x");
 assert(fe1 > 0 && cons.celda(fe1, 28) === "SUPERSALUD RIESGO VITAL" && cons.celda(fe1, 31) === "EPS" && cons.celda(fe1, 20) === "X" || (fe1 > 0 && cons.celda(fe1, 28) === "SUPERSALUD RIESGO VITAL"), "Nueva EPS · riesgo vital radicada con su categoría");
-assert(enviadosHilo.slice(antes).some(e => e.tipo === "reply" && /Acuse de recibo/.test(e.html) && /Radicado: SIAU-/.test(e.html) && /Fecha de recepción/.test(e.html)), "acuse de recibo en el mismo hilo con radicado y fechas");
+assert(!enviadosHilo.slice(antes).some(e => e.tipo === "reply"), "a las EPS y entes de control NO se les responde ni se les envía nada de forma automática");
+assert(!G.__enviados.some(e => /@(nuevaeps|famisanar|sura|mutualser|affinitybpo|procuraduria|supersalud)\./.test(e.para || "")), "ningún correo del sistema sale hacia dominios de EPS o entes");
 assert(G.UrlFetchApp.llamadas.some(l => /CRÍTICA/.test(l.texto)), "aviso a Google Chat con prioridad crítica");
 assert(G._hilos_()["t9"] && G._hilos_()["t9"].estado === "Por clasificar", "Affinity (Mutual Ser) sin categoría → «Por clasificar»");
 const fe4 = pr.codigos.map(c => G._filaDe(c)).find(f => cons.celda(f, 52) === "e4");
@@ -304,7 +310,7 @@ G.SESION = { usuario: "siau.admin", nombre: "Admin", rol: "Administrador", todas
 const rf = G.apiRadicar_({ descripcion: "Felicito a la doctora por su calidez.\n\nMuy amable todo el equipo.", fechaRecepcion: "2026-09-22", fechaRadicacion: "2026-09-22",
   tipoPqrs: "Felicitación", sede: sedes[0], servicio: "Urgencias", correo: "feliz@x.com" });
 const acF = G.__enviados.filter(e => e.para === "feliz@x.com" || (e.a || "") === "feliz@x.com").pop() || G.__enviados.find(e => /Gracias por su felicitación/.test(e.asunto));
-assert(acF && /Gracias por su felicitación/.test(acF.asunto) && /(&#9733;|cid:mascotaSiau)/.test(acF.html) && !/Fecha límite/.test(acF.html) && /Sus palabras/.test(acF.html), "acuse de felicitación con diseño propio y sin vencimiento");
+assert(acF && /Gracias por su felicitación/.test(acF.asunto) && /(&#9733;|cid:medallaFeli)/.test(acF.html) && !/Fecha límite/.test(acF.html) && /Sus palabras/.test(acF.html), "acuse de felicitación con diseño propio y sin vencimiento");
 assert((acF.html.match(/Muy amable todo el equipo/g) || []).length === 1 && /<p [^>]*>Muy amable todo el equipo/.test(acF.html), "las palabras del usuario conservan sus párrafos");
 const envF = G.apiEnviarAlArea_(rf.codigo, 1, "");
 const reco = G.__enviados.find(e => /^\[RECONOCIMIENTO/.test(e.asunto));
